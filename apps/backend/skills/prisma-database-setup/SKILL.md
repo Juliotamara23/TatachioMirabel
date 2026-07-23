@@ -1,186 +1,94 @@
 ---
 name: prisma-database-setup
-description: Guides for configuring Prisma with different database providers (PostgreSQL, MySQL, SQLite, MongoDB, etc.). Use when setting up a new project, changing databases, or troubleshooting connection issues. Triggers on "configure postgres", "connect to mysql", "setup mongodb", "sqlite setup".
-license: MIT
-metadata:
-  author: prisma
-  version: "1.0.0"
+description: Prisma v6 database configuration for SQLite with UUID v4. Use when defining models, running migrations, or troubleshooting Prisma in this project. Triggers on "prisma", "schema", "migration", "model".
 ---
 
-# Prisma Database Setup
+# Prisma Database Setup (SQLite only)
 
-Comprehensive guides for configuring Prisma ORM with various database providers.
+This project uses **Prisma v6.19.2** with **SQLite** as the only database provider.
 
-## When to Apply
+## Schema Format
 
-Reference this skill when:
-- Initializing a new Prisma project
-- Switching database providers
-- Configuring connection strings and environment variables
-- Troubleshooting database connection issues
-- Setting up database-specific features
-- Generating and instantiating Prisma Client
-
-## Rule Categories by Priority
-
-| Priority | Category | Impact | Prefix |
-|----------|----------|--------|--------|
-| 1 | Provider Guides | CRITICAL | provider names |
-| 2 | Prisma Postgres | HIGH | `prisma-postgres` |
-| 3 | Client Setup | CRITICAL | `prisma-client-setup` |
-
-## System Prerequisites (Prisma ORM 7)
-
-- **Node.js 20.19.0+**
-- **TypeScript 5.4.0+**
-
-## Bun Runtime
-
-If you're using Bun, run Prisma CLI commands with `bunx --bun prisma ...` so Prisma uses the Bun runtime instead of falling back to Node.js.
-
-## Supported Databases
-
-| Database | Provider String | Notes |
-|----------|-----------------|-------|
-| PostgreSQL | `postgresql` | Default, full feature support |
-| MySQL | `mysql` | Widespread support, some JSON diffs |
-| SQLite | `sqlite` | Local file-based, no enum/scalar lists |
-| MongoDB | `mongodb` | **NOT SUPPORTED IN v7** (Use v6) |
-| SQL Server | `sqlserver` | Microsoft ecosystem |
-| CockroachDB | `cockroachdb` | Distributed SQL, Postgres-compatible |
-| Prisma Postgres | `postgresql` | Managed serverless database |
-
-## Configuration Files
-
-Prisma v7 uses two main files for configuration:
-
-1. **`prisma/schema.prisma`**: Defines the `datasource` block.
-2. **`prisma.config.ts`**: Configures the connection URL (replaces env loading in schema).
-
-## Driver Adapters (Prisma ORM 7)
-
-Prisma ORM 7 uses the query compiler by default, which **requires a driver adapter**. Choose the adapter and driver for your database and pass the adapter to `PrismaClient`.
-
-| Database | Adapter | JS Driver |
-|----------|---------|-----------|
-| PostgreSQL | `@prisma/adapter-pg` | `pg` |
-| CockroachDB | `@prisma/adapter-pg` | `pg` |
-| Prisma Postgres | `@prisma/adapter-ppg` | `@prisma/ppg` |
-| MySQL / MariaDB | `@prisma/adapter-mariadb` | `mariadb` |
-| SQLite | `@prisma/adapter-better-sqlite3` | `better-sqlite3` |
-| SQLite (Turso/LibSQL) | `@prisma/adapter-libsql` | `@libsql/client` |
-| SQL Server | `@prisma/adapter-mssql` | `node-mssql` |
-
-Example (PostgreSQL):
-
-```ts
-import 'dotenv/config'
-import { PrismaClient } from '../generated/client'
-import { PrismaPg } from '@prisma/adapter-pg'
-
-const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL })
-const prisma = new PrismaClient({ adapter })
-```
-
-## Prisma Client Setup (Required)
-
-Prisma Client must be installed and generated for any database.
-
-1. Install Prisma CLI and Prisma Client:
-   ```bash
-   npm install prisma --save-dev
-   npm install @prisma/client
-   ```
-
-1. Add a generator block (output is required in Prisma v7):
-   ```prisma
-   generator client {
-     provider = "prisma-client"
-     output   = "../generated"
-   }
-   ```
-
-1. Generate Prisma Client:
-   ```bash
-   npx prisma generate
-   ```
-
-1. Instantiate Prisma Client with the database-specific driver adapter:
-   ```typescript
-   import { PrismaClient } from '../generated/client'
-   import { PrismaPg } from '@prisma/adapter-pg'
-
-   const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL })
-   const prisma = new PrismaClient({ adapter })
-   ```
-
-1. Re-run `prisma generate` after every schema change.
-
-## Quick Reference
-
-### PostgreSQL
 ```prisma
-datasource db {
-  provider = "postgresql"
-}
-
-generator client {
-  provider = "prisma-client"
-  output   = "../generated"
-}
-```
-
-### MySQL
-```prisma
-datasource db {
-  provider = "mysql"
-}
-
-generator client {
-  provider = "prisma-client"
-  output   = "../generated"
-}
-```
-
-### SQLite
-```prisma
-datasource db {
-  provider = "sqlite"
-}
-
-generator client {
-  provider = "prisma-client"
-  output   = "../generated"
-}
-```
-
-### MongoDB (Prisma v6 only)
-```prisma
-datasource db {
-  provider = "mongodb"
-  url      = env("DATABASE_URL")
-}
-
 generator client {
   provider = "prisma-client-js"
 }
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
 ```
 
-## Rule Files
+- No `output` directive in the generator block — that is Prisma v7 only.
+- No `prisma.config.ts` — Prisma v6 reads the URL directly from the schema via `env("DATABASE_URL")`.
+- No driver adapters needed for SQLite with Prisma v6.
+- `DATABASE_URL` in `.env`: `file:./dev.db`
 
-See individual rule files for detailed setup instructions:
+## Client Instantiation
 
-```
-references/postgresql.md
-references/mysql.md
-references/sqlite.md
-references/mongodb.md
-references/sqlserver.md
-references/cockroachdb.md
-references/prisma-postgres.md
-references/prisma-client-setup.md
+```typescript
+import { PrismaClient } from "@prisma/client";
+
+const prisma = new PrismaClient();
 ```
 
-## How to Use
+No adapter, no custom path — PrismaClient is generated into `@prisma/client` by default.
 
-Choose the provider reference file for your database, then apply `references/prisma-client-setup.md` to complete client generation and adapter setup.
+## IDs — UUID v4
+
+All model IDs use UUID v4, generated at the application level:
+
+```prisma
+model Member {
+  id        String   @id
+  name      String
+  email     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+```
+
+```typescript
+import { v4 as uuidv4 } from "uuid";
+
+const member = await prisma.member.create({
+  data: {
+    id: uuidv4(),
+    name: "Example",
+    email: "example@test.com",
+  },
+});
+```
+
+## Migrations
+
+Ask the orchestrator before running any commands. The typical workflow is:
+
+- `prisma migrate dev --name <name>` — creates and applies a new migration
+- `prisma db push` is NOT recommended for SQLite (it can cause data loss on destructive changes)
+- `prisma generate` — regenerates the client after schema changes
+- `prisma studio` — opens the data browser GUI
+
+## Query Patterns
+
+```typescript
+// Find with relations
+const member = await prisma.member.findUnique({
+  where: { id },
+  include: { dependents: true },
+});
+
+// Paginated list
+const members = await prisma.member.findMany({
+  skip: (page - 1) * limit,
+  take: limit,
+  orderBy: { createdAt: "desc" },
+});
+
+// Transaction
+const [result] = await prisma.$transaction([
+  prisma.member.create({ data: memberData }),
+  prisma.auditLog.create({ data: logData }),
+]);
+```

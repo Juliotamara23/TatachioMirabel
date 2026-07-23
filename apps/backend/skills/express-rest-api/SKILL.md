@@ -1,249 +1,189 @@
 ---
 name: express-rest-api
-description: Build production-ready RESTful APIs with Express.js including routing, middleware, validation, and error handling for scalable backend services
-sasmp_version: "1.3.0"
-bonded_agent: 01-nodejs-fundamentals
-bond_type: PRIMARY_BOND
+description: Build production-ready RESTful APIs with Express.js, TypeScript ESM, and Zod validation. Use when creating routes, middleware, error handling, or API endpoints.
 ---
 
-# Express REST API Skill
+# Express REST API (TypeScript + ESM)
 
-Master building robust, scalable REST APIs with Express.js, the de-facto standard for Node.js web frameworks.
-
-## Quick Start
-
-Build a basic Express API in 5 steps:
-1. **Setup Express** - `npm install express`
-2. **Create Routes** - Define GET, POST, PUT, DELETE endpoints
-3. **Add Middleware** - JSON parsing, CORS, security headers
-4. **Handle Errors** - Centralized error handling
-5. **Test & Deploy** - Use Postman/Insomnia, deploy to cloud
-
-## Core Concepts
-
-### 1. Express Application Structure
-```javascript
-const express = require('express');
-const app = express();
-
-// Middleware
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-
-// Routes
-app.use('/api/users', userRoutes);
-app.use('/api/products', productRoutes);
-
-// Error handling
-app.use(errorHandler);
-
-app.listen(3000, () => console.log('Server running'));
-```
-
-### 2. RESTful Route Design
-```javascript
-// GET    /api/users       - Get all users
-// GET    /api/users/:id   - Get user by ID
-// POST   /api/users       - Create user
-// PUT    /api/users/:id   - Update user
-// DELETE /api/users/:id   - Delete user
-
-const router = express.Router();
-
-router.get('/', getAllUsers);
-router.get('/:id', getUserById);
-router.post('/', createUser);
-router.put('/:id', updateUser);
-router.delete('/:id', deleteUser);
-
-module.exports = router;
-```
-
-### 3. Middleware Patterns
-```javascript
-// Authentication middleware
-const authenticate = (req, res, next) => {
-  const token = req.headers.authorization;
-  if (!token) return res.status(401).json({ error: 'Unauthorized' });
-  // Verify token...
-  next();
-};
-
-// Validation middleware
-const validate = (schema) => (req, res, next) => {
-  const { error } = schema.validate(req.body);
-  if (error) return res.status(400).json({ error: error.message });
-  next();
-};
-
-// Usage
-router.post('/users', authenticate, validate(userSchema), createUser);
-```
-
-### 4. Error Handling
-```javascript
-// Custom error class
-class APIError extends Error {
-  constructor(message, statusCode) {
-    super(message);
-    this.statusCode = statusCode;
-  }
-}
-
-// Global error handler
-app.use((err, req, res, next) => {
-  const statusCode = err.statusCode || 500;
-  res.status(statusCode).json({
-    success: false,
-    error: err.message,
-    ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
-  });
-});
-```
-
-## Learning Path
-
-### Beginner (2-3 weeks)
-- ✅ Setup Express and create basic routes
-- ✅ Understand middleware concept
-- ✅ Implement CRUD operations
-- ✅ Test with Postman
-
-### Intermediate (4-6 weeks)
-- ✅ Implement authentication (JWT)
-- ✅ Add input validation
-- ✅ Organize code (MVC pattern)
-- ✅ Connect to database
-
-### Advanced (8-10 weeks)
-- ✅ API versioning (`/api/v1/`, `/api/v2/`)
-- ✅ Rate limiting and security
-- ✅ Pagination and filtering
-- ✅ API documentation (Swagger)
-- ✅ Performance optimization
-
-## Essential Packages
-
-```javascript
-{
-  "dependencies": {
-    "express": "^4.18.0",
-    "helmet": "^7.0.0",          // Security headers
-    "cors": "^2.8.5",            // Cross-origin requests
-    "morgan": "^1.10.0",         // HTTP logger
-    "express-validator": "^7.0.0", // Input validation
-    "express-rate-limit": "^6.0.0" // Rate limiting
-  }
-}
-```
-
-## Common Patterns
-
-### Response Format
-```javascript
-// Success
-{ success: true, data: {...} }
-
-// Error
-{ success: false, error: "Message" }
-
-// Pagination
-{
-  success: true,
-  data: [...],
-  pagination: { page: 1, limit: 10, total: 100 }
-}
-```
-
-### HTTP Status Codes
-- `200 OK` - Successful GET/PUT
-- `201 Created` - Successful POST
-- `204 No Content` - Successful DELETE
-- `400 Bad Request` - Validation error
-- `401 Unauthorized` - Auth required
-- `403 Forbidden` - No permission
-- `404 Not Found` - Resource not found
-- `500 Internal Error` - Server error
+This project uses Express 4.22.1, TypeScript 5.9.3, ESM (`"type": "module"` in package.json), and Zod v4 for validation. All code is backend-only.
 
 ## Project Structure
+
 ```
 src/
-├── controllers/    # Route handlers
-├── routes/        # Route definitions
-├── middlewares/   # Custom middleware
-├── models/        # Data models
-├── services/      # Business logic
-├── utils/         # Helpers
-└── app.js         # Express setup
+├── routes/          # Route definitions
+├── controllers/     # Route handlers
+├── middlewares/     # Validation, auth, error handling
+├── services/        # Business logic (Prisma queries)
+├── utils/           # Helpers
+└── app.ts           # Express setup
 ```
 
-## Production Checklist
-- ✅ Environment variables (.env)
-- ✅ Security headers (Helmet)
-- ✅ CORS configuration
-- ✅ Rate limiting
-- ✅ Input validation
-- ✅ Error handling
-- ✅ Logging (Morgan/Winston)
-- ✅ Testing (Jest/Supertest)
-- ✅ API documentation
+## Core Patterns
 
-## Real-World Example
+### Application Setup
 
-Complete user API:
-```javascript
-const express = require('express');
-const router = express.Router();
-const { body } = require('express-validator');
+```typescript
+import express from "express";
+import cors from "cors";
+import helmet from "helmet";
+import { memberRoutes } from "./routes/member.routes.js";
+import { errorHandler } from "./middlewares/error-handler.js";
 
-// GET /api/users
-router.get('/', async (req, res, next) => {
+const app = express();
+
+app.use(helmet());
+app.use(cors());
+app.use(express.json());
+
+app.use("/api/members", memberRoutes);
+
+app.use(errorHandler);
+
+export { app };
+```
+
+### Route Definitions (ESM)
+
+```typescript
+import { Router } from "express";
+import { getMembers, createMember } from "../controllers/member.controller.js";
+import { validate } from "../middlewares/validate.js";
+import { createMemberSchema } from "../schemas/member.schema.js";
+
+export const memberRoutes = Router();
+
+memberRoutes.get("/", getMembers);
+memberRoutes.get("/:id", getMemberById);
+memberRoutes.post("/", validate(createMemberSchema), createMember);
+memberRoutes.put("/:id", validate(updateMemberSchema), updateMember);
+memberRoutes.delete("/:id", deleteMember);
+```
+
+### Controllers
+
+```typescript
+import { Request, Response, NextFunction } from "express";
+
+export const getMembers = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
   try {
-    const { page = 1, limit = 10 } = req.query;
-    const users = await User.find()
-      .limit(limit)
-      .skip((page - 1) * limit);
-
-    res.json({ success: true, data: users });
+    const members = await prisma.member.findMany();
+    res.json({ data: members });
   } catch (error) {
     next(error);
   }
-});
+};
 
-// POST /api/users
-router.post('/',
-  body('email').isEmail(),
-  body('password').isLength({ min: 8 }),
-  async (req, res, next) => {
-    try {
-      const user = await User.create(req.body);
-      res.status(201).json({ success: true, data: user });
-    } catch (error) {
-      next(error);
-    }
+export const createMember = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const member = await prisma.member.create({ data: req.body });
+    res.status(201).json({ data: member });
+  } catch (error) {
+    next(error);
   }
-);
-
-module.exports = router;
+};
 ```
 
-## When to Use
+## Zod Validation Middleware
 
-Use Express REST API when:
-- Building backend for web/mobile apps
-- Creating microservices
-- Developing API-first applications
-- Need flexible, lightweight framework
-- Want large ecosystem and community
+```typescript
+import { z } from "zod";
+import { Request, Response, NextFunction } from "express";
 
-## Related Skills
-- Async Programming (handle async operations)
-- Database Integration (connect to MongoDB/PostgreSQL)
-- JWT Authentication (secure your APIs)
-- Jest Testing (test your endpoints)
-- Docker Deployment (containerize your API)
+export const validate = (schema: z.ZodSchema) =>
+  (req: Request, res: Response, next: NextFunction) => {
+    const result = schema.safeParse(req.body);
+    if (!result.success) {
+      return res.status(400).json({ error: result.error.issues });
+    }
+    req.body = result.data;
+    next();
+  };
+```
 
-## Resources
-- [Express.js Official Docs](https://expressjs.com)
-- [REST API Best Practices](https://restfulapi.net)
-- [MDN HTTP Guide](https://developer.mozilla.org/en-US/docs/Web/HTTP)
+### Schema Example
+
+```typescript
+import { z } from "zod";
+
+export const createMemberSchema = z.object({
+  name: z.string().min(1, { error: "Name is required" }),
+  email: z.email({ error: "Invalid email" }),
+  phone: z.string().optional(),
+});
+
+export type CreateMemberInput = z.infer<typeof createMemberSchema>;
+```
+
+## Error Handling
+
+```typescript
+import { Request, Response, NextFunction } from "express";
+
+class AppError extends Error {
+  constructor(
+    message: string,
+    public statusCode: number
+  ) {
+    super(message);
+  }
+}
+
+export const errorHandler = (
+  err: Error,
+  _req: Request,
+  res: Response,
+  _next: NextFunction
+) => {
+  const statusCode = err instanceof AppError ? err.statusCode : 500;
+  res.status(statusCode).json({
+    error: err.message || "Internal server error",
+  });
+};
+```
+
+## HTTP Client Policy
+
+Use native `fetch()` (Node.js 18+). Never use `axios`.
+
+```typescript
+const response = await fetch("https://api.example.com/data", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify(payload),
+});
+const data = await response.json();
+```
+
+## HTTP Status Codes
+
+- `200 OK` — Successful GET/PUT
+- `201 Created` — Successful POST
+- `204 No Content` — Successful DELETE
+- `400 Bad Request` — Validation error
+- `401 Unauthorized` — Missing or invalid auth
+- `404 Not Found` — Resource not found
+- `500 Internal Server Error` — Unexpected error
+
+## Response Format
+
+```typescript
+// Success
+{ data: { ... } }
+
+// Error
+{ error: "Message" }
+
+// List with pagination
+{ data: [...], meta: { page: 1, limit: 10, total: 100 } }
+```
+
+Ask the orchestrator before running any commands.

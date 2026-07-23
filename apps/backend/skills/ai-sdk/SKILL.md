@@ -1,78 +1,178 @@
 ---
 name: ai-sdk
-description: 'Answer questions about the AI SDK and help build AI-powered features. Use when developers: (1) Ask about AI SDK functions like generateText, streamText, ToolLoopAgent, embed, or tools, (2) Want to build AI agents, chatbots, RAG systems, or text generation features, (3) Have questions about AI providers (OpenAI, Anthropic, Google, etc.), streaming, tool calling, structured output, or embeddings, (4) Use React hooks like useChat or useCompletion. Triggers on: "AI SDK", "Vercel AI SDK", "generateText", "streamText", "add AI to my app", "build an agent", "tool calling", "structured output", "useChat".'
+description: Vercel AI SDK v6 backend-only patterns — generateText, streamText, generateObject, tool(). Use when building AI features, tool calling, structured output, or LLM integration in the backend. Triggers on "AI SDK", "generateText", "streamText", "tool call", "LLM", "Ollama".
 ---
 
-## Prerequisites
+# AI SDK — Backend Only
 
-Before searching docs, check if `node_modules/ai/docs/` exists. If not, install **only** the `ai` package using the project's package manager (e.g., `pnpm add ai`).
+This project uses the **Vercel AI SDK v6.0.142** (provider-agnostic). This is a **backend-only** repo — no React, no `useChat`, no `useCompletion`.
 
-Do not install other packages at this stage. Provider packages (e.g., `@ai-sdk/openai`) and client packages (e.g., `@ai-sdk/react`) should be installed later when needed based on user requirements.
+## Provider Pattern
 
-## Critical: Do Not Trust Internal Knowledge
+The AI SDK is provider-agnostic. For local development, this project uses Ollama via `ollama-ai-provider`:
 
-Everything you know about the AI SDK is outdated or wrong. Your training data contains obsolete APIs, deprecated patterns, and incorrect usage.
+```typescript
+import { generateText } from "ai";
+import { ollama } from "ollama-ai-provider";
 
-**When working with the AI SDK:**
+const model = ollama("llama3.1:8b");
 
-1. Ensure `ai` package is installed (see Prerequisites)
-2. Search `node_modules/ai/docs/` and `node_modules/ai/src/` for current APIs
-3. If not found locally, search ai-sdk.dev documentation (instructions below)
-4. Never rely on memory - always verify against source code or docs
-5. **`useChat` has changed significantly** - check [Common Errors](references/common-errors.md) before writing client code
-6. When deciding which model and provider to use (e.g. OpenAI, Anthropic, Gemini), use the Vercel AI Gateway provider unless the user specifies otherwise. See [AI Gateway Reference](references/ai-gateway.md) for usage details.
-7. **Always fetch current model IDs** - Never use model IDs from memory. Before writing code that uses a model, run `curl -s https://ai-gateway.vercel.sh/v1/models | jq -r '[.data[] | select(.id | startswith("provider/")) | .id] | reverse | .[]'` (replacing `provider` with the relevant provider like `anthropic`, `openai`, or `google`) to get the full list with newest models first. Use the model with the highest version number (e.g., `claude-sonnet-4-5` over `claude-sonnet-4` over `claude-3-5-sonnet`).
-8. Run typecheck after changes to ensure code is correct
-9. **Be minimal** - Only specify options that differ from defaults. When unsure of defaults, check docs or source rather than guessing or over-specifying.
+const { text } = await generateText({
+  model,
+  prompt: "Resume los miembros activos del cabildo",
+});
+```
 
-If you cannot find documentation to support your answer, state that explicitly.
+For Google Gemini (production):
 
-## Finding Documentation
+```typescript
+import { generateText } from "ai";
+import { google } from "@ai-sdk/google";
 
-### ai@6.0.34+
+const model = google("gemini-2.0-flash");
 
-Search bundled docs and source in `node_modules/ai/`:
+const { text } = await generateText({
+  model,
+  system: "Eres un asistente para gestión de censos de cabildos indígenas.",
+  prompt: "Analiza este censo...",
+});
+```
 
-- **Docs**: `grep "query" node_modules/ai/docs/`
-- **Source**: `grep "query" node_modules/ai/src/`
+The [Vercel AI Gateway](references/ai-gateway.md) may be used as an optional provider.
 
-Provider packages include docs at `node_modules/@ai-sdk/<provider>/docs/`.
+## Core Functions (Backend Only)
 
-### Earlier versions
+### `generateText`
 
-1. Search: `https://ai-sdk.dev/api/search-docs?q=your_query`
-2. Fetch `.md` URLs from results (e.g., `https://ai-sdk.dev/docs/agents/building-agents.md`)
+```typescript
+import { generateText } from "ai";
 
-## When Typecheck Fails
+const { text, usage } = await generateText({
+  model,
+  system: "You are a census data analyzer.",
+  prompt: `Analyze the following member data: ${JSON.stringify(members)}`,
+  temperature: 0.3,
+});
+```
 
-**Before searching source code**, grep [Common Errors](references/common-errors.md) for the failing property or function name. Many type errors are caused by deprecated APIs documented there.
+### `streamText`
 
-If not found in common-errors.md:
+```typescript
+import { streamText } from "ai";
 
-1. Search `node_modules/ai/src/` and `node_modules/ai/docs/`
-2. Search ai-sdk.dev (for earlier versions or if not found locally)
+export async function streamAnalysis(req: Request, res: Response) {
+  const result = await streamText({
+    model,
+    prompt: req.body.data,
+  });
 
-## Building and Consuming Agents
+  res.setHeader("Content-Type", "text/plain; charset=utf-8");
+  for await (const chunk of result.textStream) {
+    res.write(chunk);
+  }
+  res.end();
+}
+```
 
-### Creating Agents
+### `generateObject` — Structured Output
 
-Always use the `ToolLoopAgent` pattern. Search `node_modules/ai/docs/` for current agent creation APIs.
+```typescript
+import { generateObject } from "ai";
+import { z } from "zod";
 
-**File conventions**: See [type-safe-agents.md](references/type-safe-agents.md) for where to save agents and tools.
+const memberCategorySchema = z.object({
+  genderBreakdown: z.object({
+    male: z.number(),
+    female: z.number(),
+  }),
+  ageGroups: z.record(z.string(), z.number()),
+  summary: z.string(),
+});
 
-**Type Safety**: When consuming agents with `useChat`, always use `InferAgentUIMessage<typeof agent>` for type-safe tool results. See [reference](references/type-safe-agents.md).
+const { object } = await generateObject({
+  model,
+  schema: memberCategorySchema,
+  prompt: `Analiza demográficamente: ${JSON.stringify(members)}`,
+});
 
-### Consuming Agents (Framework-Specific)
+// object is typed as z.infer<typeof memberCategorySchema>
+```
 
-Before implementing agent consumption:
+### `tool()` — Tool Calling with Prisma
 
-1. Check `package.json` to detect the project's framework/stack
-2. Search documentation for the framework's quickstart guide
-3. Follow the framework-specific patterns for streaming, API routes, and client integration
+```typescript
+import { generateText, tool } from "ai";
+import { PrismaClient } from "@prisma/client";
 
-## References
+const prisma = new PrismaClient();
 
-- [Common Errors](references/common-errors.md) - Renamed parameters reference (parameters → inputSchema, etc.)
-- [AI Gateway](references/ai-gateway.md) - Gateway setup and usage
-- [Type-Safe Agents with useChat](references/type-safe-agents.md) - End-to-end type safety with InferAgentUIMessage
-- [DevTools](references/devtools.md) - Set up local debugging and observability (development only)
+const getCabildoMembers = tool({
+  description: "Get all members of a cabildo by cabildo name",
+  parameters: z.object({
+    cabildoName: z.string().min(1),
+  }),
+  execute: async ({ cabildoName }) => {
+    const cabildo = await prisma.cabildo.findFirst({
+      where: { nombre: cabildoName },
+      include: { miembros: true },
+    });
+    return cabildo ?? { error: "Cabildo not found" };
+  },
+});
+
+const { text, steps } = await generateText({
+  model,
+  tools: { getCabildoMembers },
+  maxSteps: 5,
+  prompt: "¿Cuántos miembros activos hay en el cabildo Tatachio?",
+});
+```
+
+## Type Safety with Tools
+
+Always define tool parameters with Zod schemas:
+
+```typescript
+import { tool } from "ai";
+import { z } from "zod";
+
+const searchMembers = tool({
+  description: "Search members by name or document number",
+  parameters: z.object({
+    query: z.string().min(1).describe("Name or document number to search"),
+    cabildoId: z.string().uuid().describe("Cabildo UUID"),
+    limit: z.number().int().positive().max(100).default(10),
+  }),
+  execute: async ({ query, cabildoId, limit }) => {
+    return prisma.miembro.findMany({
+      where: {
+        cabildoId,
+        OR: [
+          { nombres: { contains: query.toUpperCase() } },
+          { apellidos: { contains: query.toUpperCase() } },
+          { numeroDocumento: query },
+        ],
+      },
+      take: limit,
+    });
+  },
+});
+```
+
+## Error Handling
+
+```typescript
+import { generateText, NoSuchModelError, InvalidPromptError } from "ai";
+
+try {
+  const { text } = await generateText({ model, prompt });
+} catch (error) {
+  if (error instanceof NoSuchModelError) {
+    // Wrong model name
+  } else if (error instanceof InvalidPromptError) {
+    // Prompt rejected by provider
+  }
+}
+```
+
+Never trust AI SDK knowledge from memory — always verify against `node_modules/ai/docs/` and `node_modules/ai/src/` for current APIs. Ask the orchestrator before running any commands.

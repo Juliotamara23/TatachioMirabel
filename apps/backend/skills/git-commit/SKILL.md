@@ -1,30 +1,9 @@
 ---
-name: prowler-commit
-description: >
-  Creates professional git commits following conventional-commits format.
-  Trigger: When creating commits, after completing code changes, when user asks to commit.
-license: Apache-2.0
-metadata:
-  author: prowler-cloud
-  version: "1.1.0"
-  scope: [root, api, ui, prowler, mcp_server]
-  auto_invoke:
-    - "Creating a git commit"
-    - "Committing changes"
+name: git-commit
+description: Creates conventional commits for the TatachioMirabel project. Triggers on "commit", "git commit", "conventional commit".
 ---
 
-## Critical Rules
-
-- ALWAYS use conventional-commits format: `type(scope): description`
-- ALWAYS keep the first line under 72 characters
-- ALWAYS ask for user confirmation before committing
-- NEVER be overly specific (avoid counts like "6 subsections", "3 files")
-- NEVER include implementation details in the title
-- NEVER use `-n` flag unless user explicitly requests it
-- NEVER use `git push --force` or `git push -f` (destructive, rewrites history)
-- NEVER proactively offer to commit - wait for user to explicitly request it
-
----
+# Git Commit — Conventional Commits
 
 ## Commit Format
 
@@ -33,10 +12,15 @@ type(scope): concise description
 
 - Key change 1
 - Key change 2
-- Key change 3
 ```
 
-### Types
+- First line under 72 characters
+- Body uses 2-5 bullet points for significant changes
+- Never include "counts" (3 files, 6 subsections) in the title
+- ALWAYS ask for user confirmation before committing
+- NEVER use `git push --force` or `-f`
+
+## Types
 
 | Type | Use When |
 |------|----------|
@@ -47,134 +31,58 @@ type(scope): concise description
 | `refactor` | Code change without feature/fix |
 | `test` | Adding or updating tests |
 | `perf` | Performance improvement |
-| `style` | Formatting, no code change |
+| `style` | Formatting, no logic change |
 
-### Scopes
+## Scopes
 
 | Scope | When |
 |-------|------|
-| `api` | Changes in `api/` |
-| `ui` | Changes in `ui/` |
-| `sdk` | Changes in `prowler/` |
-| `mcp` | Changes in `mcp_server/` |
-| `skills` | Changes in `skills/` |
-| `ci` | Changes in `.github/` |
-| `docs` | Changes in `docs/` |
-| *omit* | Multiple scopes or root-level |
+| `backend` | Changes in `apps/backend/src/` |
+| `cli` | Changes in CLI tooling |
+| `shared` | Changes in shared packages |
+| `docs` | Changes in documentation |
+| `config` | Configuration, CI, skills, AGENTS.md |
 
----
+Omit scope when changes span multiple scopes or are root-level.
 
-## Good vs Bad Examples
-
-### Title Line
+## Examples
 
 ```
-# GOOD - Concise and clear
-feat(api): add provider connection retry logic
-fix(ui): resolve dashboard loading state
-chore(skills): add Celery documentation
-docs: update installation guide
+# Good
+feat(backend): add member census report generation
+fix(backend): resolve duplicate document number validation
+docs(shared): document API response formats
+chore(config): update ESLint to v9
 
-# BAD - Too specific or verbose
-feat(api): add provider connection retry logic with exponential backoff and jitter (3 retries max)
-chore(skills): add comprehensive Celery documentation covering 8 topics
-fix(ui): fix the bug in dashboard component on line 45
+# Bad — too specific
+feat(backend): add member census report generation with Excel export and 5 sheet types
+fix(backend): fix the bug in member controller on line 45
 ```
-
-### Body (Bullet Points)
-
-```
-# GOOD - High-level changes
-- Add retry mechanism for failed connections
-- Document task composition patterns
-- Expand configuration reference
-
-# BAD - Too detailed
-- Add retry with max_retries=3, backoff=True, jitter=True
-- Add 6 subsections covering chain, group, chord
-- Update lines 45-67 in dashboard.tsx
-```
-
----
 
 ## Workflow
 
-1. **Analyze changes**
-   ```bash
-   git status
-   git diff --stat HEAD
-   git log -3 --oneline  # Check recent commit style
-   ```
-
-2. **Draft commit message**
-   - Choose appropriate type and scope
-   - Write concise title (< 72 chars)
-   - Add 2-5 bullet points for significant changes
-
-3. **Present to user for confirmation**
-   - Show files to be committed
-   - Show proposed message
-   - Wait for explicit confirmation
-
-4. **Execute commit**
-   ```bash
-   git add <files>
-   git commit -m "$(cat <<'EOF'
-   type(scope): description
-
-   - Change 1
-   - Change 2
-   EOF
-   )"
-   ```
-
----
+1. Inspect changes with `git status` and `git diff --stat HEAD`
+2. Check recent commit style with `git log -3 --oneline`
+3. Draft the commit message
+4. Present proposed message to user for confirmation
+5. After confirmation, stage and commit
 
 ## Decision Tree
 
 ```
 Single file changed?
-├─ Yes → May omit body, title only
+├─ Yes → Title only (body optional)
 └─ No → Include body with key changes
 
 Multiple scopes affected?
-├─ Yes → Omit scope: `feat: description`
-└─ No → Include scope: `feat(api): description`
+├─ Yes → Omit scope: feat: description
+└─ No → Include scope: feat(backend): description
 
 Fixing a bug?
 ├─ User-facing → fix(scope): description
-└─ Internal/dev → chore(scope): fix description
+└─ Internal/dev → chore(scope): description
 
 Adding documentation?
-├─ Code docs (docstrings) → Part of feat/fix
+├─ Code docs (docstrings) → Part of feat/fix commit
 └─ Standalone docs → docs: or docs(scope):
 ```
-
----
-
-## Commands
-
-```bash
-# Check current state
-git status
-git diff --stat HEAD
-
-# Standard commit
-git add <files>
-git commit -m "type(scope): description"
-
-# Multi-line commit
-git commit -m "$(cat <<'EOF'
-type(scope): description
-
-- Change 1
-- Change 2
-EOF
-)"
-
-# Amend last commit (same message)
-git commit --amend --no-edit
-
-# Amend with new message
-git commit --amend -m "new message"
-``` ,filePath:
