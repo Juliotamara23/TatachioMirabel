@@ -7,19 +7,44 @@
 
 ## Available Skills
 
-Use these skills for detailed patterns on-demand:
+Use these skills for detailed patterns on-demand. All skills are in `apps/backend/skills/`.
 
 ### Core Skills
-| Skill | Description | URL |
-|-------|-------------|-----|
-| `typescript` | Const types, flat interfaces, utility types | [SKILL.md](skills/typescript/SKILL.md) |
-| `prisma` | Database schema, migrations, queries | [SKILL.md](skills/prisma-database-setup/SKILL.md) |
-| `express` | Express.js middleware, error handling | [SKILL.md](skills/express-rest-api/SKILL.md) |
-| `ai-sdk` | Vercel AI SDK (Gemini API, Ollama) | [SKILL.md](skills/ai-sdk/SKILL.md) |
-| `xlsx` | Excel report generation (SheetJS) | [SKILL.md](skills/xlsx/SKILL.md) |
-| `git-commit` | Conventional Commits | [SKILL.md](skills/git-commit/SKILL.md) |
-| `skill-creator` | Skill creation patterns | [SKILL.md](skills/skill-creator/SKILL.md) |
-| `zod` | Zod schema validation patterns | [SKILL.md](skills/zod-4/SKILL.md) |
+| Skill | Description |
+|-------|-------------|
+| `typescript` | Const types, flat interfaces, utility types, Zod type inference |
+| `typescript-advanced-types` | Advanced TS: generics, conditional types, mapped types |
+| `prisma-database-setup` | SQLite database schema, migrations v6, queries |
+| `prisma-cli` | Prisma CLI commands: migrate, db push, generate, studio |
+| `prisma-client-api` | Prisma Client queries: CRUD, filters, relations, transactions |
+| `express-rest-api` | Express.js TypeScript/ESM, middleware, Zod validation, error handling |
+| `nodejs-express-server` | Express.js: JWT auth, routing, env config, error handling |
+| `nodejs-backend-patterns` | Node.js backend: middleware, error handling, DB integration |
+| `nodejs-best-practices` | Node.js principles: async patterns, security, architecture |
+| `ai-sdk` | Vercel AI SDK v6 backend: tool calling, streaming, provider-agnostic |
+| `zod-4` | Zod v4 schemas, Express validation, v3→v4 migration |
+| `zod` | Zod patterns: parse, refine, performance, error handling |
+| `xlsx` | Excel generation with SheetJS (TypeScript) from Prisma data |
+| `vitest` | Vitest testing: config, mocking, snapshots, coverage |
+| `git-commit` | Conventional Commits |
+| `skill-creator` | Skill creation patterns |
+
+### Auto-invoke Skills
+
+When performing these actions, ALWAYS invoke the corresponding skill FIRST:
+
+| Action | Skill |
+|--------|-------|
+| Defining database models or migrations | `prisma-database-setup` |
+| Creating API endpoints or middleware | `express-rest-api` |
+| Validating incoming data/request bodies | `zod-4` |
+| Integrating AI/LLM calls or tool calling | `ai-sdk` |
+| Generating reports (Excel) | `xlsx` |
+| Creating git commit | `git-commit` |
+| Refactoring TypeScript code | `typescript` |
+| Writing or running tests | `vitest` |
+| Querying database with Prisma | `prisma-client-api` |
+| Running Prisma CLI commands | `prisma-cli` |
 
 ---
 
