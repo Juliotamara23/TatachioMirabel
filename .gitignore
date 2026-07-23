@@ -39,3 +39,8 @@ data/
 
 # Prisma
 /src/generated/prisma
+
+# Tooling local
+.atl/
+.codegraph/
+.claude/
