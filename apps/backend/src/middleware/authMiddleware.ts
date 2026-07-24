@@ -42,3 +42,10 @@ export const isAdmin = (req: Request, res: Response, next: NextFunction) => {
   }
   next();
 };
+
+export const isCapitana = (req: Request, res: Response, next: NextFunction) => {
+  if (req.usuario?.rol !== "CAPITANA" && req.usuario?.rol !== "ADMINISTRADOR") {
+    return res.status(403).json({ error: "Acceso denegado" });
+  }
+  next();
+};

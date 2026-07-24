@@ -13,7 +13,7 @@ export const createMember = async (req: Request, res: Response) => {
     res.status(201).json(nuevoMiembro);
   } catch (error: any) {
     if (error.name === "ZodError") {
-      return res.status(400).json({ error: error.errors });
+      return res.status(400).json({ error: error.issues });
     }
     console.error(error);
     res.status(500).json({ error: "Error al crear miembro" });
@@ -68,7 +68,7 @@ export const updateMember = async (req: Request, res: Response) => {
     res.json(miembroActualizado);
   } catch (error: any) {
     if (error.name === "ZodError") {
-      return res.status(400).json({ error: error.errors });
+      return res.status(400).json({ error: error.issues });
     }
     console.error(error);
     res.status(500).json({ error: "Error al actualizar miembro" });

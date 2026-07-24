@@ -6,18 +6,22 @@ import {
   updateMember,
   deleteMember,
 } from "../controllers/memberController.js";
-import { authMiddleware, isAdmin } from "../middleware/authMiddleware.js";
+import { authMiddleware, isAdmin, isCapitana } from "../middleware/authMiddleware.js";
 
 const router = Router();
 
-// Todas las rutas de miembros requieren autenticación y rol de administrador por ahora
+// All routes require authentication
 router.use(authMiddleware);
-router.use(isAdmin);
 
-router.post("/", createMember);
+// Read routes — any authenticated user
 router.get("/", getMembers);
 router.get("/:id", getMemberById);
-router.put("/:id", updateMember);
-router.delete("/:id", deleteMember);
+
+// Write routes — capitana or admin
+router.post("/", isCapitana, createMember);
+router.put("/:id", isCapitana, updateMember);
+
+// Delete — admin only
+router.delete("/:id", isAdmin, deleteMember);
 
 export default router;
