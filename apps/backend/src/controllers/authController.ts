@@ -45,8 +45,7 @@ export const register = async (req: Request, res: Response) => {
     const { passwordHash: hash, ...usuarioSinPassword } = nuevoUsuario;
     void hash;
     res.status(201).json(usuarioSinPassword);
-  } catch (error) {
-    console.error(error);
+  } catch {
     res.status(500).json({ error: "Error al registrar usuario" });
   }
 };
@@ -72,8 +71,7 @@ export const login = async (req: Request, res: Response) => {
     });
 
     res.json({ token });
-  } catch (error) {
-    console.error(error);
+  } catch {
     res.status(500).json({ error: "Error en el login" });
   }
 };

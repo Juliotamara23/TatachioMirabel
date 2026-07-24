@@ -13,7 +13,8 @@ app.use(express.json());
 const PORT = process.env.PORT || 3000;
 
 app.get("/test", (_req, res) => {
-  console.log("someone is asking for /test");
+
+
   res.send("working");
 });
 

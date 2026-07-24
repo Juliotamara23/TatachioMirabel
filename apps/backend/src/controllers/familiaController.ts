@@ -26,7 +26,6 @@ export const createFamilia = async (req: Request, res: Response) => {
     if (error instanceof PrismaClientKnownRequestError && error.code === "P2002") {
       return res.status(409).json({ error: "Ya existe un registro con esos datos" });
     }
-    console.error(error);
     res.status(500).json({ error: "Error al crear familia" });
   }
 };
@@ -40,8 +39,7 @@ export const getFamilias = async (req: Request, res: Response) => {
 
     const familias = await prisma.familia.findMany({ where: where as { cabildoId?: string } });
     res.json(familias);
-  } catch (error) {
-    console.error(error);
+  } catch {
     res.status(500).json({ error: "Error al obtener familias" });
   }
 };
@@ -59,8 +57,7 @@ export const getFamiliaById = async (req: Request, res: Response) => {
     }
 
     res.json(familia);
-  } catch (error) {
-    console.error(error);
+  } catch {
     res.status(500).json({ error: "Error al obtener familia" });
   }
 };
@@ -80,7 +77,6 @@ export const updateFamilia = async (req: Request, res: Response) => {
     if (error instanceof ZodError) {
       return res.status(400).json({ error: error.issues });
     }
-    console.error(error);
     res.status(500).json({ error: "Error al actualizar familia" });
   }
 };
@@ -92,8 +88,7 @@ export const deleteFamilia = async (req: Request, res: Response) => {
       where: { id },
     });
     res.status(204).send();
-  } catch (error) {
-    console.error(error);
+  } catch {
     res.status(500).json({ error: "Error al eliminar familia" });
   }
 };

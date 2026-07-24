@@ -16,7 +16,6 @@ export const createCabildo = async (req: Request, res: Response) => {
     if (error instanceof PrismaClientKnownRequestError && error.code === "P2002") {
       return res.status(409).json({ error: "Ya existe un registro con esos datos" });
     }
-    console.error(error);
     res.status(500).json({ error: "Error al crear cabildo" });
   }
 };
@@ -25,8 +24,7 @@ export const getCabildos = async (_req: Request, res: Response) => {
   try {
     const cabildos = await prisma.cabildo.findMany();
     res.json(cabildos);
-  } catch (error) {
-    console.error(error);
+  } catch {
     res.status(500).json({ error: "Error al obtener cabildos" });
   }
 };
@@ -43,8 +41,7 @@ export const getCabildoById = async (req: Request, res: Response) => {
     }
 
     res.json(cabildo);
-  } catch (error) {
-    console.error(error);
+  } catch {
     res.status(500).json({ error: "Error al obtener cabildo" });
   }
 };
@@ -64,7 +61,6 @@ export const updateCabildo = async (req: Request, res: Response) => {
     if (error instanceof ZodError) {
       return res.status(400).json({ error: error.issues });
     }
-    console.error(error);
     res.status(500).json({ error: "Error al actualizar cabildo" });
   }
 };
@@ -76,8 +72,7 @@ export const deleteCabildo = async (req: Request, res: Response) => {
       where: { id },
     });
     res.status(204).send();
-  } catch (error) {
-    console.error(error);
+  } catch {
     res.status(500).json({ error: "Error al eliminar cabildo" });
   }
 };

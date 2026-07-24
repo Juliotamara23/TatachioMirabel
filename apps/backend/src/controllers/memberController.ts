@@ -16,7 +16,6 @@ export const createMember = async (req: Request, res: Response) => {
     if (error instanceof ZodError) {
       return res.status(400).json({ error: error.issues });
     }
-    console.error(error);
     res.status(500).json({ error: "Error al crear miembro" });
   }
 };
@@ -29,8 +28,7 @@ export const getMembers = async (req: Request, res: Response) => {
       },
     });
     res.json(miembros);
-  } catch (error) {
-    console.error(error);
+  } catch {
     res.status(500).json({ error: "Error al obtener miembros" });
   }
 };
@@ -50,8 +48,7 @@ export const getMemberById = async (req: Request, res: Response) => {
     }
 
     res.json(miembro);
-  } catch (error) {
-    console.error(error);
+  } catch {
     res.status(500).json({ error: "Error al obtener miembro" });
   }
 };
@@ -71,7 +68,6 @@ export const updateMember = async (req: Request, res: Response) => {
     if (error instanceof ZodError) {
       return res.status(400).json({ error: error.issues });
     }
-    console.error(error);
     res.status(500).json({ error: "Error al actualizar miembro" });
   }
 };
@@ -83,8 +79,7 @@ export const deleteMember = async (req: Request, res: Response) => {
       where: { id: id as string },
     });
     res.status(204).send();
-  } catch (error) {
-    console.error(error);
+  } catch {
     res.status(500).json({ error: "Error al eliminar miembro" });
   }
 };
