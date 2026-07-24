@@ -5,6 +5,8 @@ import memberRouter from "./routes/member.js";
 import analysisRouter from "./routes/analysis.js";
 import cabildoRouter from "./routes/cabildo.js";
 import familiaRouter from "./routes/familia.js";
+import chatRouter from "./routes/chat.js";
+import modelsRouter from "./routes/models.js";
 import { errorHandler } from "./middleware/errorHandler.js";
 const app = express();
 app.use(express.json());
@@ -21,6 +23,8 @@ app.use("/api/miembros", memberRouter);
 app.use("/api/analisis", analysisRouter);
 app.use("/api/cabildos", cabildoRouter);
 app.use("/api/familias", familiaRouter);
+app.use("/api/chat", chatRouter);
+app.use("/api/models", modelsRouter);
 
 // Global error handler — must be LAST
 app.use(errorHandler);

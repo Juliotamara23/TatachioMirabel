@@ -88,15 +88,15 @@ El LLM es la interfaz principal para operar los datos. El REST tradicional queda
 
 ## Roadmap
 
-### Fase 1A — Backend: huecos y estabilidad
+### ✅ Fase 1A — Backend: huecos y estabilidad
 Prioridad: **alta** — prerrequisito para todo lo demás.
 
-- [ ] CRUD de Cabildo (rutas, controlador, validación Zod)
-- [ ] CRUD de Familia (rutas, controlador, validación Zod)
-- [ ] Error handler global (middleware centralizado con respuestas JSON)
-- [ ] Refactor de permisos: middleware `isAdmin` + `isCapitana` según modelo de roles definido
-- [ ] Script de seed con datos de prueba representativos (múltiples familias, miembros)
-- [ ] Cargar datos reales desde Excel a SQLite (script de migración única, no feature)
+- [x] CRUD de Cabildo (rutas, controlador, validación Zod)
+- [x] CRUD de Familia (rutas, controlador, validación Zod)
+- [x] Error handler global (middleware centralizado con respuestas JSON)
+- [x] Refactor de permisos: middleware `isAdmin` + `isCapitana` según modelo de roles definido
+- [x] Script de seed con datos de prueba representativos (múltiples familias, miembros)
+- [x] Cargar datos reales desde Excel a SQLite (script de migración única, no feature)
 
 ### Fase 1B — Backend: Chat IA con tool calling
 Prioridad: **alta** — el core del producto.
