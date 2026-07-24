@@ -29,3 +29,21 @@ export const memberSchema = z.object({
 });
 
 export type MemberInput = z.infer<typeof memberSchema>;
+
+export const cabildoSchema = z.object({
+  nombre: z.string().min(1, "El nombre es requerido"),
+  resguardo: z.string().min(1, "El resguardo es requerido"),
+  comunidad: z.string().min(1, "La comunidad es requerida"),
+  vigencia: z.number().int().min(2000).max(2100),
+});
+
+export type CabildoInput = z.infer<typeof cabildoSchema>;
+
+export const familiaSchema = z.object({
+  numero: z.number().int().positive("El número de familia debe ser positivo"),
+  direccion: z.string().optional(),
+  telefono: z.string().optional(),
+  cabildoId: z.string().uuid("CabildoId debe ser un UUID válido"),
+});
+
+export type FamiliaInput = z.infer<typeof familiaSchema>;
