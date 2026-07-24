@@ -2,6 +2,9 @@
   "name": "@tatachio/backend",
   "version": "1.0.0",
   "type": "module",
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  },
   "scripts": {
     "tsc": "tsc",
     "dev": "tsx src/index.ts",
@@ -16,6 +19,7 @@
     "@types/express": "^5.0.0",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/supertest": "^7.2.1",
+    "@types/xlsx": "^0.0.36",
     "@typescript-eslint/eslint-plugin": "^8.15.0",
     "@typescript-eslint/parser": "^8.15.0",
     "eslint": "^9.15.0",
@@ -36,6 +40,7 @@
     "express": "^4.22.1",
     "jsonwebtoken": "^9.0.3",
     "ollama-ai-provider": "^0.16.1",
+    "xlsx": "^0.18.5",
     "zod": "^4.3.6"
   }
 }
