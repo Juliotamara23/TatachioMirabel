@@ -98,17 +98,19 @@ Prioridad: **alta** — prerrequisito para todo lo demás.
 - [x] Script de seed con datos de prueba representativos (múltiples familias, miembros)
 - [x] Cargar datos reales desde Excel a SQLite (script de migración única, no feature)
 
-### Fase 1B — Backend: Chat IA con tool calling
+### ✅ Fase 1B — Backend: Chat IA con tool calling
 Prioridad: **alta** — el core del producto.
 
-- [ ] Probar y afinar el servicio de IA con un provider real (Gemini/OpenAI)
-- [ ] Definir tools disponibles: `buscarMiembros`, `crearMiembro`, `actualizarMiembro`, `buscarFamilias`, `crearFamilia`, `estadisticas`
-- [ ] Endpoint `POST /api/chat`:
+- [x] Probar y afinar el servicio de IA con un provider real (Gemini 3.1 Flash Lite)
+- [x] Definir tools disponibles: `searchMiembros`, `getMiembroById`, `getFamiliaMembers`, `getCabildoStats`, `getReporteData`
+- [x] Endpoint `POST /api/chat`:
   - Autenticación JWT
-  - Tool calling con Prisma (lectura y escritura)
+  - Tool calling con Prisma (lectura)
   - System prompt con contexto del cabildo
-  - Respuesta en texto natural + opcional JSON estructurado
-- [ ] Rate limiting por rol (Admin sin límite, Capitana con límite)
+  - Respuesta en texto natural + SSE streaming
+- [x] Rate limiting por rol (Admin: 60/min, Capitana: 20/min)
+- [x] GET `/api/models` — listado de modelos disponibles
+- [x] Model registry provider-agnóstico (Google Gemini, Ollama)
 
 ### Fase 1C — CLI Admin
 Prioridad: **alta** — interfaz principal del admin.
