@@ -2,7 +2,6 @@ import "dotenv/config";
 import express from "express";
 import authRouter from "./routes/auth.js";
 import memberRouter from "./routes/member.js";
-import analysisRouter from "./routes/analysis.js";
 import cabildoRouter from "./routes/cabildo.js";
 import familiaRouter from "./routes/familia.js";
 import chatRouter from "./routes/chat.js";
@@ -20,7 +19,6 @@ app.get("/test", (_req, res) => {
 
 app.use("/api/auth", authRouter);
 app.use("/api/miembros", memberRouter);
-app.use("/api/analisis", analysisRouter);
 app.use("/api/cabildos", cabildoRouter);
 app.use("/api/familias", familiaRouter);
 app.use("/api/chat", chatRouter);
