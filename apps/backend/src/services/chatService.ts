@@ -1,4 +1,4 @@
-import { streamText, type CoreMessage } from "ai";
+import { streamText, type ModelMessage } from "ai";
 import { resolveModel } from "./modelRegistry.js";
 import { getToolsForRole } from "./tools/index.js";
 
@@ -26,8 +26,8 @@ export interface ChatOptions {
   stream?: boolean;
 }
 
-export async function runChat(
-  messages: CoreMessage[],
+export function runChat(
+  messages: ModelMessage[],
   rol: string,
   options?: ChatOptions
 ) {

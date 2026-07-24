@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { Request, Response, NextFunction } from "express";
+import { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
 import { errorHandler } from "../../src/middleware/errorHandler.js";
 
 function mockReq(): Request {
@@ -16,6 +17,13 @@ function mockRes() {
 
 function mockNext(): NextFunction {
   return vi.fn();
+}
+
+function createPrismaError(message: string, code: string): PrismaClientKnownRequestError {
+  return new PrismaClientKnownRequestError(message, {
+    code,
+    clientVersion: "6.17.1",
+  });
 }
 
 describe("errorHandler", () => {
@@ -37,8 +45,7 @@ describe("errorHandler", () => {
     const req = mockReq();
     const res = mockRes();
     const next = mockNext();
-    const err: any = new Error("Unique constraint failed");
-    err.code = "P2002";
+    const err = createPrismaError("Unique constraint failed", "P2002");
 
     errorHandler(err, req, res, next);
 
@@ -54,8 +61,7 @@ describe("errorHandler", () => {
     const req = mockReq();
     const res = mockRes();
     const next = mockNext();
-    const err: any = new Error("Record to delete does not exist");
-    err.code = "P2025";
+    const err = createPrismaError("Record to delete does not exist", "P2025");
 
     errorHandler(err, req, res, next);
 
@@ -71,8 +77,7 @@ describe("errorHandler", () => {
     const req = mockReq();
     const res = mockRes();
     const next = mockNext();
-    const err: any = new Error("Foreign key constraint failed");
-    err.code = "P2003";
+    const err = createPrismaError("Foreign key constraint failed", "P2003");
 
     errorHandler(err, req, res, next);
 
@@ -88,8 +93,7 @@ describe("errorHandler", () => {
     const req = mockReq();
     const res = mockRes();
     const next = mockNext();
-    const err: any = new Error("Some other Prisma error");
-    err.code = "P9999";
+    const err = createPrismaError("Some other Prisma error", "P9999");
 
     errorHandler(err, req, res, next);
 

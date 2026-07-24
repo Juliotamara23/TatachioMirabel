@@ -9,11 +9,9 @@ interface TokenPayload {
 }
 
 // Extender la interfaz Request de Express para incluir al usuario
-declare global {
-  namespace Express {
-    interface Request {
-      usuario?: TokenPayload;
-    }
+declare module "express" {
+  interface Request {
+    usuario?: TokenPayload;
   }
 }
 
@@ -30,7 +28,7 @@ export const authMiddleware = (req: Request, res: Response, next: NextFunction) 
     const decoded = jwt.verify(token, JWT_SECRET) as TokenPayload;
     req.usuario = decoded;
     next();
-  } catch (error) {
+  } catch {
     return res.status(401).json({ error: "Token inválido o expirado" });
   }
 };

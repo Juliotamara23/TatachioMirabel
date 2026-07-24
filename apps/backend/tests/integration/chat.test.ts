@@ -2,6 +2,13 @@ import "dotenv/config";
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import request from "supertest";
 import express from "express";
+import { throttleAiCall, resetThrottle } from "../helpers/ai-throttle.js";
+
+// ── Test AI configuration ──────────────────────────────────────────
+const TEST_AI_MODEL = process.env.TEST_AI_MODEL || "";
+const SKIP_AI = process.env.SKIP_AI_TESTS === "true" || !TEST_AI_MODEL;
+const PROVIDER = TEST_AI_MODEL.startsWith("ollama/") ? "ollama" : "google";
+const THROTTLE = PROVIDER === "google"; // solo google tiene rate limit externo
 
 // ── Build minimal test app ──────────────────────────────────────────
 const app = express();
@@ -19,17 +26,12 @@ app.use(errorHandler);
 
 let adminToken = "";
 let capiToken = "";
-const API_KEY = process.env.GOOGLE_GENERATIVE_AI_API_KEY || "";
 
-async function getToken(email: string, password: string): Promise<string> {
-  const res = await request(app)
-    .post("/api/auth/login")
-    .send({ email, password });
-  return res.body.token;
-}
+// Removed hardcoded API_KEY — model selection is now via TEST_AI_MODEL env var
 
 describe("Chat API Integration", () => {
   beforeAll(async () => {
+    resetThrottle();
     // Need auth routes for token generation — build them in
     // Actually, let me use a simpler approach: generate tokens inline
     // using JWT directly since we know the secret
@@ -118,9 +120,11 @@ describe("Chat API Integration", () => {
 
   describe("POST /api/chat — Rate Limiting", () => {
     it("returns 429 when CAPITANA exceeds 20 requests", async () => {
-      // Send 20 requests to exhaust the limit
+      // Throttle external API calls to avoid hitting Google's rate limit.
+      // Ollama (local) skips throttling entirely.
       const results: number[] = [];
       for (let i = 0; i < 21; i++) {
+        if (THROTTLE) await throttleAiCall();
         const res = await request(app)
           .post("/api/chat")
           .set("Authorization", `Bearer ${capiToken}`)
@@ -139,10 +143,10 @@ describe("Chat API Integration", () => {
   // ── Valid Chat Requests ─────────────────────────────────────────
 
   describe("POST /api/chat — Valid requests", () => {
-    // Only run if API key is configured
-    const runIfKey = API_KEY ? describe : describe.skip;
+    // Only run if TEST_AI_MODEL is configured and not explicitly skipped
+    const runIfKey = SKIP_AI ? describe.skip : describe;
 
-    runIfKey("with real API key", () => {
+    runIfKey(`with ${PROVIDER} model: ${TEST_AI_MODEL}`, () => {
       it("returns 200 with JSON for non-streaming request", async () => {
         const res = await request(app)
           .post("/api/chat")
@@ -151,7 +155,7 @@ describe("Chat API Integration", () => {
             messages: [
               { role: "user", content: "Responde únicamente con la palabra: Hola" },
             ],
-            model: "google/gemini-3.1-flash-lite-preview",
+            model: TEST_AI_MODEL,
             stream: false,
           });
 
@@ -171,7 +175,7 @@ describe("Chat API Integration", () => {
             messages: [
               { role: "user", content: "Di hola en una palabra" },
             ],
-            model: "google/gemini-3.1-flash-lite-preview",
+            model: TEST_AI_MODEL,
           });
 
         // Streaming returns text/plain content type

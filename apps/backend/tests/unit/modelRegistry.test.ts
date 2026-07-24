@@ -35,12 +35,14 @@ describe("Model Registry", () => {
   // ─── MODEL_REGISTRY structure ───────────────────────────────────
 
   describe("MODEL_REGISTRY", () => {
-    it("contains exactly three defined models", () => {
-      expect(MODEL_REGISTRY).toHaveLength(3);
+    it("contains five defined models (2 google + 3 ollama)", () => {
+      expect(MODEL_REGISTRY).toHaveLength(5);
       const ids = MODEL_REGISTRY.map((m) => m.id);
       expect(ids).toContain("google/gemini-3.1-flash-lite-preview");
       expect(ids).toContain("google/gemini-2.0-flash");
       expect(ids).toContain("ollama/qwen3.5:9b");
+      expect(ids).toContain("ollama/llama3.2:3b");
+      expect(ids).toContain("ollama/mistral:7b");
     });
 
     it("assigns correct role defaults", () => {
@@ -69,14 +71,18 @@ describe("Model Registry", () => {
       expect(ollamaInAvailable).toBeUndefined();
     });
 
-    it("marks google models as requiring GOOGLE_GENERATIVE_AI_API_KEY", () => {
-      const googleModels = MODEL_REGISTRY.filter(
-        (m) => m.provider === "google"
-      );
-      expect(googleModels.length).toBeGreaterThanOrEqual(1);
-      for (const m of googleModels) {
-        expect(m.requiresApiKey).toBe("GOOGLE_GENERATIVE_AI_API_KEY");
-      }
+    it("google models require GOOGLE_GENERATIVE_AI_API_KEY to be available", () => {
+      // Provider-based availability: no key → google models unavailable
+      delete process.env.GOOGLE_GENERATIVE_AI_API_KEY;
+      const available = getAvailableModels();
+      const googleModels = available.filter((m) => m.provider === "google");
+      expect(googleModels.length).toBe(0);
+
+      // Set key → google models become available
+      process.env.GOOGLE_GENERATIVE_AI_API_KEY = "test-key";
+      const available2 = getAvailableModels();
+      const googleModels2 = available2.filter((m) => m.provider === "google");
+      expect(googleModels2.length).toBeGreaterThanOrEqual(2);
     });
 
     it("all models declare tool calling capability", () => {

@@ -9,7 +9,7 @@ export const getFamiliaMembersTool = tool({
   parameters: z.object({
     familiaId: z.string().describe("UUID de la familia"),
   }),
-  execute: async ({ familiaId }) => {
+  execute: async ({ familiaId }: { familiaId: string }) => {
     const familia = await prisma.familia.findUnique({
       where: { id: familiaId },
       select: {

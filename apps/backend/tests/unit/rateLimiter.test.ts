@@ -137,7 +137,6 @@ describe("rateLimiter", () => {
   describe("per-user isolation", () => {
     it("rate limiting user A does not affect user B", () => {
       const reqA = mockReq({ id: "user-a", rol: "CAPITANA" });
-      const nextA = mockNext();
 
       // Exhaust user A's limit
       for (let i = 0; i < 20; i++) {
@@ -157,7 +156,6 @@ describe("rateLimiter", () => {
   describe("token refill over time", () => {
     it("allows requests again after tokens refill", () => {
       const req = mockReq({ id: "refill-user", rol: "CAPITANA" });
-      const next = mockNext();
 
       // Exhaust limit
       for (let i = 0; i < 20; i++) {
@@ -179,7 +177,6 @@ describe("rateLimiter", () => {
   describe("unknown role falls back to CAPITANA", () => {
     it("uses CAPITANA limit for unknown roles", () => {
       const req = mockReq({ id: "unknown-role", rol: "INVITADO" });
-      const next = mockNext();
 
       // Should at least allow a few requests (CAPITANA allows 20)
       for (let i = 0; i < 5; i++) {

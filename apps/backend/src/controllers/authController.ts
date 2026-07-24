@@ -5,9 +5,20 @@ import prisma from "../database.js";
 
 const JWT_SECRET = process.env.JWT_SECRET || "supersecret";
 
+interface RegisterBody {
+  email?: string;
+  password?: string;
+  nombre?: string;
+}
+
+interface LoginBody {
+  email?: string;
+  password?: string;
+}
+
 export const register = async (req: Request, res: Response) => {
   try {
-    const { email, password, nombre } = req.body;
+    const { email, password, nombre } = req.body as RegisterBody;
 
     if (!email || !password || !nombre) {
       return res.status(400).json({ error: "Faltan campos requeridos: email, password, nombre" });
@@ -31,17 +42,17 @@ export const register = async (req: Request, res: Response) => {
       },
     });
 
-    const { passwordHash: _, ...usuarioSinPassword } = nuevoUsuario;
+    const { passwordHash: hash, ...usuarioSinPassword } = nuevoUsuario;
+    void hash;
     res.status(201).json(usuarioSinPassword);
-  } catch (error) {
-    console.error(error);
+  } catch {
     res.status(500).json({ error: "Error al registrar usuario" });
   }
 };
 
 export const login = async (req: Request, res: Response) => {
   try {
-    const { email, password } = req.body;
+    const { email, password } = req.body as LoginBody;
 
     if (!email || !password) {
       return res.status(400).json({ error: "Faltan campos requeridos: email, password" });
@@ -60,8 +71,7 @@ export const login = async (req: Request, res: Response) => {
     });
 
     res.json({ token });
-  } catch (error) {
-    console.error(error);
+  } catch {
     res.status(500).json({ error: "Error en el login" });
   }
 };
