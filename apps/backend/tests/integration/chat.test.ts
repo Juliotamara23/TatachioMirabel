@@ -148,7 +148,6 @@ describe("Chat API Integration", () => {
 
     runIfKey(`with ${PROVIDER} model: ${TEST_AI_MODEL}`, () => {
       it("returns 200 with JSON for non-streaming request", async () => {
-        if (THROTTLE) await throttleAiCall();
         const res = await request(app)
           .post("/api/chat")
           .set("Authorization", `Bearer ${adminToken}`)
@@ -169,7 +168,6 @@ describe("Chat API Integration", () => {
       });
 
       it("returns 200 with streaming for default request", async () => {
-        if (THROTTLE) await throttleAiCall();
         const res = await request(app)
           .post("/api/chat")
           .set("Authorization", `Bearer ${adminToken}`)
