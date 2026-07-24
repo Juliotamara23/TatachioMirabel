@@ -41,7 +41,7 @@ export const chatHandler = async (
     const { messages, model, stream } = parsed.data;
     const rol = req.usuario!.rol;
 
-    const { result, modelInfo } = await runChat(messages, rol, {
+    const { result, modelInfo } = runChat(messages, rol, {
       model,
       stream,
     });
@@ -54,11 +54,12 @@ export const chatHandler = async (
       return;
     }
 
-    // Non-streaming: await and return JSON
-    const awaited = await result;
+    // Non-streaming: await text and return JSON
+    const steps = await result.steps;
+    const text = await result.text;
     res.json({
-      text: awaited.text,
-      steps: awaited.steps?.length || 0,
+      text,
+      steps: steps.length,
       model: modelInfo.name,
     });
   } catch (error) {

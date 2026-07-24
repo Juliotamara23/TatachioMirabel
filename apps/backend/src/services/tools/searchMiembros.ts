@@ -17,7 +17,7 @@ export const searchMiembrosTool = tool({
       .default(10)
       .describe("Máximo resultados"),
   }),
-  execute: async ({ query, limit }) => {
+  execute: async ({ query, limit }: { query: string; limit: number }) => {
     const miembros = await prisma.miembro.findMany({
       where: {
         OR: [

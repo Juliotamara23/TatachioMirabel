@@ -13,7 +13,7 @@ export const getCabildoStatsTool = tool({
       .optional()
       .describe("UUID del cabildo (opcional, usa el primero activo si no se especifica)"),
   }),
-  execute: async ({ cabildoId }) => {
+  execute: async ({ cabildoId }: { cabildoId?: string }) => {
     // Resolve cabildoId: use provided or find first active
     let resolvedCabildoId = cabildoId;
     if (!resolvedCabildoId) {

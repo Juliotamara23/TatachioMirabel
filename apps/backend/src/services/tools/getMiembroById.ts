@@ -9,7 +9,7 @@ export const getMiembroByIdTool = tool({
   parameters: z.object({
     id: z.string().describe("UUID del miembro"),
   }),
-  execute: async ({ id }) => {
+  execute: async ({ id }: { id: string }) => {
     const miembro = await prisma.miembro.findUnique({
       where: { id },
       include: {

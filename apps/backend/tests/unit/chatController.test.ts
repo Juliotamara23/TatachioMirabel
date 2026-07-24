@@ -114,7 +114,7 @@ describe("chatController", () => {
 
   describe("successful chat", () => {
     it("calls runChat with messages and user role", async () => {
-      vi.mocked(runChat).mockResolvedValue({
+      vi.mocked(runChat).mockReturnValue({
         result: { textStream: {} } as never,
         modelInfo: { id: "google/gemini-2.0-flash", name: "Gemini 2.0 Flash" } as never,
       });
@@ -137,7 +137,7 @@ describe("chatController", () => {
     });
 
     it("pipes stream to response when stream defaults to true", async () => {
-      vi.mocked(runChat).mockResolvedValue({
+      vi.mocked(runChat).mockReturnValue({
         result: { textStream: {} } as never,
         modelInfo: { id: "google/gemini-2.0-flash", name: "Gemini 2.0 Flash" } as never,
       });
@@ -153,8 +153,11 @@ describe("chatController", () => {
     });
 
     it("passes explicit model to runChat", async () => {
-      vi.mocked(runChat).mockResolvedValue({
-        result: { textStream: {} } as never,
+      vi.mocked(runChat).mockReturnValue({
+        result: {
+          text: "Respuesta de prueba",
+          steps: [],
+        } as never,
         modelInfo: { id: "test/model", name: "Test" } as never,
       });
 
@@ -174,7 +177,7 @@ describe("chatController", () => {
     });
 
     it("returns JSON when stream is false", async () => {
-      vi.mocked(runChat).mockResolvedValue({
+      vi.mocked(runChat).mockReturnValue({
         result: {
           text: "Hola, ¿en qué puedo ayudarte?",
           steps: [],
@@ -201,9 +204,9 @@ describe("chatController", () => {
 
   describe("error handling", () => {
     it("returns 400 for ModelNotFoundError", async () => {
-      vi.mocked(runChat).mockRejectedValue(
-        new ModelNotFoundError("bad-model", [])
-      );
+      vi.mocked(runChat).mockImplementation(() => {
+        throw new ModelNotFoundError("bad-model", []);
+      });
 
       const req = mockReq({
         messages: [{ role: "user", content: "Hola" }],
@@ -222,7 +225,9 @@ describe("chatController", () => {
     });
 
     it("returns 503 for NoModelsAvailableError", async () => {
-      vi.mocked(runChat).mockRejectedValue(new NoModelsAvailableError());
+      vi.mocked(runChat).mockImplementation(() => {
+        throw new NoModelsAvailableError();
+      });
 
       const req = mockReq({
         messages: [{ role: "user", content: "Hola" }],
@@ -240,7 +245,9 @@ describe("chatController", () => {
     });
 
     it("throws unknown errors (let errorHandler catch them)", async () => {
-      vi.mocked(runChat).mockRejectedValue(new Error("DB connection failed"));
+      vi.mocked(runChat).mockImplementation(() => {
+        throw new Error("DB connection failed");
+      });
 
       const req = mockReq({
         messages: [{ role: "user", content: "Hola" }],

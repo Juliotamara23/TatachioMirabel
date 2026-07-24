@@ -1,5 +1,4 @@
 import { describe, it, expect } from "vitest";
-import { Router } from "express";
 
 describe("cabildo routes", () => {
   it("should export an Express Router", async () => {
@@ -20,8 +19,8 @@ describe("cabildo routes", () => {
     const router = module.default;
 
     // Verify routes are registered by checking stack
-    const routes = router.stack.filter((layer: any) => layer.route);
-    const methods = routes.flatMap((r: any) => Object.keys(r.route.methods));
+    const routes = router.stack.filter((layer: { route?: unknown }) => layer.route);
+    const methods = routes.flatMap((r: { route?: { methods?: Record<string, unknown> } }) => Object.keys(r.route?.methods ?? {}));
 
     expect(methods).toContain("get");
     expect(methods).toContain("post");

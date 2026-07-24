@@ -7,7 +7,7 @@ import { authMiddleware, isAdmin, isCapitana } from "../../src/middleware/authMi
 function mockReq(token?: string, rol?: string): Request {
   const req = {
     headers: {} as Record<string, string>,
-    usuario: undefined as any,
+    usuario: undefined as { id: string; rol: string } | undefined,
   } as unknown as Request;
 
   if (token) {
@@ -114,7 +114,7 @@ describe("isCapitana", () => {
   });
 
   it("should return 403 for unauthorized role", () => {
-    const req = mockReq(undefined, "INVITADO" as any);
+    const req = mockReq(undefined, "INVITADO");
     const res = mockRes();
     const next = mockNext();
 

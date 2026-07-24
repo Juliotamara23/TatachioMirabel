@@ -15,7 +15,7 @@ describe("member routes (refactored)", () => {
     const router = module.default;
 
     // Check that authMiddleware is still applied globally
-    const useLayers = router.stack.filter((layer: any) => !layer.route);
+    const useLayers = router.stack.filter((layer: { route?: unknown }) => !layer.route);
     expect(useLayers.length).toBe(1); // Only authMiddleware as global
   });
 
@@ -23,8 +23,8 @@ describe("member routes (refactored)", () => {
     const module = await import("../../src/routes/member.js");
     const router = module.default;
 
-    const routeLayers = router.stack.filter((layer: any) => layer.route);
-    const methods = routeLayers.flatMap((r: any) => Object.keys(r.route.methods));
+    const routeLayers = router.stack.filter((layer: { route?: unknown }) => layer.route);
+    const methods = routeLayers.flatMap((r: { route?: { methods?: Record<string, unknown> } }) => Object.keys(r.route?.methods ?? {}));
 
     expect(methods).toContain("get");
     expect(methods).toContain("post");

@@ -21,7 +21,7 @@ describe("Cabildo API Integration", () => {
     });
 
     // Login as admin to get token
-    const loginRes = await request(app)
+    await request(app)
       .post("/api/auth/login")  // This won't work since auth route isn't mounted
       .send({ email: "admin@tatachio.com", password: "admin123" });
 

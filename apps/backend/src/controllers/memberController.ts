@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import { ZodError } from "zod";
 import prisma from "../database.js";
 import { memberSchema } from "@tatachio/shared";
 
@@ -11,8 +12,8 @@ export const createMember = async (req: Request, res: Response) => {
     });
 
     res.status(201).json(nuevoMiembro);
-  } catch (error: any) {
-    if (error.name === "ZodError") {
+  } catch (error: unknown) {
+    if (error instanceof ZodError) {
       return res.status(400).json({ error: error.issues });
     }
     console.error(error);
@@ -66,8 +67,8 @@ export const updateMember = async (req: Request, res: Response) => {
     });
 
     res.json(miembroActualizado);
-  } catch (error: any) {
-    if (error.name === "ZodError") {
+  } catch (error: unknown) {
+    if (error instanceof ZodError) {
       return res.status(400).json({ error: error.issues });
     }
     console.error(error);

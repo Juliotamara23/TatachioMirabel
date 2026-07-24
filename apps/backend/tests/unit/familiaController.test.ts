@@ -22,7 +22,6 @@ import {
   createFamilia,
   getFamilias,
   getFamiliaById,
-  updateFamilia,
   deleteFamilia,
 } from "../../src/controllers/familiaController.js";
 
@@ -50,9 +49,9 @@ describe("familiaController", () => {
         },
       } as Request;
 
-      vi.mocked(prisma.cabildo.findUnique).mockResolvedValue({ id: "cab-1" } as any);
+      vi.mocked(prisma.cabildo.findUnique).mockResolvedValue({ id: "cab-1" } as never);
       const mockFamilia = { id: "fam-1", ...req.body };
-      vi.mocked(prisma.familia.create).mockResolvedValue(mockFamilia as any);
+      vi.mocked(prisma.familia.create).mockResolvedValue(mockFamilia as never);
 
       const res = mockRes();
       await createFamilia(req, res);
@@ -92,9 +91,9 @@ describe("familiaController", () => {
       expect(res.json).toHaveBeenCalledWith(
         expect.objectContaining({ error: expect.any(Array) })
       );
-      const callArg = vi.mocked(res.json).mock.calls[0]?.[0] as any;
+      const callArg = vi.mocked(res.json).mock.calls[0]?.[0] as Record<string, unknown>;
       expect(Array.isArray(callArg?.error)).toBe(true);
-      expect(callArg?.error?.length).toBeGreaterThan(0);
+      expect((callArg?.error as unknown[] | undefined)?.length).toBeGreaterThan(0);
     });
   });
 
@@ -102,7 +101,7 @@ describe("familiaController", () => {
     it("should return 200 and list of familias", async () => {
       const req = { query: {} } as unknown as Request;
       const mockList = [{ id: "fam-1", numero: 1 }];
-      vi.mocked(prisma.familia.findMany).mockResolvedValue(mockList as any);
+      vi.mocked(prisma.familia.findMany).mockResolvedValue(mockList as never);
 
       const res = mockRes();
       await getFamilias(req, res);
@@ -115,7 +114,7 @@ describe("familiaController", () => {
     it("should return 200 when familia found", async () => {
       const req = { params: { id: "fam-1" } } as unknown as Request;
       const mockFamilia = { id: "fam-1", numero: 1 };
-      vi.mocked(prisma.familia.findUnique).mockResolvedValue(mockFamilia as any);
+      vi.mocked(prisma.familia.findUnique).mockResolvedValue(mockFamilia as never);
 
       const res = mockRes();
       await getFamiliaById(req, res);
@@ -140,7 +139,7 @@ describe("familiaController", () => {
   describe("deleteFamilia", () => {
     it("should return 204 on successful delete", async () => {
       const req = { params: { id: "fam-1" } } as unknown as Request;
-      vi.mocked(prisma.familia.delete).mockResolvedValue({} as any);
+      vi.mocked(prisma.familia.delete).mockResolvedValue({} as never);
 
       const res = mockRes();
       await deleteFamilia(req, res);

@@ -1,10 +1,7 @@
 import { Request, Response } from "express";
 import { getAvailableModels } from "../services/modelRegistry.js";
 
-export const listModels = async (
-  _req: Request,
-  res: Response
-): Promise<void> => {
+export const listModels = (_req: Request, res: Response): void => {
   const models = getAvailableModels();
   res.json({
     models: models.map((m) => ({

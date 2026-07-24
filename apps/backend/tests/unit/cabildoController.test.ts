@@ -71,9 +71,9 @@ describe("cabildoController", () => {
         expect.objectContaining({ error: expect.any(Array) })
       );
       // Zod v4 uses .issues — verify it's a non-empty array
-      const callArg = vi.mocked(res.json).mock.calls[0]?.[0] as any;
+      const callArg = vi.mocked(res.json).mock.calls[0]?.[0] as Record<string, unknown>;
       expect(Array.isArray(callArg?.error)).toBe(true);
-      expect(callArg?.error?.length).toBeGreaterThan(0);
+      expect((callArg?.error as unknown[] | undefined)?.length).toBeGreaterThan(0);
     });
   });
 
@@ -81,7 +81,7 @@ describe("cabildoController", () => {
     it("should return 200 and list of cabildos", async () => {
       const req = {} as Request;
       const mockList = [{ id: "cab-1", nombre: "Tatachio" }];
-      vi.mocked(prisma.cabildo.findMany).mockResolvedValue(mockList as any);
+      vi.mocked(prisma.cabildo.findMany).mockResolvedValue(mockList as never);
 
       const res = mockRes();
       await getCabildos(req, res);
@@ -94,7 +94,7 @@ describe("cabildoController", () => {
     it("should return 200 and cabildo when found", async () => {
       const req = { params: { id: "cab-1" } } as unknown as Request;
       const mockCabildo = { id: "cab-1", nombre: "Tatachio" };
-      vi.mocked(prisma.cabildo.findUnique).mockResolvedValue(mockCabildo as any);
+      vi.mocked(prisma.cabildo.findUnique).mockResolvedValue(mockCabildo as never);
 
       const res = mockRes();
       await getCabildoById(req, res);
@@ -123,7 +123,7 @@ describe("cabildoController", () => {
         body: { nombre: "Nuevo Nombre" },
       } as unknown as Request;
       const mockUpdated = { id: "cab-1", nombre: "Nuevo Nombre" };
-      vi.mocked(prisma.cabildo.update).mockResolvedValue(mockUpdated as any);
+      vi.mocked(prisma.cabildo.update).mockResolvedValue(mockUpdated as never);
 
       const res = mockRes();
       await updateCabildo(req, res);
@@ -135,7 +135,7 @@ describe("cabildoController", () => {
   describe("deleteCabildo", () => {
     it("should return 204 on successful delete", async () => {
       const req = { params: { id: "cab-1" } } as unknown as Request;
-      vi.mocked(prisma.cabildo.delete).mockResolvedValue({} as any);
+      vi.mocked(prisma.cabildo.delete).mockResolvedValue({} as never);
 
       const res = mockRes();
       await deleteCabildo(req, res);

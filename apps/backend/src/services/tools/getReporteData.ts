@@ -12,7 +12,7 @@ export const getReporteDataTool = tool({
   parameters: z.object({
     reporteId: z.string().describe("UUID del reporte"),
   }),
-  execute: async ({ reporteId }) => {
+  execute: async ({ reporteId }: { reporteId: string }) => {
     const reporte = await prisma.reporte.findUnique({
       where: { id: reporteId },
       include: {

@@ -1,4 +1,6 @@
 import { Request, Response } from "express";
+import { ZodError } from "zod";
+import { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
 import prisma from "../database.js";
 import { familiaSchema } from "@tatachio/shared";
 
@@ -17,11 +19,11 @@ export const createFamilia = async (req: Request, res: Response) => {
 
     const familia = await prisma.familia.create({ data: validated });
     res.status(201).json(familia);
-  } catch (error: any) {
-    if (error.name === "ZodError") {
+  } catch (error: unknown) {
+    if (error instanceof ZodError) {
       return res.status(400).json({ error: error.issues });
     }
-    if (error.code === "P2002") {
+    if (error instanceof PrismaClientKnownRequestError && error.code === "P2002") {
       return res.status(409).json({ error: "Ya existe un registro con esos datos" });
     }
     console.error(error);
@@ -31,12 +33,12 @@ export const createFamilia = async (req: Request, res: Response) => {
 
 export const getFamilias = async (req: Request, res: Response) => {
   try {
-    const where: any = {};
+    const where: Record<string, unknown> = {};
     if (req.query.cabildoId) {
       where.cabildoId = req.query.cabildoId as string;
     }
 
-    const familias = await prisma.familia.findMany({ where });
+    const familias = await prisma.familia.findMany({ where: where as { cabildoId?: string } });
     res.json(familias);
   } catch (error) {
     console.error(error);
@@ -74,8 +76,8 @@ export const updateFamilia = async (req: Request, res: Response) => {
     });
 
     res.json(familia);
-  } catch (error: any) {
-    if (error.name === "ZodError") {
+  } catch (error: unknown) {
+    if (error instanceof ZodError) {
       return res.status(400).json({ error: error.issues });
     }
     console.error(error);

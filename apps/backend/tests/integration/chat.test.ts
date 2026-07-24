@@ -21,13 +21,6 @@ let adminToken = "";
 let capiToken = "";
 const API_KEY = process.env.GOOGLE_GENERATIVE_AI_API_KEY || "";
 
-async function getToken(email: string, password: string): Promise<string> {
-  const res = await request(app)
-    .post("/api/auth/login")
-    .send({ email, password });
-  return res.body.token;
-}
-
 describe("Chat API Integration", () => {
   beforeAll(async () => {
     // Need auth routes for token generation — build them in

@@ -17,8 +17,8 @@ describe("familia routes", () => {
     const module = await import("../../src/routes/familia.js");
     const router = module.default;
 
-    const routes = router.stack.filter((layer: any) => layer.route);
-    const methods = routes.flatMap((r: any) => Object.keys(r.route.methods));
+    const routes = router.stack.filter((layer: { route?: unknown }) => layer.route);
+    const methods = routes.flatMap((r: { route?: { methods?: Record<string, unknown> } }) => Object.keys(r.route?.methods ?? {}));
 
     expect(methods).toContain("get");
     expect(methods).toContain("post");

@@ -153,6 +153,6 @@ function createModel(info: ModelInfo): LanguageModel {
     case "ollama":
       return ollamaProvider(info.id.split("/")[1]) as unknown as LanguageModel;
     default:
-      throw new Error(`Proveedor desconocido: ${(info as ModelInfo).provider}`);
+      throw new Error(`Proveedor desconocido: ${info.provider}`);
   }
 }
