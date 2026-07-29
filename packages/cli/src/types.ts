@@ -24,3 +24,9 @@ export type Envelope<T = unknown> =
 export interface SseChunk {
   delta: string;
 }
+
+export interface ChatEntry {
+  timestamp: string;
+  role: "user" | "assistant";
+  content: string;
+}

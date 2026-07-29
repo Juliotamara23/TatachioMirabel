@@ -1,7 +1,7 @@
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import type { CliConfig } from "./types.js";
+import type { CliConfig, ChatEntry } from "./types.js";
 
 export const CONFIG_DIR_BASENAME = ".tatachio";
 export const DEFAULT_BASE_URL = "http://localhost:3000";
@@ -86,4 +86,31 @@ export async function storeToken(
 
 export async function clearToken(opts?: ConfigOptions): Promise<void> {
   await saveConfig({ token: undefined, user: undefined }, opts);
+}
+
+export async function saveChatHistory(entries: ChatEntry[]): Promise<void> {
+  const dir = resolveConfigDir();
+  const historyFile = join(dir, "history.jsonl");
+  
+  await mkdir(dir, { recursive: true });
+  
+  // Append each entry as a JSON line
+  for (const entry of entries) {
+    const line = JSON.stringify(entry) + "\n";
+    await writeFile(historyFile, line, { flag: "a" });
+  }
+}
+
+export async function loadChatHistory(): Promise<ChatEntry[]> {
+  const dir = resolveConfigDir();
+  const historyFile = join(dir, "history.jsonl");
+  
+  try {
+    const content = await readFile(historyFile, "utf-8");
+    const lines = content.split("\n").filter(line => line.trim());
+    return lines.map(line => JSON.parse(line)) as ChatEntry[];
+  } catch (error) {
+    // File doesn't exist yet
+    return [];
+  }
 }

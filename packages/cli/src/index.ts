@@ -56,8 +56,7 @@ program
   .command("chat")
   .description("Chat interface")
   .action(() => {
-    console.error("Not implemented yet");
-    setExitCode(1);
+    setupChatCommand();
   });
 
 program.parse();
