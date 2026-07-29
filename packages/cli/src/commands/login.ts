@@ -6,7 +6,7 @@ import { isPipeMode } from "../display.js";
 
 async function getCredentials(): Promise<{ email: string; password: string }> {
   if (isPipeMode()) {
-    throw new Error("Credentials required in TTY mode. Use --email and --password flags when using JSON mode.");
+    throw new Error("Pipe mode requires TATACHIO_TOKEN environment variable for non-interactive login.");
   }
 
   const { input, password: pw } = await import("@inquirer/prompts");

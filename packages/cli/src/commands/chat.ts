@@ -149,9 +149,7 @@ export async function chatCmd(options: { message?: string; model?: string }): Pr
   }
 }
 
-export function setupChatCommand(): void {
-  const program = new Command();
-  
+export function setupChatCommand(program: Command): void {
   program
     .command("chat")
     .description("Chat interface")
@@ -160,7 +158,5 @@ export function setupChatCommand(): void {
     .action(async (options) => {
       await chatCmd(options);
     });
-  
-  program.parse();
 }
 
