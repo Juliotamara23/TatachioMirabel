@@ -14,6 +14,7 @@ export async function listMiembrosCmd(
 ): Promise<{ success: boolean; data?: unknown; error?: string }> {
   try {
     const token = await resolveToken();
+    if (!token) throw new Error("No authentication token found. Please login first.");
     const baseUrl = await getBaseUrl();
 
     const params: { search?: string; cabildoId?: string; rol?: string } = {};
@@ -39,6 +40,7 @@ export async function getMiembroCmd(
 ): Promise<{ success: boolean; data?: unknown; error?: string }> {
   try {
     const token = await resolveToken();
+    if (!token) throw new Error("No authentication token found. Please login first.");
     const baseUrl = await getBaseUrl();
 
     const result = await getMiembro(baseUrl, token, id);
@@ -59,6 +61,7 @@ export async function createMiembroCmd(
 ): Promise<{ success: boolean; data?: unknown; error?: string }> {
   try {
     const token = await resolveToken();
+    if (!token) throw new Error("No authentication token found. Please login first.");
     const baseUrl = await getBaseUrl();
 
     let data: Record<string, unknown>;
@@ -66,14 +69,14 @@ export async function createMiembroCmd(
       data = fields;
     } else {
       console.log("Enter member details (press enter to skip optional fields):");
-      const { ask } = await import("@inquirer/prompts");
+      const { input } = await import("@inquirer/prompts");
 
-      const nombre = await ask({ type: "input", message: "Nombre:" });
-      const apellidos = await ask({ type: "input", message: "Apellidos:" });
-      const email = await ask({ type: "input", message: "Email:" });
-      const telefono = await ask({ type: "input", message: "Teléfono (opcional):" });
-      const rol = await ask({ type: "input", message: "Rol (opcional):" });
-      const cabildoId = await ask({ type: "input", message: "Cabildo ID (opcional):" });
+      const nombre = await input({ message: "Nombre:" });
+      const apellidos = await input({ message: "Apellidos:" });
+      const email = await input({ message: "Email:" });
+      const telefono = await input({ message: "Teléfono (opcional):" });
+      const rol = await input({ message: "Rol (opcional):" });
+      const cabildoId = await input({ message: "Cabildo ID (opcional):" });
 
       data = {
         nombre: nombre || undefined,
@@ -117,6 +120,7 @@ export async function updateMiembroCmd(
 ): Promise<{ success: boolean; data?: unknown; error?: string }> {
   try {
     const token = await resolveToken();
+    if (!token) throw new Error("No authentication token found. Please login first.");
     const baseUrl = await getBaseUrl();
 
     let data: Record<string, unknown>;
@@ -124,14 +128,14 @@ export async function updateMiembroCmd(
       data = fields;
     } else {
       console.log("Enter fields to update (press enter to skip):");
-      const { ask } = await import("@inquirer/prompts");
+      const { input } = await import("@inquirer/prompts");
 
-      const nombre = await ask({ type: "input", message: "Nombre (opcional):" });
-      const apellidos = await ask({ type: "input", message: "Apellidos (opcional):" });
-      const email = await ask({ type: "input", message: "Email (opcional):" });
-      const telefono = await ask({ type: "input", message: "Teléfono (opcional):" });
-      const rol = await ask({ type: "input", message: "Rol (opcional):" });
-      const cabildoId = await ask({ type: "input", message: "Cabildo ID (opcional):" });
+      const nombre = await input({ message: "Nombre (opcional):" });
+      const apellidos = await input({ message: "Apellidos (opcional):" });
+      const email = await input({ message: "Email (opcional):" });
+      const telefono = await input({ message: "Teléfono (opcional):" });
+      const rol = await input({ message: "Rol (opcional):" });
+      const cabildoId = await input({ message: "Cabildo ID (opcional):" });
 
       data = {
         nombre: nombre || undefined,

@@ -11,6 +11,7 @@ export async function listCabildosCmd(
 ): Promise<{ success: boolean; data?: unknown; error?: string }> {
   try {
     const token = await resolveToken();
+    if (!token) throw new Error("No authentication token found. Please login first.");
     const baseUrl = await getBaseUrl();
 
     const result = await listCabildos(baseUrl, token);
@@ -31,6 +32,7 @@ export async function getCabildoCmd(
 ): Promise<{ success: boolean; data?: unknown; error?: string }> {
   try {
     const token = await resolveToken();
+    if (!token) throw new Error("No authentication token found. Please login first.");
     const baseUrl = await getBaseUrl();
 
     const result = await getCabildo(baseUrl, token, id);
