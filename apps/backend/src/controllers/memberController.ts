@@ -27,8 +27,8 @@ export const getMembers = async (req: Request, res: Response) => {
     
     if (search) {
       where.OR = [
-        { nombres: { contains: search as string, mode: 'insensitive' } },
-        { apellidos: { contains: search as string, mode: 'insensitive' } },
+        { nombres: { contains: search as string } },
+        { apellidos: { contains: search as string } },
         { numeroDocumento: { contains: search as string } },
       ];
     }

@@ -56,6 +56,7 @@ export async function getFamiliaCmd(
 
 export function setupFamiliasCommand(program: Command): void {
   program
+    .option("--json", "Output in JSON format")
     .command("list")
     .description("List families")
     .option("--search <value>", "Filter by search term")

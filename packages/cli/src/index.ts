@@ -16,7 +16,9 @@ const outputMode = (isPipeMode() ? "json" : "pretty") as OutputMode;
 program
   .name("tatachio")
   .description("CLI for Tatachio Mirabel management")
-  .version(process.env.npm_package_version || "1.0.0");
+  .version(process.env.npm_package_version || "1.0.0")
+  .option("--json", "Output in JSON format")
+  .allowExcessArguments(false);
 
 program
   .command("login")
@@ -32,32 +34,24 @@ program
     await logoutCmd(outputMode);
   });
 
-program
+const miembrosCmd = program
   .command("miembros")
-  .description("Manage members")
-  .action(() => {
-    setupMiembrosCommand(program);
-  });
+  .description("Manage members");
+setupMiembrosCommand(miembrosCmd);
 
-program
+const familiasCmd = program
   .command("familias")
-  .description("Manage families")
-  .action(() => {
-    setupFamiliasCommand(program);
-  });
+  .description("Manage families");
+setupFamiliasCommand(familiasCmd);
 
-program
+const cabildosCmd = program
   .command("cabildos")
-  .description("Manage cabildos")
-  .action(() => {
-    setupCabildosCommand(program);
-  });
+  .description("Manage cabildos");
+setupCabildosCommand(cabildosCmd);
 
-program
+const chatCmd = program
   .command("chat")
-  .description("Chat interface")
-  .action(() => {
-    setupChatCommand(program);
-  });
+  .description("Chat interface");
+setupChatCommand(chatCmd);
 
 program.parse();

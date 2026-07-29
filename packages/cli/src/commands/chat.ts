@@ -151,7 +151,7 @@ export async function chatCmd(options: { message?: string; model?: string }): Pr
 
 export function setupChatCommand(program: Command): void {
   program
-    .command("chat")
+    .option("--json", "Output in JSON format")
     .description("Chat interface")
     .option("--message <message>", "Send a single message (pipe-friendly)")
     .option("--model <model>", "Model to use (e.g., gemini)")

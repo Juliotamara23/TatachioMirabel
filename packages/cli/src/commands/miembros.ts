@@ -241,6 +241,7 @@ export async function updateMiembroCmd(
 
 export function setupMiembrosCommand(program: Command): void {
   program
+    .option("--json", "Output in JSON format")
     .command("list")
     .description("List members")
     .option("--search <value>", "Filter by search term")
