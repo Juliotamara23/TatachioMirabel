@@ -36,28 +36,28 @@ program
   .command("miembros")
   .description("Manage members")
   .action(() => {
-    setupMiembrosCommand();
+    setupMiembrosCommand(program);
   });
 
 program
   .command("familias")
   .description("Manage families")
   .action(() => {
-    setupFamiliasCommand();
+    setupFamiliasCommand(program);
   });
 
 program
   .command("cabildos")
   .description("Manage cabildos")
   .action(() => {
-    setupCabildosCommand();
+    setupCabildosCommand(program);
   });
 
 program
   .command("chat")
   .description("Chat interface")
   .action(() => {
-    setupChatCommand();
+    setupChatCommand(program);
   });
 
 program.parse();

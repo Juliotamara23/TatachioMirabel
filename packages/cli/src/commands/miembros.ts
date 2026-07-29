@@ -71,24 +71,60 @@ export async function createMiembroCmd(
       console.log("Enter member details (press enter to skip optional fields):");
       const { input } = await import("@inquirer/prompts");
 
-      const nombre = await input({ message: "Nombre:" });
+      const tipoIdentificacion = await input({ message: "Tipo de Identificación (CC, TI, RC, NUIP):" });
+      const numeroDocumento = await input({ message: "Número de Documento:" });
+      const nombres = await input({ message: "Nombres:" });
       const apellidos = await input({ message: "Apellidos:" });
-      const email = await input({ message: "Email:" });
+      const fechaNacimiento = await input({ message: "Fecha de Nacimiento (DD/MM/YYYY):" });
+      const parentesco = await input({ message: "Parentesco (PA, MA, CO, HE, CF, ES, HI, YR, NU, SU, SO, CU, TI, AB, NI):" });
+      const sexo = await input({ message: "Sexo (M o F):" });
+      const estadoCivil = await input({ message: "Estado Civil (S o C, opcional):" });
+      const profesion = await input({ message: "Profesión (opcional):" });
+      const escolaridad = await input({ message: "Escolaridad (PR, SE, UN, NI, opcional):" });
+      const integrantes = await input({ message: "Integrantes:" });
+      const direccion = await input({ message: "Dirección (opcional):" });
       const telefono = await input({ message: "Teléfono (opcional):" });
-      const rol = await input({ message: "Rol (opcional):" });
+      const novedad = await input({ message: "Novedad (opcional):" });
+      const familiaId = await input({ message: "Familia ID:" });
       const cabildoId = await input({ message: "Cabildo ID (opcional):" });
 
+      const enumOptions = {
+        tipoIdentificacion: ["CC", "TI", "RC", "NUIP"],
+        parentesco: ["PA", "MA", "CO", "HE", "CF", "ES", "HI", "YR", "NU", "SU", "SO", "CU", "TI", "AB", "NI"],
+        sexo: ["M", "F"],
+        estadoCivil: ["S", "C"],
+        escolaridad: ["PR", "SE", "UN", "NI"]
+      };
+
+      const validateEnum = (value: string, options: string[]) => {
+        const normalizedValue = value.toUpperCase();
+        if (!options.includes(normalizedValue)) {
+          throw new Error(`Valor inválido. Opciones: ${options.join(", ")}`);
+        }
+        return normalizedValue as typeof options[number];
+      };
+
       data = {
-        nombre: nombre || undefined,
-        apellidos: apellidos || undefined,
-        email: email || undefined,
+        tipoIdentificacion: validateEnum(tipoIdentificacion, enumOptions.tipoIdentificacion),
+        numeroDocumento: numeroDocumento,
+        nombres: nombres,
+        apellidos: apellidos,
+        fechaNacimiento: validateEnum(fechaNacimiento, ["DD/MM/YYYY"]),
+        parentesco: validateEnum(parentesco, enumOptions.parentesco),
+        sexo: validateEnum(sexo, enumOptions.sexo),
+        estadoCivil: estadoCivil ? validateEnum(estadoCivil, enumOptions.estadoCivil) : undefined,
+        profesion: profesion || undefined,
+        escolaridad: escolaridad ? validateEnum(escolaridad, enumOptions.escolaridad) : undefined,
+        integrantes: parseInt(integrantes, 10),
+        direccion: direccion || undefined,
         telefono: telefono || undefined,
-        rol: rol || undefined,
+        novedad: novedad || undefined,
+        familiaId: familiaId,
         cabildoId: cabildoId || undefined,
       };
 
       const definedData = Object.entries(data).reduce((acc, [key, value]) => {
-        if (value !== undefined) acc[key] = value;
+        if (value !== undefined && value !== "" && value !== null) acc[key] = value;
         return acc;
       }, {} as Record<string, unknown>);
       data = definedData;
@@ -130,24 +166,61 @@ export async function updateMiembroCmd(
       console.log("Enter fields to update (press enter to skip):");
       const { input } = await import("@inquirer/prompts");
 
-      const nombre = await input({ message: "Nombre (opcional):" });
+      const tipoIdentificacion = await input({ message: "Tipo de Identificación (CC, TI, RC, NUIP, opcional):" });
+      const numeroDocumento = await input({ message: "Número de Documento (opcional):" });
+      const nombres = await input({ message: "Nombres (opcional):" });
       const apellidos = await input({ message: "Apellidos (opcional):" });
-      const email = await input({ message: "Email (opcional):" });
+      const fechaNacimiento = await input({ message: "Fecha de Nacimiento (DD/MM/YYYY, opcional):" });
+      const parentesco = await input({ message: "Parentesco (PA, MA, CO, HE, CF, ES, HI, YR, NU, SU, SO, CU, TI, AB, NI, opcional):" });
+      const sexo = await input({ message: "Sexo (M o F, opcional):" });
+      const estadoCivil = await input({ message: "Estado Civil (S o C, opcional):" });
+      const profesion = await input({ message: "Profesión (opcional):" });
+      const escolaridad = await input({ message: "Escolaridad (PR, SE, UN, NI, opcional):" });
+      const integrantes = await input({ message: "Integrantes (opcional):" });
+      const direccion = await input({ message: "Dirección (opcional):" });
       const telefono = await input({ message: "Teléfono (opcional):" });
-      const rol = await input({ message: "Rol (opcional):" });
+      const novedad = await input({ message: "Novedad (opcional):" });
+      const familiaId = await input({ message: "Familia ID (opcional):" });
       const cabildoId = await input({ message: "Cabildo ID (opcional):" });
 
+      const enumOptions = {
+        tipoIdentificacion: ["CC", "TI", "RC", "NUIP"],
+        parentesco: ["PA", "MA", "CO", "HE", "CF", "ES", "HI", "YR", "NU", "SU", "SO", "CU", "TI", "AB", "NI"],
+        sexo: ["M", "F"],
+        estadoCivil: ["S", "C"],
+        escolaridad: ["PR", "SE", "UN", "NI"]
+      };
+
+      const validateEnum = (value: string, options: string[]) => {
+        if (!value || value.trim() === "") return undefined;
+        const normalizedValue = value.toUpperCase();
+        if (!options.includes(normalizedValue)) {
+          throw new Error(`Valor inválido. Opciones: ${options.join(", ")}`);
+        }
+        return normalizedValue as typeof options[number];
+      };
+
       data = {
-        nombre: nombre || undefined,
+        tipoIdentificacion: tipoIdentificacion ? validateEnum(tipoIdentificacion, enumOptions.tipoIdentificacion) : undefined,
+        numeroDocumento: numeroDocumento || undefined,
+        nombres: nombres || undefined,
         apellidos: apellidos || undefined,
-        email: email || undefined,
+        fechaNacimiento: fechaNacimiento ? validateEnum(fechaNacimiento, ["DD/MM/YYYY"]) : undefined,
+        parentesco: parentesco ? validateEnum(parentesco, enumOptions.parentesco) : undefined,
+        sexo: sexo ? validateEnum(sexo, enumOptions.sexo) : undefined,
+        estadoCivil: estadoCivil ? validateEnum(estadoCivil, enumOptions.estadoCivil) : undefined,
+        profesion: profesion || undefined,
+        escolaridad: escolaridad ? validateEnum(escolaridad, enumOptions.escolaridad) : undefined,
+        integrantes: integrantes ? parseInt(integrantes, 10) : undefined,
+        direccion: direccion || undefined,
         telefono: telefono || undefined,
-        rol: rol || undefined,
+        novedad: novedad || undefined,
+        familiaId: familiaId || undefined,
         cabildoId: cabildoId || undefined,
       };
 
       const definedData = Object.entries(data).reduce((acc, [key, value]) => {
-        if (value !== undefined) acc[key] = value;
+        if (value !== undefined && value !== "" && value !== null) acc[key] = value;
         return acc;
       }, {} as Record<string, unknown>);
       data = definedData;
@@ -166,9 +239,7 @@ export async function updateMiembroCmd(
   }
 }
 
-function setupMiembrosCommand(): void {
-  const program = new Command();
-
+export function setupMiembrosCommand(program: Command): void {
   program
     .command("list")
     .description("List members")
@@ -227,8 +298,4 @@ function setupMiembrosCommand(): void {
         await updateMiembroCmd(id);
       }
     });
-
-  program.parse();
 }
-
-export { setupMiembrosCommand };

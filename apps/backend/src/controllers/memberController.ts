@@ -22,7 +22,27 @@ export const createMember = async (req: Request, res: Response) => {
 
 export const getMembers = async (req: Request, res: Response) => {
   try {
+    const { search, cabildoId, rol } = req.query;
+    const where: any = {};
+    
+    if (search) {
+      where.OR = [
+        { nombres: { contains: search as string, mode: 'insensitive' } },
+        { apellidos: { contains: search as string, mode: 'insensitive' } },
+        { numeroDocumento: { contains: search as string } },
+      ];
+    }
+    
+    if (cabildoId) {
+      where.cabildoId = cabildoId as string;
+    }
+    
+    if (rol) {
+      where.rol = rol as string;
+    }
+    
     const miembros = await prisma.miembro.findMany({
+      where,
       include: {
         familia: true,
       },

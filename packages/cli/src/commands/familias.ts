@@ -54,9 +54,7 @@ export async function getFamiliaCmd(
   }
 }
 
-function setupFamiliasCommand(): void {
-  const program = new Command();
-
+export function setupFamiliasCommand(program: Command): void {
   program
     .command("list")
     .description("List families")
@@ -75,8 +73,4 @@ function setupFamiliasCommand(): void {
     .action(async (id) => {
       await getFamiliaCmd(id);
     });
-
-  program.parse();
 }
-
-export { setupFamiliasCommand };

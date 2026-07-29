@@ -48,9 +48,7 @@ export async function getCabildoCmd(
   }
 }
 
-function setupCabildosCommand(): void {
-  const program = new Command();
-
+export function setupCabildosCommand(program: Command): void {
   program
     .command("list")
     .description("List cabildos")
@@ -64,8 +62,4 @@ function setupCabildosCommand(): void {
     .action(async (id) => {
       await getCabildoCmd(id);
     });
-
-  program.parse();
 }
-
-export { setupCabildosCommand };
