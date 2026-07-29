@@ -3,12 +3,11 @@ import { apiFetch } from "./client.js";
 export async function listMiembros(
   baseUrl: string,
   token: string,
-  params?: { search?: string; cabildoId?: string; rol?: string },
+  params?: { search?: string; cabildoId?: string },
 ): Promise<unknown> {
   const searchParams = new URLSearchParams();
   if (params?.search) searchParams.set("search", params.search);
   if (params?.cabildoId) searchParams.set("cabildoId", params.cabildoId);
-  if (params?.rol) searchParams.set("rol", params.rol);
   const query = searchParams.toString();
   const path = `/api/miembros${query ? `?${query}` : ""}`;
   return apiFetch(path, { method: "GET", baseUrl, token });

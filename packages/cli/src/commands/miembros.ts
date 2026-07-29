@@ -10,17 +10,15 @@ const outputMode = (isPipeMode() ? "json" : "pretty") as OutputMode;
 export async function listMiembrosCmd(
   search?: string,
   cabildoId?: string,
-  rol?: string,
 ): Promise<{ success: boolean; data?: unknown; error?: string }> {
   try {
     const token = await resolveToken();
     if (!token) throw new Error("No authentication token found. Please login first.");
     const baseUrl = await getBaseUrl();
 
-    const params: { search?: string; cabildoId?: string; rol?: string } = {};
+    const params: { search?: string; cabildoId?: string } = {};
     if (search) params.search = search;
     if (cabildoId) params.cabildoId = cabildoId;
-    if (rol) params.rol = rol;
 
     const result = await listMiembros(baseUrl, token, params);
     display(result, outputMode);
@@ -246,12 +244,10 @@ export function setupMiembrosCommand(program: Command): void {
     .description("List members")
     .option("--search <value>", "Filter by search term")
     .option("--cabildo-id <value>", "Filter by cabildo ID")
-    .option("--rol <value>", "Filter by role")
     .action(async (options) => {
       await listMiembrosCmd(
         options.search,
         options.cabildoId,
-        options.rol,
       );
     });
 

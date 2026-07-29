@@ -37,19 +37,17 @@ describe("Miembros CRUD API", () => {
       const url = new URL(request.url);
       const search = url.searchParams.get("search");
       const cabildoId = url.searchParams.get("cabildoId");
-      const rol = url.searchParams.get("rol");
 
       const allMiembros = [
-        { id: "m1", nombres: "Juan Pérez", apellidos: "Pérez", email: "juan@test.com", cabildoId: "c1", rol: "USER" },
-        { id: "m2", nombres: "María García", apellidos: "García", email: "maria@test.com", cabildoId: "c1", rol: "ADMIN" },
-        { id: "m3", nombres: "Carlos López", apellidos: "López", email: "carlos@test.com", cabildoId: "c2", rol: "USER" },
+        { id: "m1", nombres: "Juan Pérez", apellidos: "Pérez", email: "juan@test.com", cabildoId: "c1" },
+        { id: "m2", nombres: "María García", apellidos: "García", email: "maria@test.com", cabildoId: "c1" },
+        { id: "m3", nombres: "Carlos López", apellidos: "López", email: "carlos@test.com", cabildoId: "c2" },
       ];
 
       const filtered = allMiembros.filter(function(item) {
         const m = item as Record<string, unknown>;
         if (search && !(m.nombres as string).toLowerCase().includes(search.toLowerCase())) return false;
         if (cabildoId && m.cabildoId !== cabildoId) return false;
-        if (rol && m.rol !== rol) return false;
         return true;
       });
 
@@ -135,13 +133,6 @@ describe("Miembros CRUD API", () => {
     expect(Array.isArray(result)).toBe(true);
     expect((result as any[]).length).toBe(2);
     expect((result as any[]).map((m) => m.cabildoId).every((c) => c === "c1")).toBe(true);
-  });
-
-  it("listMiembros filters by rol", async () => {
-    const result = await listMiembros(BASE_URL, "test-token", { rol: "ADMIN" });
-    expect(Array.isArray(result)).toBe(true);
-    expect((result as any[]).length).toBe(1);
-    expect((result as any[])[0].rol).toBe("ADMIN");
   });
 
   it("getMiembro finds existing member", async () => {

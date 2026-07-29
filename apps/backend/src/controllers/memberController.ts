@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { ZodError } from "zod";
 import prisma from "../database.js";
 import { memberSchema } from "@tatachio/shared";
+import type { Prisma } from "@prisma/client";
 
 export const createMember = async (req: Request, res: Response) => {
   try {
@@ -22,8 +23,8 @@ export const createMember = async (req: Request, res: Response) => {
 
 export const getMembers = async (req: Request, res: Response) => {
   try {
-    const { search, cabildoId, rol } = req.query;
-    const where: any = {};
+    const { search, cabildoId } = req.query;
+    const where: Prisma.MiembroWhereInput = {};
     
     if (search) {
       where.OR = [
@@ -36,11 +37,7 @@ export const getMembers = async (req: Request, res: Response) => {
     if (cabildoId) {
       where.cabildoId = cabildoId as string;
     }
-    
-    if (rol) {
-      where.rol = rol as string;
-    }
-    
+
     const miembros = await prisma.miembro.findMany({
       where,
       include: {
