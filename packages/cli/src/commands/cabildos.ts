@@ -50,6 +50,7 @@ export async function getCabildoCmd(
 
 export function setupCabildosCommand(program: Command): void {
   program
+    .option("--json", "Output in JSON format")
     .command("list")
     .description("List cabildos")
     .action(async () => {
