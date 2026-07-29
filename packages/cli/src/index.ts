@@ -7,6 +7,7 @@ import { logout as logoutCmd } from "./commands/logout.js";
 import { setupMiembrosCommand } from "./commands/miembros.js";
 import { setupFamiliasCommand } from "./commands/familias.js";
 import { setupCabildosCommand } from "./commands/cabildos.js";
+import { setupChatCommand } from "./commands/chat.js";
 
 const program = new Command();
 

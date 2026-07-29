@@ -40,7 +40,7 @@ export async function chatCmd(options: { message?: string; model?: string }): Pr
         content: responseText
       };
       
-      const updatedHistory = [...history, { timestamp: new Date().toISOString(), role: "user", content: message }, assistantEntry];
+      const updatedHistory = [...history, { timestamp: new Date().toISOString(), role: "user" as const, content: message }, assistantEntry];
       await saveChatHistory(updatedHistory);
       
       if (outputMode === "json") {
@@ -89,7 +89,7 @@ export async function chatCmd(options: { message?: string; model?: string }): Pr
             responseText += chunk.delta;
           }
           
-          process.stdout.write("\n> ", " ".repeat(50), "\r");
+          process.stdout.write("\n> \n");
           
           const userEntry: ChatEntry = {
             timestamp: new Date().toISOString(),
@@ -164,4 +164,3 @@ export function setupChatCommand(): void {
   program.parse();
 }
 
-export { setupChatCommand };

@@ -13,6 +13,7 @@ export async function listFamiliasCmd(
 ): Promise<{ success: boolean; data?: unknown; error?: string }> {
   try {
     const token = await resolveToken();
+    if (!token) throw new Error("No authentication token found. Please login first.");
     const baseUrl = await getBaseUrl();
 
     const params: { search?: string; cabildoId?: string } = {};
@@ -37,6 +38,7 @@ export async function getFamiliaCmd(
 ): Promise<{ success: boolean; data?: unknown; error?: string }> {
   try {
     const token = await resolveToken();
+    if (!token) throw new Error("No authentication token found. Please login first.");
     const baseUrl = await getBaseUrl();
 
     const result = await getFamilia(baseUrl, token, id);

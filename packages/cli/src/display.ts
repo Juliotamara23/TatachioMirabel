@@ -1,5 +1,4 @@
 import type { OutputMode } from "./types.js";
-import type { CliConfig } from "../types.js";
 
 function isPipeMode(): boolean {
   return process.stdout.isTTY === false || Boolean(process.argv.includes("--json"));
