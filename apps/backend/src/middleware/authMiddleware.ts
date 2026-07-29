@@ -6,12 +6,22 @@ const JWT_SECRET = process.env.JWT_SECRET || "supersecret";
 interface TokenPayload {
   id: string;
   rol: string;
+  cabildoId: string | null;
 }
 
 // Extender la interfaz Request de Express para incluir al usuario
 declare module "express" {
   interface Request {
     usuario?: TokenPayload;
+  }
+}
+
+/**
+ * Inyecta cabildoId al where_clause para capitanas; deja where intacto para ADMIN o sin cabildo
+ */
+export function applyCabildoScope(req: Request, where: Record<string, unknown>): void {
+  if (req.usuario?.rol === "CAPITANA" && req.usuario?.cabildoId) {
+    where.cabildoId = req.usuario.cabildoId;
   }
 }
 
