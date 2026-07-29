@@ -4,6 +4,7 @@ import type { OutputMode } from "./types.js";
 import { display, displayError, isPipeMode, setExitCode } from "./display.js";
 import { login as loginCmd } from "./commands/login.js";
 import { logout as logoutCmd } from "./commands/logout.js";
+import { setupMiembrosCommand } from "./commands/miembros.js";
 
 const program = new Command();
 
@@ -32,8 +33,7 @@ program
   .command("miembros")
   .description("Manage members")
   .action(() => {
-    console.error("Not implemented yet");
-    setExitCode(1);
+    setupMiembrosCommand();
   });
 
 program
