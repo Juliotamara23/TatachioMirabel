@@ -20,7 +20,7 @@ export const assignCapitana = async (req: Request, res: Response) => {
     }
 
     // Check if usuario already has a cabildo assignment
-    const usuarioCabildoExistente = await prisma.usuarioCabildo.findUnique({
+    const usuarioCabildoExistente = await prisma.usuarioCabildo.findFirst({
       where: { usuarioId },
     });
 
@@ -52,9 +52,9 @@ export const removeCapitana = async (req: Request, res: Response) => {
     // Find the UsuarioCabildo entry
     const usuarioCabildo = await prisma.usuarioCabildo.findUnique({
       where: {
-        cabildoId_usuarioId: {
-          cabildoId,
+        usuarioId_cabildoId: {
           usuarioId,
+          cabildoId,
         },
       },
     });
@@ -66,9 +66,9 @@ export const removeCapitana = async (req: Request, res: Response) => {
     // Remove the UsuarioCabildo entry
     await prisma.usuarioCabildo.delete({
       where: {
-        cabildoId_usuarioId: {
-          cabildoId,
+        usuarioId_cabildoId: {
           usuarioId,
+          cabildoId,
         },
       },
     });
