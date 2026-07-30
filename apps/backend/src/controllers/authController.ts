@@ -71,8 +71,12 @@ export const register = async (req: Request, res: Response) => {
     const { passwordHash: hash, ...usuarioSinPassword } = nuevoUsuario;
     void hash;
     res.status(201).json(usuarioSinPassword);
-  } catch {
-    res.status(500).json({ error: "Error al registrar usuario" });
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+      res.status(500).json({ error: "Error al registrar usuario" });
+    } else {
+      res.status(500).json({ error: "Error al registrar usuario" });
+    }
   }
 };
 

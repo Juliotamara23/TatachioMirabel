@@ -3,13 +3,29 @@ import { ZodError } from "zod";
 import prisma from "../database.js";
 import { memberSchema } from "@tatachio/shared";
 import type { Prisma } from "@prisma/client";
+import { applyCabildoScope } from "../middleware/authMiddleware.js";
 
 export const createMember = async (req: Request, res: Response) => {
   try {
     const validatedData = memberSchema.parse(req.body);
+    const where: Record<string, unknown> = {};
+    applyCabildoScope(req, where);
+
+    const dataToCreate: {
+      nombres: string;
+      apellidos: string;
+      numeroDocumento: string;
+      email: string;
+      estado: string;
+      cabildoId?: string;
+      familiaId?: string;
+    } = { ...validatedData };
+    if (where.cabildoId) {
+      dataToCreate.cabildoId = where.cabildoId as string;
+    }
 
     const nuevoMiembro = await prisma.miembro.create({
-      data: validatedData,
+      data: dataToCreate,
     });
 
     res.status(201).json(nuevoMiembro);
@@ -17,13 +33,14 @@ export const createMember = async (req: Request, res: Response) => {
     if (error instanceof ZodError) {
       return res.status(400).json({ error: error.issues });
     }
+    void error; // Prevent unused variable warning
     res.status(500).json({ error: "Error al crear miembro" });
   }
 };
 
 export const getMembers = async (req: Request, res: Response) => {
   try {
-    const { search, cabildoId } = req.query;
+    const { search } = req.query;
     const where: Prisma.MiembroWhereInput = {};
     
     if (search) {
@@ -34,9 +51,7 @@ export const getMembers = async (req: Request, res: Response) => {
       ];
     }
     
-    if (cabildoId) {
-      where.cabildoId = cabildoId as string;
-    }
+    applyCabildoScope(req, where);
 
     const miembros = await prisma.miembro.findMany({
       where,
@@ -64,6 +79,10 @@ export const getMemberById = async (req: Request, res: Response) => {
       return res.status(404).json({ error: "Miembro no encontrado" });
     }
 
+    if (req.usuario?.rol === "CAPITANA" && miembro.cabildoId !== req.usuario.cabildoId) {
+      return res.status(404).json({ error: "Miembro no encontrado" });
+    }
+
     res.json(miembro);
   } catch {
     res.status(500).json({ error: "Error al obtener miembro" });
@@ -74,6 +93,16 @@ export const updateMember = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const validatedData = memberSchema.partial().parse(req.body);
+
+    const miembro = await prisma.miembro.findUnique({ where: { id: id as string } });
+    
+    if (!miembro) {
+      return res.status(404).json({ error: "Miembro no encontrado" });
+    }
+    
+    if (req.usuario?.rol === "CAPITANA" && miembro.cabildoId !== req.usuario.cabildoId) {
+      return res.status(404).json({ error: "Miembro no encontrado" });
+    }
 
     const miembroActualizado = await prisma.miembro.update({
       where: { id: id as string },
@@ -92,6 +121,16 @@ export const updateMember = async (req: Request, res: Response) => {
 export const deleteMember = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
+    const miembro = await prisma.miembro.findUnique({ where: { id: id as string } });
+    
+    if (!miembro) {
+      return res.status(404).json({ error: "Miembro no encontrado" });
+    }
+    
+    if (req.usuario?.rol === "CAPITANA" && miembro.cabildoId !== req.usuario.cabildoId) {
+      return res.status(404).json({ error: "Miembro no encontrado" });
+    }
+    
     await prisma.miembro.delete({
       where: { id: id as string },
     });

@@ -6,6 +6,7 @@ import cabildoRouter from "./routes/cabildo.js";
 import familiaRouter from "./routes/familia.js";
 import chatRouter from "./routes/chat.js";
 import modelsRouter from "./routes/models.js";
+import adminRouter from "./routes/admin.js";
 import { errorHandler } from "./middleware/errorHandler.js";
 const app = express();
 app.use(express.json());
@@ -24,6 +25,7 @@ app.use("/api/cabildos", cabildoRouter);
 app.use("/api/familias", familiaRouter);
 app.use("/api/chat", chatRouter);
 app.use("/api/models", modelsRouter);
+app.use("/api/admin", adminRouter);
 
 // Global error handler — must be LAST
 app.use(errorHandler);
