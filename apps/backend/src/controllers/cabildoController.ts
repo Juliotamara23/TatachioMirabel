@@ -22,8 +22,8 @@ export const createCabildo = async (req: Request, res: Response) => {
 
 export const getCabildos = async (req: Request, res: Response) => {
   try {
-    // CAPITANA: only see their assigned cabildo
-    if (req.usuario?.rol === "CAPITANA" && req.usuario?.cabildoId) {
+    // CAPTAIN: only see their assigned cabildo
+    if (req.usuario?.rol === "CAPTAIN" && req.usuario?.cabildoId) {
       const cabildo = await prisma.cabildo.findUnique({
         where: { id: req.usuario.cabildoId },
       });
@@ -47,8 +47,8 @@ export const getCabildoById = async (req: Request, res: Response) => {
       return res.status(404).json({ error: "Cabildo no encontrado" });
     }
     
-    // CAPITANA: cannot access other cabildos
-    if (req.usuario?.rol === "CAPITANA" && req.usuario?.cabildoId && cabildo.id !== req.usuario.cabildoId) {
+    // CAPTAIN: cannot access other cabildos
+    if (req.usuario?.rol === "CAPTAIN" && req.usuario?.cabildoId && cabildo.id !== req.usuario.cabildoId) {
       return res.status(404).json({ error: "Cabildo no encontrado" });
     }
 

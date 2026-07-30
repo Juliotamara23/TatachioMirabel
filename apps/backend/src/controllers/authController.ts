@@ -26,9 +26,9 @@ export const register = async (req: Request, res: Response) => {
       return res.status(400).json({ error: "Faltan campos requeridos: email, password, nombre, rol" });
     }
 
-    if (rol === "CAPITANA") {
+    if (rol === "CAPTAIN") {
       if (!cabildoId) {
-        return res.status(400).json({ error: "cabildoId is required for CAPITANA role" });
+        return res.status(400).json({ error: "cabildoId is required for CAPTAIN role" });
       }
 
       const existsCabildo = await prisma.cabildo.findUnique({
@@ -55,11 +55,11 @@ export const register = async (req: Request, res: Response) => {
         email,
         passwordHash,
         nombre,
-        rol: (rol as "ADMINISTRADOR" | "CAPITANA") || "CAPITANA",
+        rol: (rol as "ADMINISTRATOR" | "CAPTAIN") || "CAPTAIN",
       },
     });
 
-    if (rol === "CAPITANA" && cabildoId) {
+    if (rol === "CAPTAIN" && cabildoId) {
       await prisma.usuarioCabildo.create({
         data: {
           usuarioId: nuevoUsuario.id,
@@ -100,7 +100,7 @@ export const login = async (req: Request, res: Response) => {
     // Determinar cabildoId basado en rol y cabildos asignados
     let cabildoId: string | null = null;
 
-    if (usuario.rol === "CAPITANA") {
+    if (usuario.rol === "CAPTAIN") {
       if (usuario.cabildos.length === 0) {
         return res.status(403).json({ 
           error: "Capitana requires at least one cabildo assignment. Contact an administrator." 

@@ -11,8 +11,8 @@ export const listModels = (_req: Request, res: Response): void => {
       capabilities: m.capabilities,
     })),
     defaults: {
-      ADMINISTRADOR: "google/gemini-2.0-flash",
-      CAPITANA: "google/gemma-4-1b-it",
+      ADMINISTRATOR: "google/gemini-2.0-flash",
+      CAPTAIN: "google/gemma-4-1b-it",
     },
   });
 };

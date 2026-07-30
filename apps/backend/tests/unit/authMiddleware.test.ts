@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
-import { authMiddleware, isAdmin, isCapitana } from "../../src/middleware/authMiddleware.js";
+import { authMiddleware, isAdmin, isCaptain } from "../../src/middleware/authMiddleware.js";
 
 // Helper to create mock req/res/next
 function mockReq(token?: string, rol?: string): Request {
@@ -51,7 +51,7 @@ describe("authMiddleware", () => {
 
   it("should call next() for valid token", () => {
     const token = jwt.sign(
-      { id: "user-1", rol: "ADMINISTRADOR" },
+      { id: "user-1", rol: "ADMINISTRATOR" },
       process.env.JWT_SECRET || "test-secret"
     );
     const req = mockReq(token);
@@ -62,13 +62,13 @@ describe("authMiddleware", () => {
 
     expect(next).toHaveBeenCalled();
     expect(req.usuario).toBeDefined();
-    expect(req.usuario?.rol).toBe("ADMINISTRADOR");
+    expect(req.usuario?.rol).toBe("ADMINISTRATOR");
   });
 });
 
 describe("isAdmin", () => {
   it("should return 403 for non-admin role", () => {
-    const req = mockReq(undefined, "CAPITANA");
+    const req = mockReq(undefined, "CAPTAIN");
     const res = mockRes();
     const next = mockNext();
 
@@ -81,8 +81,8 @@ describe("isAdmin", () => {
     expect(next).not.toHaveBeenCalled();
   });
 
-  it("should call next() for ADMINISTRADOR role", () => {
-    const req = mockReq(undefined, "ADMINISTRADOR");
+  it("should call next() for ADMINISTRATOR role", () => {
+    const req = mockReq(undefined, "ADMINISTRATOR");
     const res = mockRes();
     const next = mockNext();
 
@@ -92,23 +92,23 @@ describe("isAdmin", () => {
   });
 });
 
-describe("isCapitana", () => {
-  it("should call next() for CAPITANA role", () => {
-    const req = mockReq(undefined, "CAPITANA");
+describe("isCaptain", () => {
+  it("should call next() for CAPTAIN role", () => {
+    const req = mockReq(undefined, "CAPTAIN");
     const res = mockRes();
     const next = mockNext();
 
-    isCapitana(req, res, next);
+    isCaptain(req, res, next);
 
     expect(next).toHaveBeenCalled();
   });
 
-  it("should call next() for ADMINISTRADOR role (superset)", () => {
-    const req = mockReq(undefined, "ADMINISTRADOR");
+  it("should call next() for ADMINISTRATOR role (superset)", () => {
+    const req = mockReq(undefined, "ADMINISTRATOR");
     const res = mockRes();
     const next = mockNext();
 
-    isCapitana(req, res, next);
+    isCaptain(req, res, next);
 
     expect(next).toHaveBeenCalled();
   });
@@ -118,7 +118,7 @@ describe("isCapitana", () => {
     const res = mockRes();
     const next = mockNext();
 
-    isCapitana(req, res, next);
+    isCaptain(req, res, next);
 
     expect(res.status).toHaveBeenCalledWith(403);
     expect(res.json).toHaveBeenCalledWith(

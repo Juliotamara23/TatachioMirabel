@@ -8,7 +8,7 @@ import prisma from "../../database.js";
 export const getReporteDataTool = tool({
   description:
     "Obtiene los datos de un reporte específico incluyendo las altas y bajas. " +
-    "SOLO disponible para administradores.",
+    "SOLO disponible para administratores.",
   parameters: z.object({
     reporteId: z.string().describe("UUID del reporte"),
   }),

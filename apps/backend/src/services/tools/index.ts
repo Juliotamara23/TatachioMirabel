@@ -17,9 +17,9 @@ export const ALL_TOOLS = {
 };
 
 /**
- * Tools available to CAPITANA role (read-only, no report data).
+ * Tools available to CAPTAIN role (read-only, no report data).
  */
-const CAPITANA_ALLOWED = new Set([
+const CAPTAIN_ALLOWED = new Set([
   "searchMiembros",
   "getMiembroById",
   "getFamiliaMembers",
@@ -29,17 +29,17 @@ const CAPITANA_ALLOWED = new Set([
 /**
  * Returns the subset of tools available for a given role.
  *
- * - ADMINISTRADOR: all 5 tools
- * - CAPITANA: 4 tools (excludes getReporteData)
+ * - ADMINISTRATOR: all 5 tools
+ * - CAPTAIN: 4 tools (excludes getReporteData)
  * - Unknown role: empty object
  */
 export function getToolsForRole(rol: string): Record<string, unknown> {
-  if (rol === "ADMINISTRADOR") return { ...ALL_TOOLS };
+  if (rol === "ADMINISTRATOR") return { ...ALL_TOOLS };
 
-  if (rol === "CAPITANA") {
+  if (rol === "CAPTAIN") {
     const filtered: Record<string, unknown> = {};
     for (const [name, toolDef] of Object.entries(ALL_TOOLS)) {
-      if (CAPITANA_ALLOWED.has(name)) {
+      if (CAPTAIN_ALLOWED.has(name)) {
         filtered[name] = toolDef;
       }
     }

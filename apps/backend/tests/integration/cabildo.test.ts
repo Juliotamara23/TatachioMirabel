@@ -28,7 +28,7 @@ describe("Cabildo API Integration", () => {
     // Generate token directly since auth routes aren't mounted in this app
     const jwt = await import("jsonwebtoken");
     adminToken = jwt.default.sign(
-      { id: "admin-id", rol: "ADMINISTRADOR" },
+      { id: "admin-id", rol: "ADMINISTRATOR" },
       process.env.JWT_SECRET || "test-secret"
     );
   });
@@ -91,7 +91,7 @@ describe("Cabildo API Integration", () => {
     it("should return 403 for non-admin user", async () => {
       const jwt = await import("jsonwebtoken");
       const capitanaToken = jwt.default.sign(
-        { id: "cap-1", rol: "CAPITANA" },
+        { id: "cap-1", rol: "CAPTAIN" },
         process.env.JWT_SECRET || "test-secret"
       );
 
@@ -186,7 +186,7 @@ describe("Cabildo API Integration", () => {
     it("should return 403 for non-admin", async () => {
       const jwt = await import("jsonwebtoken");
       const capitanaToken = jwt.default.sign(
-        { id: "cap-2", rol: "CAPITANA" },
+        { id: "cap-2", rol: "CAPTAIN" },
         process.env.JWT_SECRET || "test-secret"
       );
 
@@ -223,7 +223,7 @@ describe("Cabildo API Integration", () => {
     it("should return 403 for non-admin on delete", async () => {
       const jwt = await import("jsonwebtoken");
       const capitanaToken = jwt.default.sign(
-        { id: "cap-3", rol: "CAPITANA" },
+        { id: "cap-3", rol: "CAPTAIN" },
         process.env.JWT_SECRET || "test-secret"
       );
 

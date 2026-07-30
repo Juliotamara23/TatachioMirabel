@@ -47,10 +47,10 @@ describe("Model Registry", () => {
 
     it("assigns correct role defaults", () => {
       const capiModel = MODEL_REGISTRY.find(
-        (m) => m.defaultFor === "CAPITANA"
+        (m) => m.defaultFor === "CAPTAIN"
       );
       const adminModel = MODEL_REGISTRY.find(
-        (m) => m.defaultFor === "ADMINISTRADOR"
+        (m) => m.defaultFor === "ADMINISTRATOR"
       );
 
       expect(capiModel).toBeDefined();
@@ -120,27 +120,27 @@ describe("Model Registry", () => {
   // ─── resolveModel selection logic ───────────────────────────────
 
   describe("resolveModel", () => {
-    it("selects CAPITANA default (gemma-4) when no explicit model is provided", () => {
+    it("selects CAPTAIN default (gemma-4) when no explicit model is provided", () => {
       process.env.GOOGLE_GENERATIVE_AI_API_KEY = "test-api-key";
-      const { info } = resolveModel(undefined, "CAPITANA");
+      const { info } = resolveModel(undefined, "CAPTAIN");
       expect(info.id).toBe("google/gemini-3.1-flash-lite-preview");
     });
 
-    it("selects ADMINISTRADOR default (gemini) when no explicit model is provided", () => {
+    it("selects ADMINISTRATOR default (gemini) when no explicit model is provided", () => {
       process.env.GOOGLE_GENERATIVE_AI_API_KEY = "test-api-key";
-      const { info } = resolveModel(undefined, "ADMINISTRADOR");
+      const { info } = resolveModel(undefined, "ADMINISTRATOR");
       expect(info.id).toBe("google/gemini-2.0-flash");
     });
 
     it("overrides role default when explicit modelId is provided", () => {
       process.env.GOOGLE_GENERATIVE_AI_API_KEY = "test-api-key";
-      const { info } = resolveModel("google/gemini-2.0-flash", "CAPITANA");
+      const { info } = resolveModel("google/gemini-2.0-flash", "CAPTAIN");
       expect(info.id).toBe("google/gemini-2.0-flash");
     });
 
     it("throws ModelNotFoundError when explicit modelId does not exist", () => {
       process.env.GOOGLE_GENERATIVE_AI_API_KEY = "test-api-key";
-      expect(() => resolveModel("nonexistent/model-id", "ADMINISTRADOR")).toThrow(
+      expect(() => resolveModel("nonexistent/model-id", "ADMINISTRATOR")).toThrow(
         ModelNotFoundError
       );
     });
@@ -148,7 +148,7 @@ describe("Model Registry", () => {
     it("ModelNotFoundError message includes the invalid model id", () => {
       process.env.GOOGLE_GENERATIVE_AI_API_KEY = "test-api-key";
       try {
-        resolveModel("bad-model", "ADMINISTRADOR");
+        resolveModel("bad-model", "ADMINISTRATOR");
         expect.fail("Should have thrown");
       } catch (error) {
         expect(error).toBeInstanceOf(ModelNotFoundError);
@@ -165,23 +165,23 @@ describe("Model Registry", () => {
 
     it("throws NoModelsAvailableError when resolveModel has no models to pick from", () => {
       // No API keys set, ollama hidden → resolveModel should throw
-      expect(() => resolveModel(undefined, "CAPITANA")).toThrow(
+      expect(() => resolveModel(undefined, "CAPTAIN")).toThrow(
         NoModelsAvailableError
       );
     });
 
     it("falls back to first available model when role default is not available", () => {
       // When Google API key is set, both google models are available.
-      // If CAPITANA default (gemma) wasn't available, the fallback would pick the first.
+      // If CAPTAIN default (gemma) wasn't available, the fallback would pick the first.
       process.env.GOOGLE_GENERATIVE_AI_API_KEY = "test-api-key";
-      const { info } = resolveModel(undefined, "CAPITANA");
+      const { info } = resolveModel(undefined, "CAPTAIN");
       // gemma IS available (key is set), so this is the expected behavior
       expect(getAvailableModels().some((m) => m.id === info.id)).toBe(true);
     });
 
     it("returns a LanguageModel alongside the ModelInfo", () => {
       process.env.GOOGLE_GENERATIVE_AI_API_KEY = "test-api-key";
-      const { model, info } = resolveModel(undefined, "ADMINISTRADOR");
+      const { model, info } = resolveModel(undefined, "ADMINISTRATOR");
       expect(info.id).toBe("google/gemini-2.0-flash");
       expect(model).toBeDefined();
       // With our mock, the model object has shape { provider, modelId }
@@ -191,7 +191,7 @@ describe("Model Registry", () => {
     it("does not create ollama models (v1 incompatible)", () => {
       // Ollama is marked available: false, so resolveModel should
       // throw NoModelsAvailableError when no other models are available
-      expect(() => resolveModel(undefined, "CAPITANA")).toThrow(
+      expect(() => resolveModel(undefined, "CAPTAIN")).toThrow(
         NoModelsAvailableError
       );
     });

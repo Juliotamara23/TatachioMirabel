@@ -40,7 +40,7 @@ import {
 function mockReq(body: unknown, usuario?: { id: string; rol: string }): Request {
   return {
     body,
-    usuario: usuario || { id: "test-user", rol: "ADMINISTRADOR" },
+    usuario: usuario || { id: "test-user", rol: "ADMINISTRATOR" },
   } as unknown as Request;
 }
 
@@ -123,7 +123,7 @@ describe("chatController", () => {
         {
           messages: [{ role: "user", content: "¿Cuántos miembros hay?" }],
         },
-        { id: "user-1", rol: "ADMINISTRADOR" }
+        { id: "user-1", rol: "ADMINISTRATOR" }
       );
       const res = mockRes();
 
@@ -131,7 +131,7 @@ describe("chatController", () => {
 
       expect(runChat).toHaveBeenCalledWith(
         [{ role: "user", content: "¿Cuántos miembros hay?" }],
-        "ADMINISTRADOR",
+        "ADMINISTRATOR",
         { model: undefined, stream: true }
       );
     });
@@ -171,7 +171,7 @@ describe("chatController", () => {
 
       expect(runChat).toHaveBeenCalledWith(
         expect.anything(),
-        "ADMINISTRADOR",
+        "ADMINISTRATOR",
         { model: "ollama/qwen3.5:9b", stream: false }
       );
     });

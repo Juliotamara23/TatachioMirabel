@@ -15,11 +15,11 @@ interface LimitConfig {
 // ─── Configuration ───────────────────────────────────────────────────
 
 const LIMITS: Record<string, LimitConfig> = {
-  ADMINISTRADOR: { capacity: 60, refillRate: 1 }, // 60 tokens, 1/sec
-  CAPITANA: { capacity: 20, refillRate: 0.33 }, // 20 tokens, ~0.33/sec
+  ADMINISTRATOR: { capacity: 60, refillRate: 1 }, // 60 tokens, 1/sec
+  CAPTAIN: { capacity: 20, refillRate: 0.33 }, // 20 tokens, ~0.33/sec
 };
 
-const DEFAULT_LIMIT = LIMITS.CAPITANA;
+const DEFAULT_LIMIT = LIMITS.CAPTAIN;
 
 // ─── State ───────────────────────────────────────────────────────────
 

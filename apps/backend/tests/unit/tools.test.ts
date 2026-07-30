@@ -270,8 +270,8 @@ describe("AI Tool Definitions", () => {
   // ── Role-based tool gating ────────────────────────────────────
 
   describe("getToolsForRole", () => {
-    it("returns all 5 tools for ADMINISTRADOR", () => {
-      const tools = getToolsForRole("ADMINISTRADOR");
+    it("returns all 5 tools for ADMINISTRATOR", () => {
+      const tools = getToolsForRole("ADMINISTRATOR");
       const names = Object.keys(tools);
       expect(names).toHaveLength(5);
       expect(names).toContain("searchMiembros");
@@ -281,8 +281,8 @@ describe("AI Tool Definitions", () => {
       expect(names).toContain("getReporteData");
     });
 
-    it("returns only 4 tools for CAPITANA (no getReporteData)", () => {
-      const tools = getToolsForRole("CAPITANA");
+    it("returns only 4 tools for CAPTAIN (no getReporteData)", () => {
+      const tools = getToolsForRole("CAPTAIN");
       const names = Object.keys(tools);
       expect(names).toHaveLength(4);
       expect(names).toContain("searchMiembros");

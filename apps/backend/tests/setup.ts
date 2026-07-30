@@ -27,12 +27,12 @@ export async function setup() {
   // Ensure admin user exists for auth tests
   await prisma.usuario.upsert({
     where: { email: "admin@tatachio.com" },
-    update: { passwordHash, rol: "ADMINISTRADOR" },
+    update: { passwordHash, rol: "ADMINISTRATOR" },
     create: {
       email: "admin@tatachio.com",
       passwordHash,
       nombre: "Admin Test",
-      rol: "ADMINISTRADOR",
+      rol: "ADMINISTRATOR",
     },
   });
 

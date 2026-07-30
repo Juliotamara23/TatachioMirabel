@@ -47,7 +47,7 @@ describe("rateLimiter", () => {
 
   describe("basic flow", () => {
     it("calls next() when user is within rate limit (ADMIN)", () => {
-      const req = mockReq({ id: "user-a", rol: "ADMINISTRADOR" });
+      const req = mockReq({ id: "user-a", rol: "ADMINISTRATOR" });
       const res = mockRes();
       const next = mockNext();
 
@@ -56,8 +56,8 @@ describe("rateLimiter", () => {
       expect(next).toHaveBeenCalledOnce();
     });
 
-    it("calls next() when user is within rate limit (CAPITANA)", () => {
-      const req = mockReq({ id: "user-b", rol: "CAPITANA" });
+    it("calls next() when user is within rate limit (CAPTAIN)", () => {
+      const req = mockReq({ id: "user-b", rol: "CAPTAIN" });
       const res = mockRes();
       const next = mockNext();
 
@@ -69,7 +69,7 @@ describe("rateLimiter", () => {
 
   describe("rate limit exceeded", () => {
     it("returns 429 when ADMIN exceeds 60 requests in window", () => {
-      const req = mockReq({ id: "admin-heavy", rol: "ADMINISTRADOR" });
+      const req = mockReq({ id: "admin-heavy", rol: "ADMINISTRATOR" });
       const res = mockRes();
       const next = mockNext();
 
@@ -91,8 +91,8 @@ describe("rateLimiter", () => {
       expect(next).not.toHaveBeenCalled();
     });
 
-    it("returns 429 when CAPITANA exceeds 20 requests in window", () => {
-      const req = mockReq({ id: "capi-heavy", rol: "CAPITANA" });
+    it("returns 429 when CAPTAIN exceeds 20 requests in window", () => {
+      const req = mockReq({ id: "capi-heavy", rol: "CAPTAIN" });
       const res = mockRes();
       const next = mockNext();
 
@@ -114,7 +114,7 @@ describe("rateLimiter", () => {
     });
 
     it("sets Retry-After header when rate limited", () => {
-      const req = mockReq({ id: "capi-limited", rol: "CAPITANA" });
+      const req = mockReq({ id: "capi-limited", rol: "CAPTAIN" });
       const res = mockRes();
 
       for (let i = 0; i < 20; i++) {
@@ -136,7 +136,7 @@ describe("rateLimiter", () => {
 
   describe("per-user isolation", () => {
     it("rate limiting user A does not affect user B", () => {
-      const reqA = mockReq({ id: "user-a", rol: "CAPITANA" });
+      const reqA = mockReq({ id: "user-a", rol: "CAPTAIN" });
 
       // Exhaust user A's limit
       for (let i = 0; i < 20; i++) {
@@ -144,7 +144,7 @@ describe("rateLimiter", () => {
       }
 
       // User B should still work
-      const reqB = mockReq({ id: "user-b", rol: "CAPITANA" });
+      const reqB = mockReq({ id: "user-b", rol: "CAPTAIN" });
       const resB = mockRes();
       const nextB = mockNext();
       rateLimiter(reqB, resB, nextB);
@@ -155,14 +155,14 @@ describe("rateLimiter", () => {
 
   describe("token refill over time", () => {
     it("allows requests again after tokens refill", () => {
-      const req = mockReq({ id: "refill-user", rol: "CAPITANA" });
+      const req = mockReq({ id: "refill-user", rol: "CAPTAIN" });
 
       // Exhaust limit
       for (let i = 0; i < 20; i++) {
         rateLimiter(req, mockRes(), mockNext());
       }
 
-      // Advance time: CAPITANA refill rate is 0.33/sec, so 1 token ≈ 3 sec
+      // Advance time: CAPTAIN refill rate is 0.33/sec, so 1 token ≈ 3 sec
       // Advance 30 seconds → ~10 tokens refilled
       vi.advanceTimersByTime(30_000);
 
@@ -174,11 +174,11 @@ describe("rateLimiter", () => {
     });
   });
 
-  describe("unknown role falls back to CAPITANA", () => {
-    it("uses CAPITANA limit for unknown roles", () => {
+  describe("unknown role falls back to CAPTAIN", () => {
+    it("uses CAPTAIN limit for unknown roles", () => {
       const req = mockReq({ id: "unknown-role", rol: "INVITADO" });
 
-      // Should at least allow a few requests (CAPITANA allows 20)
+      // Should at least allow a few requests (CAPTAIN allows 20)
       for (let i = 0; i < 5; i++) {
         const resLoop = mockRes();
         const nextLoop = mockNext();

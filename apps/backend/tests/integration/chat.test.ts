@@ -37,12 +37,12 @@ describe("Chat API Integration", () => {
     // using JWT directly since we know the secret
     const jwt = await import("jsonwebtoken");
     adminToken = jwt.default.sign(
-      { id: "test-admin-id", rol: "ADMINISTRADOR" },
+      { id: "test-admin-id", rol: "ADMINISTRATOR" },
       process.env.JWT_SECRET || "test-secret",
       { expiresIn: "1h" }
     );
     capiToken = jwt.default.sign(
-      { id: "test-capi-id", rol: "CAPITANA" },
+      { id: "test-capi-id", rol: "CAPTAIN" },
       process.env.JWT_SECRET || "test-secret",
       { expiresIn: "1h" }
     );
@@ -119,7 +119,7 @@ describe("Chat API Integration", () => {
   // ── Rate Limiting ───────────────────────────────────────────────
 
   describe("POST /api/chat — Rate Limiting", () => {
-    it("returns 429 when CAPITANA exceeds 20 requests", async () => {
+    it("returns 429 when CAPTAIN exceeds 20 requests", async () => {
       // Throttle external API calls to avoid hitting Google's rate limit.
       // Ollama (local) skips throttling entirely.
       const results: number[] = [];
@@ -221,8 +221,8 @@ describe("Chat API Integration", () => {
       expect(res.body).toHaveProperty("models");
       expect(res.body).toHaveProperty("defaults");
       expect(Array.isArray(res.body.models)).toBe(true);
-      expect(res.body.defaults.ADMINISTRADOR).toBeDefined();
-      expect(res.body.defaults.CAPITANA).toBeDefined();
+      expect(res.body.defaults.ADMINISTRATOR).toBeDefined();
+      expect(res.body.defaults.CAPTAIN).toBeDefined();
     });
   });
 });

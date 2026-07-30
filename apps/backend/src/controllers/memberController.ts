@@ -79,7 +79,7 @@ export const getMemberById = async (req: Request, res: Response) => {
       return res.status(404).json({ error: "Miembro no encontrado" });
     }
 
-    if (req.usuario?.rol === "CAPITANA" && miembro.cabildoId !== req.usuario.cabildoId) {
+    if (req.usuario?.rol === "CAPTAIN" && miembro.cabildoId !== req.usuario.cabildoId) {
       return res.status(404).json({ error: "Miembro no encontrado" });
     }
 
@@ -100,7 +100,7 @@ export const updateMember = async (req: Request, res: Response) => {
       return res.status(404).json({ error: "Miembro no encontrado" });
     }
     
-    if (req.usuario?.rol === "CAPITANA" && miembro.cabildoId !== req.usuario.cabildoId) {
+    if (req.usuario?.rol === "CAPTAIN" && miembro.cabildoId !== req.usuario.cabildoId) {
       return res.status(404).json({ error: "Miembro no encontrado" });
     }
 
@@ -127,7 +127,7 @@ export const deleteMember = async (req: Request, res: Response) => {
       return res.status(404).json({ error: "Miembro no encontrado" });
     }
     
-    if (req.usuario?.rol === "CAPITANA" && miembro.cabildoId !== req.usuario.cabildoId) {
+    if (req.usuario?.rol === "CAPTAIN" && miembro.cabildoId !== req.usuario.cabildoId) {
       return res.status(404).json({ error: "Miembro no encontrado" });
     }
     
