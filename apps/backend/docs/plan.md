@@ -42,7 +42,7 @@ Backend para gestionar los datos censales del Cabildo Tatachio Mirabel, con una 
 
 | Cliente | Usuario | Prioridad | Descripción |
 |---|---|---|---|---|
-| **CLI** | Admin | Fase 1 | Terminal: login + chat con el LLM + comandos rápidos. Interfaz principal del admin. |
+| **CLI** | ADMINISTRATOR | Fase 1 ✅ | Terminal: login + chat con el LLM + comandos CRUD. Interfaz principal del admin. |
 | **Web** | Admin | Fase 2 | Paneles, dashboards, CRUD visual. Opcional. |
 | **PWA Mobile** | Capitana | Fase 3 | Interfaz tipo chat, mobile-first, offline-first (caché IndexedDB). |
 
@@ -57,9 +57,9 @@ El LLM es la interfaz principal para operar los datos. El REST tradicional queda
 - **SQLite es definitivo.** No hay migración a PostgreSQL. El proyecto se usa ~3 meses al año, no justifica costo ni complejidad. SQLite permite: backup = copiar archivo, deploy = cualquier VPS de $5 o incluso localhost durante la temporada activa.
 - **Tool calling sobre la DB.** No RAG para datos operativos. Las consultas van directo a SQLite vía Prisma. Es más barato (sin embeddings), más preciso (datos concretos no se alucinan) y permite writes controlados.
 - **Sin costos de infraestructura.** Sin VPS fijo, sin servicios cloud pagados. El backend corre bajo demanda durante la temporada de trabajo censal.
-- **Dos roles:**
-  - **Admin**: acceso total (CRUD completo), CLI + web.
-  - **Capitana**: lectura + creación + edición de miembros. No puede eliminar registros. Acceso vía PWA mobile con agente IA con guardrails.
+- **Dos roles (en inglés):**
+  - **ADMINISTRATOR**: acceso total (CRUD completo), CLI + web.
+  - **CAPTAIN**: lectura + creación + edición de miembros. Scoped a un solo cabildo vía JWT. No puede eliminar registros ni ver otros cabildos.
 - **CLI como cliente completo.** El CLI no es solo un wrapper del chat — es un cliente de la API REST que expone todos los comandos disponibles (tipo `gh` o `gcloud`). Autenticación vía JWT (login o variable de entorno). Usable desde OpenCode o cualquier terminal.
 - **LLM provider-agnóstico.** El stack de IA (Vercel AI SDK) permite usar cualquier proveedor sin cambiar el código: OpenAI, Google Gemini, Anthropic, Ollama, etc.
 - **PWA offline-first para Capitana.** La capitana accede vía PWA con caché local (IndexedDB). En modo conectado sincroniza con el backend. En modo offline consulta los datos cacheados. Sin dependencia de internet permanente.
@@ -112,15 +112,29 @@ Prioridad: **alta** — el core del producto.
 - [x] GET `/api/models` — listado de modelos disponibles
 - [x] Model registry provider-agnóstico (Google Gemini, Ollama)
 
-### Fase 1C — CLI Admin
-Prioridad: **alta** — interfaz principal del admin.
+### ✅ Fase 1C — CLI Admin
+Prioridad: **alta** — interfaz principal del admin. **COMPLETO.**
 
-- [ ] Cliente de terminal como paquete independiente (`packages/cli/` o binario)
-- [ ] Autenticación: `login` (cachea token) o leer `TATACHIO_TOKEN` de env
-- [ ] Comandos CRUD directos (sin LLM): `miembros list`, `miembros get`, `miembros create`, `miembros update`, `familias list`, `cabildos list`
-- [ ] Comando `chat` — sesión interactiva con el LLM vía tool calling
-- [ ] Modo pipe: entradas y salidas en JSON para scripts
-- [ ] Documentado para uso desde OpenCode
+- [x] Cliente de terminal como paquete independiente (`packages/cli/`)
+- [x] Autenticación: `login` (cachea token) o leer `TATACHIO_TOKEN` de env
+- [x] Comandos CRUD directos (sin LLM): `miembros list`, `miembros get`, `miembros create`, `miembros update`, `familias list`, `cabildos list`
+- [x] Comando `chat` — sesión interactiva con el LLM vía tool calling + SSE streaming
+- [x] Modo pipe: entradas y salidas en JSON para scripts y agentes
+- [x] 42 tests, ESLint limpio, build limpio
+- [x] Stack: Commander.js + @inquirer/prompts + native fetch
+- [x] PR #12 merged
+
+### ✅ Fase 1D — Backend: Scope de Cabildo para Capitanas
+Prioridad: **alta** — data isolation. **COMPLETO.**
+
+- [x] JWT extendido con `cabildoId: string | null`
+- [x] Login resuelve cabildo desde `UsuarioCabildo` (CAPTAIN = 1 cabildo exacto)
+- [x] `applyCabildoScope(req, where)` — scoping automático en todos los controladores
+- [x] Admin endpoints: `POST/DELETE /api/admin/cabildos/:id/captains/:uid`
+- [x] Register requiere `cabildoId` para CAPTAIN
+- [x] Roles renombrados a inglés: `CAPTAIN` + `ADMINISTRATOR`
+- [x] 152/155 tests, ESLint limpio
+- [x] PR #13 merged
 
 ### Fase 2 — Frontend Admin (Web)
 Prioridad: **media** — interfaz web complementaria al CLI.
