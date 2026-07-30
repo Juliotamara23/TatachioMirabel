@@ -60,6 +60,11 @@ export const getFamiliaById = async (req: Request, res: Response) => {
       return res.status(404).json({ error: "Familia no encontrada" });
     }
 
+    // CAPITANA: cannot access familias from other cabildos
+    if (req.usuario?.rol === "CAPITANA" && req.usuario?.cabildoId && familia.cabildoId !== req.usuario.cabildoId) {
+      return res.status(404).json({ error: "Familia no encontrada" });
+    }
+
     res.json(familia);
   } catch {
     res.status(500).json({ error: "Error al obtener familia" });
