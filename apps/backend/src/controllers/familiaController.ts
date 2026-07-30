@@ -1,30 +1,29 @@
 import { Request, Response } from "express";
 import { ZodError } from "zod";
-import { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
 import prisma from "../database.js";
 import { familiaSchema } from "@tatachio/shared";
+import { applyCabildoScope } from "../middleware/authMiddleware.js";
 
 export const createFamilia = async (req: Request, res: Response) => {
   try {
     const validated = familiaSchema.parse(req.body);
+    const where: Record<string, unknown> = { ...validated };
+    applyCabildoScope(req, where);
 
     // Check cabildo exists before creating familia
     const cabildo = await prisma.cabildo.findUnique({
-      where: { id: validated.cabildoId },
+      where: { id: where.cabildoId as string },
     });
 
     if (!cabildo) {
       return res.status(404).json({ error: "Cabildo no encontrado" });
     }
 
-    const familia = await prisma.familia.create({ data: validated });
+    const familia = await prisma.familia.create({ data: where });
     res.status(201).json(familia);
   } catch (error: unknown) {
     if (error instanceof ZodError) {
       return res.status(400).json({ error: error.issues });
-    }
-    if (error instanceof PrismaClientKnownRequestError && error.code === "P2002") {
-      return res.status(409).json({ error: "Ya existe un registro con esos datos" });
     }
     res.status(500).json({ error: "Error al crear familia" });
   }
@@ -33,7 +32,12 @@ export const createFamilia = async (req: Request, res: Response) => {
 export const getFamilias = async (req: Request, res: Response) => {
   try {
     const where: Record<string, unknown> = {};
-    if (req.query.cabildoId) {
+    
+    // CAPITANA: always scoped to their cabildo (JWT wins)
+    // ADMIN: can filter by query param, or see all
+    applyCabildoScope(req, where);
+    
+    if (!where.cabildoId && req.query.cabildoId) {
       where.cabildoId = req.query.cabildoId as string;
     }
 

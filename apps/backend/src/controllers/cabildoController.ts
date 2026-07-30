@@ -3,6 +3,7 @@ import { ZodError } from "zod";
 import { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
 import prisma from "../database.js";
 import { cabildoSchema } from "@tatachio/shared";
+import { applyCabildoScope } from "../middleware/authMiddleware.js";
 
 export const createCabildo = async (req: Request, res: Response) => {
   try {
@@ -20,9 +21,16 @@ export const createCabildo = async (req: Request, res: Response) => {
   }
 };
 
-export const getCabildos = async (_req: Request, res: Response) => {
+export const getCabildos = async (req: Request, res: Response) => {
   try {
-    const cabildos = await prisma.cabildo.findMany();
+    const where: Record<string, unknown> = {};
+    
+    applyCabildoScope(req, where);
+
+    const cabildos = where.cabildoId 
+      ? await prisma.cabildo.findMany({ where })
+      : await prisma.cabildo.findMany();
+      
     res.json(cabildos);
   } catch {
     res.status(500).json({ error: "Error al obtener cabildos" });
@@ -32,8 +40,12 @@ export const getCabildos = async (_req: Request, res: Response) => {
 export const getCabildoById = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
+    const where: Record<string, unknown> = {};
+    
+    applyCabildoScope(req, where);
+
     const cabildo = await prisma.cabildo.findUnique({
-      where: { id },
+      where: where.cabildoId ? { id, cabildoId: where.cabildoId as string } : { id },
     });
 
     if (!cabildo) {
