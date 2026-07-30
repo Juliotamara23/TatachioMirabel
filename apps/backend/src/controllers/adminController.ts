@@ -6,7 +6,7 @@ export const assignCapitana = async (req: Request, res: Response) => {
   try {
     const { cabildoId, usuarioId } = req.params;
 
-    // Check if usuario exists and has CAPITANA rol
+    // Check if usuario exists and has CAPTAIN rol
     const usuario = await prisma.usuario.findUnique({
       where: { id: usuarioId },
     });
@@ -15,8 +15,8 @@ export const assignCapitana = async (req: Request, res: Response) => {
       return res.status(404).json({ error: "Usuario no encontrado" });
     }
 
-    if (usuario.rol !== "CAPITANA") {
-      return res.status(400).json({ error: "Solo los usuarios con rol CAPITANA pueden ser asignados como capitana" });
+    if (usuario.rol !== "CAPTAIN") {
+      return res.status(400).json({ error: "Solo los usuarios con rol CAPTAIN pueden ser asignados como captain" });
     }
 
     // Check if usuario already has a cabildo assignment
@@ -41,7 +41,7 @@ export const assignCapitana = async (req: Request, res: Response) => {
     if (error instanceof ZodError) {
       return res.status(400).json({ error: error.issues });
     }
-    res.status(500).json({ error: "Error al asignar capitana" });
+    res.status(500).json({ error: "Error al asignar captain" });
   }
 };
 
@@ -60,7 +60,7 @@ export const removeCapitana = async (req: Request, res: Response) => {
     });
 
     if (!usuarioCabildo) {
-      return res.status(404).json({ error: "Asignación de capitana no encontrada" });
+      return res.status(404).json({ error: "Asignación de captain no encontrada" });
     }
 
     // Remove the UsuarioCabildo entry
@@ -75,6 +75,6 @@ export const removeCapitana = async (req: Request, res: Response) => {
 
     res.status(204).send();
   } catch {
-    res.status(500).json({ error: "Error al remover capitana" });
+    res.status(500).json({ error: "Error al remover captain" });
   }
 };

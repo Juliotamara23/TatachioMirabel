@@ -33,7 +33,7 @@ export const getFamilias = async (req: Request, res: Response) => {
   try {
     const where: Record<string, unknown> = {};
     
-    // CAPITANA: always scoped to their cabildo (JWT wins)
+    // CAPTAIN: always scoped to their cabildo (JWT wins)
     // ADMIN: can filter by query param, or see all
     applyCabildoScope(req, where);
     
@@ -60,8 +60,8 @@ export const getFamiliaById = async (req: Request, res: Response) => {
       return res.status(404).json({ error: "Familia no encontrada" });
     }
 
-    // CAPITANA: cannot access familias from other cabildos
-    if (req.usuario?.rol === "CAPITANA" && req.usuario?.cabildoId && familia.cabildoId !== req.usuario.cabildoId) {
+    // CAPTAIN: cannot access familias from other cabildos
+    if (req.usuario?.rol === "CAPTAIN" && req.usuario?.cabildoId && familia.cabildoId !== req.usuario.cabildoId) {
       return res.status(404).json({ error: "Familia no encontrada" });
     }
 

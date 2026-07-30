@@ -83,7 +83,7 @@ describe("Auth API", () => {
           email: testEmail,
           password: "password123",
           nombre: "Test User",
-          rol: "ADMINISTRADOR",
+          rol: "ADMINISTRATOR",
         });
 
       expect(res.status).toBe(201);

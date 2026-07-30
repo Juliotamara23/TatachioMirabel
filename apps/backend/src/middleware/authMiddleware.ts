@@ -17,10 +17,10 @@ declare module "express" {
 }
 
 /**
- * Inyecta cabildoId al where_clause para capitanas; deja where intacto para ADMIN o sin cabildo
+ * Inyecta cabildoId al where_clause para captains; deja where intacto para ADMIN o sin cabildo
  */
 export function applyCabildoScope(req: Request, where: Record<string, unknown>): void {
-  if (req.usuario?.rol === "CAPITANA" && req.usuario?.cabildoId) {
+  if (req.usuario?.rol === "CAPTAIN" && req.usuario?.cabildoId) {
     where.cabildoId = req.usuario.cabildoId;
   }
 }
@@ -45,14 +45,14 @@ export const authMiddleware = (req: Request, res: Response, next: NextFunction) 
 
 // Middleware opcional para restringir por rol (enfocado en ADMIN por ahora)
 export const isAdmin = (req: Request, res: Response, next: NextFunction) => {
-  if (req.usuario?.rol !== "ADMINISTRADOR") {
-    return res.status(403).json({ error: "Acceso denegado: se requieren permisos de administrador" });
+  if (req.usuario?.rol !== "ADMINISTRATOR") {
+    return res.status(403).json({ error: "Acceso denegado: se requieren permisos de administrator" });
   }
   next();
 };
 
-export const isCapitana = (req: Request, res: Response, next: NextFunction) => {
-  if (req.usuario?.rol !== "CAPITANA" && req.usuario?.rol !== "ADMINISTRADOR") {
+export const isCaptain = (req: Request, res: Response, next: NextFunction) => {
+  if (req.usuario?.rol !== "CAPTAIN" && req.usuario?.rol !== "ADMINISTRATOR") {
     return res.status(403).json({ error: "Acceso denegado" });
   }
   next();

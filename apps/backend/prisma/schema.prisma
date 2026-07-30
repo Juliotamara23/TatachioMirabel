@@ -16,7 +16,7 @@ model Usuario {
   email         String    @unique
   passwordHash  String
   nombre        String
-  rol           Rol       @default(CAPITANA)
+  rol           Rol       @default(CAPTAIN)
   activo        Boolean   @default(true)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
@@ -26,8 +26,8 @@ model Usuario {
 }
 
 enum Rol {
-  ADMINISTRADOR
-  CAPITANA
+  ADMINISTRATOR
+  CAPTAIN
 }
 
 // Modelo de Cabildo (la comunidad indigenous)
@@ -52,7 +52,7 @@ model Cabildo {
 model UsuarioCabildo {
   usuarioId   String
   cabildoId   String
-  rolEnCabildo String @default("CAPITANA") // Rol específico en el cabildo
+  rolEnCabildo String @default("CAPTAIN") // Rol específico en el cabildo
 
   usuario     Usuario   @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
   cabildo     Cabildo   @relation(fields: [cabildoId], references: [id], onDelete: Cascade)

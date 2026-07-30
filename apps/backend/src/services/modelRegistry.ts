@@ -86,14 +86,14 @@ export const MODEL_REGISTRY: ModelInfo[] = [
     name: "Gemini 3.1 Flash Lite",
     provider: "google",
     capabilities: { tools: true, streaming: true, structuredOutput: true },
-    defaultFor: "CAPITANA",
+    defaultFor: "CAPTAIN",
   },
   {
     id: "google/gemini-2.0-flash",
     name: "Gemini 2.0 Flash",
     provider: "google",
     capabilities: { tools: true, streaming: true, structuredOutput: true },
-    defaultFor: "ADMINISTRADOR",
+    defaultFor: "ADMINISTRATOR",
   },
   // ── Ollama ──────────────────────────────────────────────────────
   {

@@ -4,6 +4,6 @@ import { assignCapitana, removeCapitana } from "../controllers/adminController.j
 
 const router = Router();
 router.use(authMiddleware, isAdmin);
-router.post("/cabildos/:cabildoId/capitanas/:usuarioId", assignCapitana);
-router.delete("/cabildos/:cabildoId/capitanas/:usuarioId", removeCapitana);
+router.post("/cabildos/:cabildoId/captains/:usuarioId", assignCapitana);
+router.delete("/cabildos/:cabildoId/captains/:usuarioId", removeCapitana);
 export default router;

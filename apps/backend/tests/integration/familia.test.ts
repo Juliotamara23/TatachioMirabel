@@ -24,7 +24,7 @@ describe("Familia API Integration", () => {
     // Generate admin token
     const jwt = await import("jsonwebtoken");
     adminToken = jwt.default.sign(
-      { id: "admin-id", rol: "ADMINISTRADOR" },
+      { id: "admin-id", rol: "ADMINISTRATOR" },
       process.env.JWT_SECRET || "test-secret"
     );
 
@@ -105,7 +105,7 @@ describe("Familia API Integration", () => {
     it("should return 403 for non-admin", async () => {
       const jwt = await import("jsonwebtoken");
       const capitanaToken = jwt.default.sign(
-        { id: "cap-f", rol: "CAPITANA" },
+        { id: "cap-f", rol: "CAPTAIN" },
         process.env.JWT_SECRET || "test-secret"
       );
 

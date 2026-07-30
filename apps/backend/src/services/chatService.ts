@@ -5,7 +5,7 @@ import { getToolsForRole } from "./tools/index.js";
 // ─── System Prompt ────────────────────────────────────────────────────
 
 const SYSTEM_PROMPT = `Eres la asistente virtual del Cabildo Indígena Tatachio Mirabel.
-Tu función es ayudar a la capitana y administradores a consultar y gestionar
+Tu función es ayudar a la captain y administratores a consultar y gestionar
 los datos del censo poblacional.
 
 INSTRUCCIONES:
