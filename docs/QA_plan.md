@@ -135,11 +135,15 @@ El agente QA recibe el rol vía skill `qa-flow`, ejecuta `node scripts/qa/run-al
 
 ## TODO — Implementación
 
+### Fase 0: Fixtures y datos de prueba
+- [x] `generate-fixtures.mjs` — script generador con PRNG determinista (seed 2026)
+- [x] `fixtures/seed.json` — 1000 miembros, ~200 familias, 3 cabildos, 50 altas
+- [ ] `lib/seed-db.mjs` — lee `seed.json` y popula la base de datos via Prisma
+
 ### Fase 1: Infraestructura base
-- [ ] Crear estructura `scripts/qa/`
-- [ ] Implementar `lib/server.mjs` (start, stop, resetDb)
-- [ ] Implementar `lib/reporter.mjs` (qa-report.json)
-- [ ] Agregar `scripts/qa` al `pnpm-workspace.yaml` o mantener scripts Node.js independientes
+- [x] Crear estructura `scripts/qa/`
+- [ ] `lib/server.mjs` — start, stop, resetDb (crea DB fresca, seed, levanta Express)
+- [ ] `lib/reporter.mjs` — genera `qa-report.json` estructurado
 
 ### Fase 2: OpenAPI spec
 - [ ] Relevar todos los endpoints actuales del backend
@@ -147,7 +151,7 @@ El agente QA recibe el rol vía skill `qa-flow`, ejecuta `node scripts/qa/run-al
 - [ ] Validar que Postman e Insomnia lo importan correctamente
 
 ### Fase 3: Tests API black-box
-- [ ] Implementar `lib/spec-reader.mjs`
+- [ ] `lib/spec-reader.mjs` — parsea `openapi.yaml` y alimenta los tests
 - [ ] `suites/api/auth.test.mjs`
 - [ ] `suites/api/miembros.test.mjs`
 - [ ] `suites/api/familias.test.mjs`
@@ -157,7 +161,8 @@ El agente QA recibe el rol vía skill `qa-flow`, ejecuta `node scripts/qa/run-al
 
 ### Fase 4: Chaos testing
 - [ ] `suites/chaos/auth-bypass.test.mjs`
-- [ ] `suites/chaos/injection.test.mjs`
+- [ ] `suites/chaos/injection.test.mjs` (SQL injection, XSS)
+- [ ] `suites/chaos/prompt-injection.test.mjs` — jailbreaks, system prompt override, tool abuse via chat
 - [ ] `suites/chaos/rate-limit.test.mjs`
 - [ ] `suites/chaos/boundary.test.mjs`
 
