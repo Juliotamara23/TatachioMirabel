@@ -138,40 +138,43 @@ El agente QA recibe el rol vía skill `qa-flow`, ejecuta `node scripts/qa/run-al
 ### Fase 0: Fixtures y datos de prueba
 - [x] `generate-fixtures.mjs` — script generador con PRNG determinista (seed 2026)
 - [x] `fixtures/seed.json` — 1000 miembros, ~200 familias, 3 cabildos, 50 altas
-- [ ] `lib/seed-db.mjs` — lee `seed.json` y popula la base de datos via Prisma
+- [ ] `lib/seed-db.mjs` — lee `seed.json` y popula `qa.db` via Prisma Client (excepcion consciente: infraestructura, no testing)
 
 ### Fase 1: Infraestructura base
 - [x] Crear estructura `scripts/qa/`
-- [ ] `lib/server.mjs` — start, stop, resetDb (crea DB fresca, seed, levanta Express)
-- [ ] `lib/reporter.mjs` — genera `qa-report.json` estructurado
+- [ ] `lib/server.mjs` — spawn `pnpm start` en puerto dinamico, health check, teardown
+- [ ] `lib/reporter.mjs` — genera `qa-report.json` + JUnit XML
+- [ ] Smoke test: `suites/api/health.test.mjs` — login → 200, server vivo
 
-### Fase 2: OpenAPI spec
-- [ ] Relevar todos los endpoints actuales del backend
-- [ ] Escribir `specs/openapi.yaml` (paths, schemas, auth, ejemplos)
-- [ ] Validar que Postman e Insomnia lo importan correctamente
+### Fase 2: OpenAPI spec (deferred — post-infra)
+- [ ] Generar `specs/openapi.yaml` desde codigo con `zod-to-openapi` + route scanning
+- [ ] Validar import en Postman e Insomnia
+- [ ] Evaluar `lib/spec-reader.mjs` solo si el OpenAPI generado lo justifica
 
 ### Fase 3: Tests API black-box
-- [ ] `lib/spec-reader.mjs` — parsea `openapi.yaml` y alimenta los tests
 - [ ] `suites/api/auth.test.mjs`
 - [ ] `suites/api/miembros.test.mjs`
 - [ ] `suites/api/familias.test.mjs`
 - [ ] `suites/api/cabildos.test.mjs`
-- [ ] `suites/api/chat.test.mjs`
+- [ ] `suites/api/chat.test.mjs` (incluye prompt-injection como casos negativos)
 - [ ] `suites/api/admin.test.mjs`
+
+> Nota: Endpoints se hardcodean en cada suite. `spec-reader.mjs` se evalua para Fase 2+.
 
 ### Fase 4: Chaos testing
 - [ ] `suites/chaos/auth-bypass.test.mjs`
 - [ ] `suites/chaos/injection.test.mjs` (SQL injection, XSS)
-- [ ] `suites/chaos/prompt-injection.test.mjs` — jailbreaks, system prompt override, tool abuse via chat
 - [ ] `suites/chaos/rate-limit.test.mjs`
 - [ ] `suites/chaos/boundary.test.mjs`
 
+> Prompt-injection se prueba dentro de `chat.test.mjs`, no como suite separada.
+
 ### Fase 5: Orquestador + Skill QA
-- [ ] `run-all.mjs`
-- [ ] `run-api.mjs`
-- [ ] `run-chaos.mjs`
-- [ ] `qa-agent.skill.md`
-- [ ] Validar flujo completo con sub-agente real
+- [ ] `run-all.mjs` — flujo completo: resetDb → server → api tests → chaos → report → stop
+- [ ] `run-api.mjs` — solo tests black-box
+- [ ] `run-chaos.mjs` — solo chaos scenarios
+- [ ] `qa-agent.skill.md` — rol del sub-agente + mini referencia de patrones (como armar un test, leer el reporte, que hacer si falla)
+- [ ] Validar flujo: orchestrator delega QA sub-agent → ejecuta `run-all.mjs` → analiza report → emite veredicto
 
 ---
 
@@ -180,8 +183,13 @@ El agente QA recibe el rol vía skill `qa-flow`, ejecuta `node scripts/qa/run-al
 | Decisión | Razón |
 |---|---|
 | Scripts en Node.js, no bash | Cross-platform (Windows/Linux/Mac). Cero dependencias de shell. |
-| Tests de backend se quedan en `apps/backend/tests/` | Co-localización con el código fuente. Son unit/integration, no black-box. |
-| OpenAPI como fuente única | Estándar de industria. Postman/Insomnia lo importan nativo. Tipos generables. Documentación auto-generable. |
-| `fetch` nativo, sin axios/undici | Política del proyecto. Node.js 18+ lo tiene built-in. |
-| Sin dependencias nuevas en fase inicial | `newman`, `hurl`, etc. se evalúan después si hay necesidad. |
+| Tests de backend se quedan en `apps/backend/tests/` | Co-localizacion con el codigo fuente. Son unit/integration, no black-box. |
+| `fetch` nativo, sin axios/undici | Politica del proyecto. Node.js 18+ lo tiene built-in. |
 | Postman/Insomnia = export para humanos, no para agentes | Los agentes leen `qa-report.json`. Los humanos importan `openapi.yaml`. |
+| **Seed via Prisma Client directo** | Es infraestructura, no testing. Mismo patron que `tests/setup.ts`. Endpoint de seed seria sobre-ingenieria. |
+| **Server via spawn, no import** | Black-box puro. Evita acoplamiento a TS/ESM/config del backend. Cold start aceptable (~3s). |
+| **OpenAPI generado desde codigo** | `zod-to-openapi` + route scanning. Hand-write 20+ endpoints se desincroniza en dias. |
+| **QA DB en `scripts/qa/qa.db`** | Aislado del backend. Se crea y destruye por run. |
+| **`spec-reader.mjs` diferido** | Complejidad innecesaria en Fase 1. Endpoints se hardcodean en cada suite. |
+| **Prompt-injection dentro de `chat.test.mjs`** | Solo afecta un endpoint. No justifica suite separada. |
+| **Veredicto: PASS (0 fallos) / WARN (>0, no criticos) / BLOCKED (server no arranca, auth roto)** | Umbrales explicitos. Sin numeros magicos. |
