@@ -2,22 +2,27 @@
 
 ## How to Use This Guide
 
-- Start here for cross-project norms. TatachioMirabel-V1 is a Node.js/TypeScript Express backend.
+- Start here for cross-project norms. Tatachio Mirabel is a monorepo with several components.
+- Each component has an `AGENTS.md` file with specific guidelines (e.g., `apps/backend/AGENTS.md`).
 - Component docs override this file when guidance conflicts.
 
 ## Available Skills
 
-Use these skills for detailed patterns on-demand:
+Use these skills for detailed patterns on-demand. All skills live in `skills/` at the project root.
 
-### Core Skills
+### Global Skills
+
+These apply across all components:
+
 | Skill | Description | URL |
 |-------|-------------|-----|
-| `typescript` | Const types, flat interfaces, utility types | [SKILL.md](apps/backend/skills/typescript/SKILL.md) |
-| `prisma` | Database schema, migrations, queries | [SKILL.md](apps/backend/skills/prisma-database-setup/SKILL.md) |
-| `express` | Express.js middleware, error handling | [SKILL.md](apps/backend/skills/express-rest-api/SKILL.md) |
-| `xlsx` | Excel report generation (SheetJS) | [SKILL.md](apps/backend/skills/xlsx/SKILL.md) |
-| `git-commit` | Conventional Commits | [SKILL.md](apps/backend/skills/git-commit/SKILL.md) |
-| `skill-creator` | Skill creation patterns | [SKILL.md](apps/backend/skills/skill-creator/SKILL.md) |
+| `typescript` | Const types, flat interfaces, utility types, Zod type inference | [SKILL.md](skills/typescript/SKILL.md) |
+| `typescript-advanced-types` | Advanced TS: generics, conditional types, mapped types | [SKILL.md](skills/typescript-advanced-types/SKILL.md) |
+| `vitest` | Vitest testing: config, mocking, snapshots, coverage | [SKILL.md](skills/vitest/SKILL.md) |
+| `git-commit` | Conventional Commits | [SKILL.md](skills/git-commit/SKILL.md) |
+| `zod-4` | Zod v4 schemas, Express validation, v3 to v4 migration | [SKILL.md](skills/zod-4/SKILL.md) |
+| `zod` | Zod patterns: parse, refine, performance, error handling | [SKILL.md](skills/zod/SKILL.md) |
+| `skill-creator` | Skill creation patterns | [SKILL.md](skills/skill-creator/SKILL.md) |
 
 ### Auto-invoke Skills
 
@@ -25,24 +30,26 @@ When performing these actions, ALWAYS invoke the corresponding skill FIRST:
 
 | Action | Skill |
 |--------|-------|
-| Defining database models | `prisma` |
-| Creating API endpoints | `express` |
-| Validating incoming data/Excel rows | `zod` |
-| Integrating AI analysis/LLM calls | `ai-sdk` |
-| Generating reports (Excel) | `xlsx` |
 | Creating git commit | `git-commit` |
 | Refactoring TypeScript code | `typescript` |
+| Writing or running tests | `vitest` |
+| Validating data or request bodies | `zod-4` |
 
 ---
 
 ## Project Overview
 
-Tatachio Mirabel Backend is an application to manage cabildo members and generate government-standard reports.
+Tatachio Mirabel is a cabildo member management system with AI-powered chat, CLI admin, and government-standard Excel reports.
 
-| Component | Location | Tech Stack |
-|-----------|----------|------------|
-| Backend | `src/` | Node.js, Express, TypeScript, Prisma |
-| Documentation | `docs/` | Planning and specs |
+| Component | Location | Tech Stack | AGENTS.md |
+|-----------|----------|------------|-----------|
+| Backend | `apps/backend/` | Node.js, Express, TypeScript, Prisma, SQLite | [AGENTS.md](apps/backend/AGENTS.md) |
+| CLI | `apps/cli/` | Node.js, TypeScript, Commander.js, @inquirer | WIP |
+| Shared | `packages/shared/` | TypeScript, Zod | WIP |
+| QA Scripts | `scripts/qa/` | Node.js, fetch nativo | WIP |
+| Docs | `docs/` | Markdown (plan, QA plan) | -- |
+
+WIP = AGENTS.md pendiente
 
 ---
 
@@ -55,5 +62,5 @@ Follow conventional-commit style: `<type>[scope]: <description>`
 **Importante:** Todas las instalaciones de dependencias deben realizarse con `pnpm`, no con `npm` ni `yarn`.
 
 Before creating a PR:
-1. Complete checklist in `.github/pull_request_template.md` (if exists)
+1. Complete checklist in `.github/pull_request_template.md`
 2. Run all relevant tests and linters

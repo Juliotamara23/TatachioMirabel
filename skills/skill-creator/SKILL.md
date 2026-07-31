@@ -64,7 +64,7 @@ description: >
 | Generic skill | `{technology}` | `typescript`, `prisma-database-setup`, `zod-4` |
 | Workflow skill | `{action}-{target}` | `git-commit`, `skill-creator` |
 
-Skills live under `apps/backend/skills/`. Use lowercase with hyphens.
+Skills live under `skills/` at the project root. Use lowercase with hyphens.
 
 ## Frontmatter Fields
 
@@ -107,7 +107,7 @@ After creating the skill, add it to `apps/backend/AGENTS.md` under the Core Skil
 
 ## Checklist
 
-- [ ] Skill doesn't already exist (check `apps/backend/skills/`)
+- [ ] Skill doesn't already exist (check `skills/`)
 - [ ] Pattern is reusable (not one-off)
 - [ ] Name follows conventions
 - [ ] Frontmatter is complete (description includes trigger keywords)

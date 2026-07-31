@@ -1,32 +1,38 @@
-# Repository Guidelines
+# Backend Guidelines
 
 ## How to Use This Guide
 
-- Start here for cross-project norms. TatachioMirabel-V1 is a Node.js/TypeScript Express backend.
-- Component docs override this file when guidance conflicts.
+- Start here for backend-specific norms. See root [AGENTS.md](../../AGENTS.md) for cross-project norms and global skills.
+- All skills live in `skills/` at the project root.
 
 ## Available Skills
 
-Use these skills for detailed patterns on-demand. All skills are in `apps/backend/skills/`.
+Use these skills for detailed patterns on-demand.
 
-### Core Skills
+### Backend-Specific Skills
+
+| Skill | Description | URL |
+|-------|-------------|-----|
+| `express-rest-api` | Express.js TypeScript/ESM, middleware, Zod validation, error handling | [SKILL.md](../../skills/express-rest-api/SKILL.md) |
+| `nodejs-express-server` | Express.js: JWT auth, routing, env config, error handling | [SKILL.md](../../skills/nodejs-express-server/SKILL.md) |
+| `nodejs-backend-patterns` | Node.js backend: middleware, error handling, DB integration | [SKILL.md](../../skills/nodejs-backend-patterns/SKILL.md) |
+| `nodejs-best-practices` | Node.js principles: async patterns, security, architecture | [SKILL.md](../../skills/nodejs-best-practices/SKILL.md) |
+| `prisma-database-setup` | SQLite database schema, migrations v6, queries | [SKILL.md](../../skills/prisma-database-setup/SKILL.md) |
+| `prisma-client-api` | Prisma Client queries: CRUD, filters, relations, transactions | [SKILL.md](../../skills/prisma-client-api/SKILL.md) |
+| `prisma-cli` | Prisma CLI commands: migrate, db push, generate, studio | [SKILL.md](../../skills/prisma-cli/SKILL.md) |
+| `ai-sdk` | Vercel AI SDK v6 backend: tool calling, streaming, provider-agnostic | [SKILL.md](../../skills/ai-sdk/SKILL.md) |
+| `xlsx` | Excel generation with SheetJS (TypeScript) from Prisma data | [SKILL.md](../../skills/xlsx/SKILL.md) |
+
+### Global Skills (also in root AGENTS.md)
+
 | Skill | Description |
 |-------|-------------|
 | `typescript` | Const types, flat interfaces, utility types, Zod type inference |
 | `typescript-advanced-types` | Advanced TS: generics, conditional types, mapped types |
-| `prisma-database-setup` | SQLite database schema, migrations v6, queries |
-| `prisma-cli` | Prisma CLI commands: migrate, db push, generate, studio |
-| `prisma-client-api` | Prisma Client queries: CRUD, filters, relations, transactions |
-| `express-rest-api` | Express.js TypeScript/ESM, middleware, Zod validation, error handling |
-| `nodejs-express-server` | Express.js: JWT auth, routing, env config, error handling |
-| `nodejs-backend-patterns` | Node.js backend: middleware, error handling, DB integration |
-| `nodejs-best-practices` | Node.js principles: async patterns, security, architecture |
-| `ai-sdk` | Vercel AI SDK v6 backend: tool calling, streaming, provider-agnostic |
-| `zod-4` | Zod v4 schemas, Express validation, v3→v4 migration |
-| `zod` | Zod patterns: parse, refine, performance, error handling |
-| `xlsx` | Excel generation with SheetJS (TypeScript) from Prisma data |
 | `vitest` | Vitest testing: config, mocking, snapshots, coverage |
 | `git-commit` | Conventional Commits |
+| `zod-4` | Zod v4 schemas, Express validation, v3 to v4 migration |
+| `zod` | Zod patterns: parse, refine, performance, error handling |
 | `skill-creator` | Skill creation patterns |
 
 ### Auto-invoke Skills
@@ -53,7 +59,6 @@ When performing these actions, ALWAYS invoke the corresponding skill FIRST:
 **IMPORTANTE:** NO utilizar `axios`. Utilizar el `fetch` nativo de Node.js (disponible en v18+) o `undici` para peticiones HTTP.
 
 ---
-
 
 ## Project Overview
 
