@@ -3,7 +3,7 @@ import { spawn } from "node:child_process";
 import { createServer } from "node:net";
 import { dirname, resolve, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { writeFileSync, createWriteStream } from "fs";
+import { writeFileSync, createWriteStream, existsSync } from "fs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const projectRoot = resolve(__dirname, "..", "..", "..");
@@ -80,9 +80,9 @@ export async function startServer(options = {}) {
   };
 
   const backendDir = join(projectRoot, "apps", "backend");
-  // Use tsx for dev mode — no build step needed.
-  // Falls back to "start" if tsx not available (pre-built).
-  const useDev = true; // tsx handles TypeScript directly
+  // Prefer tsx dev mode (no build step needed); fall back to the pre-built
+  // "start" script when tsx is not installed.
+  const useDev = existsSync(join(backendDir, "node_modules", ".bin", "tsx"));
   const command = "pnpm";
   const args = useDev
     ? ["--filter", "@tatachio/backend", "dev"]
@@ -149,6 +149,13 @@ export async function stopServer(ctx) {
   const { process: backendProcess } = ctx;
 
   console.log("Stopping server...");
+
+  // If the process already exited, there is nothing to kill — resolve
+  // immediately instead of throwing ESRCH from kill().
+  if (backendProcess.exitCode !== null || backendProcess.killed) {
+    console.log("Server process already exited, skipping termination");
+    return;
+  }
 
   // Send SIGTERM for graceful shutdown
   backendProcess.kill("SIGTERM");
