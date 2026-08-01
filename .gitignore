@@ -37,6 +37,10 @@ data/
 *.db
 *.db-journal
 
+# QA toolkit (runtime artifacts)
+scripts/qa/qa-report.json
+scripts/qa/qa-report.xml
+
 # Prisma
 /src/generated/prisma
 
