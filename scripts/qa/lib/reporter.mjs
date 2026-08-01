@@ -18,29 +18,12 @@ try {
 }
 
 /**
- * Reporter state
- */
-const reporter = {
-  _commit: commit,
-  _timestamp: null, // Will be set when generating report
-  _summaries: {
-    total: 0,
-    passed: 0,
-    failed: 0,
-    skipped: 0,
-    duration_ms: 0,
-  },
-  _by_suite: {},
-  _failures: [],
-};
-
-/**
  * Create a new reporter instance
  * @returns {Object} Reporter instance
  */
 export function createReporter() {
   return {
-    _commit: reporter._commit,
+    _commit: commit,
     _timestamp: null,
     _summaries: {
       total: 0,
@@ -92,6 +75,7 @@ export function addSuite(rep, name, results) {
         expected: failure.expected,
         actual: failure.actual,
         detail: failure.detail,
+        blocker: failure.blocker === true,
       });
     }
   }
@@ -116,18 +100,18 @@ export function generateReport(rep) {
     verdict = "WARN";
   }
 
-  // Check for BLOCKED conditions
+  // Check for BLOCKED conditions: an auth suite that failed blocks the release
   for (const [suiteName, suiteData] of Object.entries(rep._by_suite)) {
-    if (suiteName.toLowerCase().includes("auth") && suiteData.failed > 0) {
+    if ((suiteName === "auth" || suiteName.startsWith("auth/")) && suiteData.failed > 0) {
       verdict = "BLOCKED";
       break;
     }
   }
 
-  // Check for failures with blocker: true (if provided in detail)
+  // Check for failures explicitly marked as blockers
   if (Array.isArray(rep._failures)) {
     for (const failure of rep._failures) {
-      if (failure.detail && failure.detail.toLowerCase().includes("blocker")) {
+      if (failure.blocker === true) {
         verdict = "BLOCKED";
         break;
       }
@@ -156,6 +140,21 @@ export function generateReport(rep) {
 }
 
 /**
+ * Escape a string for safe inclusion in XML attributes and text content.
+ * @param {*} str Value to escape
+ * @returns {string} Escaped string
+ */
+function xmlEscape(str) {
+  return String(str ?? "").replace(/[&<>"']/g, (c) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&apos;",
+  })[c]);
+}
+
+/**
  * Generate JUnit XML format from reporter
  * @param {Object} rep Reporter instance
  * @returns {string} JUnit XML string
@@ -171,26 +170,28 @@ function generateJUnitXML(rep) {
 
   // Generate testsuite elements for each suite
   for (const [suiteName, suiteData] of Object.entries(rep._by_suite)) {
-    xml += `  <testsuite name=\"${suiteName}\" tests=\"${suiteData.total}\" failures=\"${suiteData.failed}\" errors=\"0\" skipped=\"${suiteData.skipped}\" time=\"${(suiteData.duration_ms / 1000).toFixed(3)}">\n`;
+    xml += `  <testsuite name=\"${xmlEscape(suiteName)}\" tests=\"${suiteData.total}\" failures=\"${suiteData.failed}\" errors=\"0\" skipped=\"${suiteData.skipped}\" time=\"${(suiteData.duration_ms / 1000).toFixed(3)}">\n`;
 
     // Get failures for this suite
     const suiteFailures = rep._failures.filter((f) => f.suite === suiteName);
 
     for (let i = 0; i < suiteData.total; i++) {
       const isFailure = i < suiteData.passed + suiteData.failed && i >= suiteData.passed;
-      const isPassed = i < suiteData.passed;
 
       let testCaseStatus = "";
       let testCaseContent = "";
+      let failure = null;
 
       if (isFailure && suiteFailures.length > 0) {
-        const failure = suiteFailures.find((_, idx) => idx === i - suiteData.passed);
+        failure = suiteFailures.find((_, idx) => idx === i - suiteData.passed);
         if (failure) {
-          testCaseStatus = `    <failure message=\"Expected ${failure.expected}, got ${failure.actual}\">${failure.detail}</failure>\n`;
+          testCaseStatus = `    <failure message=\"Expected ${xmlEscape(failure.expected)}, got ${xmlEscape(failure.actual)}\">${xmlEscape(failure.detail)}</failure>\n`;
         }
       }
 
-      testCaseContent += `    <testcase name=\"Test ${i + 1}\" time=\"${(suiteData.duration_ms / 1000 / suiteData.total).toFixed(3)}\">`;
+      // Use the real test name when a failure exists; otherwise generate one from the suite context
+      const testName = failure && failure.test ? failure.test : `${suiteName} test ${i + 1}`;
+      testCaseContent += `    <testcase name=\"${xmlEscape(testName)}\" time=\"${(suiteData.duration_ms / 1000 / suiteData.total).toFixed(3)}\">`;
 
       if (testCaseStatus) {
         testCaseContent += testCaseStatus;
@@ -214,10 +215,6 @@ function generateJUnitXML(rep) {
  * @returns {Object} Path to written files
  */
 export function writeReport(rep, outputDir) {
-  if (rep._summaries.total === 0) {
-    throw new Error("Cannot write report: no suites added");
-  }
-
   const reportDir = outputDir;
 
   // Ensure output directory exists
@@ -226,7 +223,29 @@ export function writeReport(rep, outputDir) {
   }
 
   // Generate report
-  const { json, xml } = generateReport(rep);
+  let json;
+  let xml;
+  if (rep._summaries.total === 0) {
+    // No suites added — write a minimal valid report instead of throwing,
+    // so callers (e.g. the health smoke test error path) always get output.
+    json = {
+      timestamp: new Date().toISOString(),
+      commit: rep._commit,
+      summary: {
+        total: 0,
+        passed: 0,
+        failed: 0,
+        skipped: 0,
+        duration_ms: 0,
+      },
+      verdict: "ERROR",
+      by_suite: {},
+      failures: [],
+    };
+    xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<testsuites>\n</testsuites>";
+  } else {
+    ({ json, xml } = generateReport(rep));
+  }
 
   // Write JSON report
   const jsonPath = join(reportDir, "qa-report.json");

@@ -55,7 +55,7 @@ async function main() {
   execSync("npx prisma db push --skip-generate --accept-data-loss", {
     cwd: backendDir,
     env: { ...process.env, DATABASE_URL: dbUrl },
-    stdio: "pipe",
+    stdio: "inherit",
   });
   console.log("  ✓ Tables created");
 
