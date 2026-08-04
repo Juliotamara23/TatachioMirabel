@@ -167,10 +167,10 @@ El agente QA recibe el rol vía skill `qa-flow`, ejecuta `node scripts/qa/run-al
 - [x] `suites/chaos/boundary.test.mjs` — tipos mal, vacios, concurrencia (10 tests)
 
 ### Fase 5: Orquestador + Skill QA
-- [ ] `run-all.mjs` — flujo completo: resetDb → server → api tests → chaos → report → stop
-- [ ] `run-api.mjs` — solo tests black-box
-- [ ] `run-chaos.mjs` — solo chaos scenarios
-- [ ] `qa-agent.skill.md` — rol del sub-agente + mini referencia de patrones (como armar un test, leer el reporte, que hacer si falla)
+- [x] `run-all.mjs` — flujo completo: resetDb → server → api tests → chaos → report → stop
+- [x] `run-api.mjs` — solo tests black-box
+- [x] `run-chaos.mjs` — solo chaos scenarios
+- [x] `qa-agent.skill.md` — rol del sub-agente + mini referencia de patrones
 - [ ] Validar flujo: orchestrator delega QA sub-agent → ejecuta `run-all.mjs` → analiza report → emite veredicto
 
 ---
