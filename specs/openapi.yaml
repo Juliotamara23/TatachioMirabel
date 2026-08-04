@@ -1,0 +1,725 @@
+openapi: 3.0.0
+info:
+  title: Tatachio Mirabel API
+  version: 1.0.0
+  description: >
+    Cabildo member management API with AI chat (tool calling), JWT auth,
+    and role-based access (ADMINISTRATOR / CAPTAIN).
+servers:
+  - url: http://localhost:3000
+
+tags:
+  - name: auth
+    description: Authentication
+  - name: models
+    description: AI model registry
+  - name: chat
+    description: AI chat with tool calling
+  - name: cabildos
+    description: Cabildo CRUD
+  - name: familias
+    description: Familia CRUD
+  - name: miembros
+    description: Miembro CRUD
+  - name: admin
+    description: Admin captain assignment
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      description: JWT returned by POST /api/auth/login
+
+  schemas:
+    Rol:
+      type: string
+      enum: [ADMINISTRATOR, CAPTAIN]
+    TipoIdentificacion:
+      type: string
+      enum: [CC, TI, RC, NUIP]
+    Parentesco:
+      type: string
+      enum: [PA, MA, CO, HE, CF, ES, HI, YR, NU, SU, SO, CU, TI, AB, NI]
+    Sexo:
+      type: string
+      enum: [M, F]
+    EstadoCivil:
+      type: string
+      enum: [S, C]
+    Escolaridad:
+      type: string
+      enum: [PR, SE, UN, NI]
+
+    Cabildo:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        nombre: { type: string }
+        resguardo: { type: string }
+        comunidad: { type: string }
+        vigencia: { type: integer }
+        activo: { type: boolean }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    Familia:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        numero: { type: integer }
+        direccion: { type: string, nullable: true }
+        telefono: { type: string, nullable: true }
+        cabildoId: { type: string, format: uuid }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    Miembro:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        tipoIdentificacion: { $ref: "#/components/schemas/TipoIdentificacion" }
+        numeroDocumento: { type: string }
+        nombres: { type: string }
+        apellidos: { type: string }
+        fechaNacimiento: { type: string, description: "DD/MM/YYYY" }
+        parentesco: { $ref: "#/components/schemas/Parentesco" }
+        sexo: { $ref: "#/components/schemas/Sexo" }
+        estadoCivil: { $ref: "#/components/schemas/EstadoCivil", nullable: true }
+        profesion: { type: string, nullable: true }
+        escolaridad: { $ref: "#/components/schemas/Escolaridad", nullable: true }
+        integrantes: { type: integer }
+        direccion: { type: string, nullable: true }
+        telefono: { type: string, nullable: true }
+        novedad: { type: string, nullable: true }
+        activo: { type: boolean }
+        estado: { type: string, enum: [ACTIVO, BAJA, PENDIENTE] }
+        fechaAlta: { type: string, format: date-time }
+        fechaBaja: { type: string, format: date-time, nullable: true }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        cabildoId: { type: string, format: uuid }
+        familiaId: { type: string, format: uuid }
+
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, format: email }
+        password: { type: string, format: password }
+
+    LoginResponse:
+      type: object
+      properties:
+        token: { type: string }
+
+    RegisterRequest:
+      type: object
+      required: [email, password, nombre, rol]
+      properties:
+        email: { type: string, format: email }
+        password: { type: string, format: password }
+        nombre: { type: string }
+        rol: { $ref: "#/components/schemas/Rol" }
+        cabildoId: { type: string, format: uuid, nullable: true, description: "Required when rol = CAPTAIN" }
+
+    ChatMessage:
+      type: object
+      required: [role, content]
+      properties:
+        role: { type: string, enum: [user, assistant, system] }
+        content: { type: string }
+
+    ChatRequest:
+      type: object
+      required: [messages]
+      properties:
+        messages:
+          type: array
+          minItems: 1
+          items: { $ref: "#/components/schemas/ChatMessage" }
+        model: { type: string, nullable: true }
+        stream: { type: boolean, default: true }
+
+    ModelInfo:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        provider: { type: string }
+        capabilities:
+          type: object
+          properties:
+            tools: { type: boolean }
+            streaming: { type: boolean }
+            structuredOutput: { type: boolean }
+
+    ApiError:
+      type: object
+      properties:
+        error: { type: string }
+        details: { type: object, nullable: true }
+
+paths:
+  /api/auth/register:
+    post:
+      tags: [auth]
+      summary: Register a new user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RegisterRequest" }
+      responses:
+        "201":
+          description: User created
+          content:
+            application/json:
+              schema: { type: object }
+        "400":
+          description: Missing fields, cabildo required for CAPTAIN, duplicate email
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+        "500":
+          description: Internal error
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+
+  /api/auth/login:
+    post:
+      tags: [auth]
+      summary: Authenticate and get JWT
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LoginRequest" }
+      responses:
+        "200":
+          description: Login success
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LoginResponse" }
+        "400":
+          description: Missing fields
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+        "401":
+          description: Invalid credentials
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+        "403":
+          description: CAPTAIN with 0 or >1 cabildo assignments
+
+  /api/models:
+    get:
+      tags: [models]
+      summary: List available AI models
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Model registry
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  models:
+                    type: array
+                    items: { $ref: "#/components/schemas/ModelInfo" }
+                  defaults:
+                    type: object
+                    properties:
+                      ADMINISTRATOR: { type: string }
+                      CAPTAIN: { type: string }
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+
+  /api/chat:
+    post:
+      tags: [chat]
+      summary: Send chat message with AI tool calling
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ChatRequest" }
+      responses:
+        "200":
+          description: Chat response (SSE stream if stream=true, JSON if false)
+          content:
+            text/event-stream:
+              schema:
+                type: string
+            application/json:
+              schema:
+                type: object
+                properties:
+                  text: { type: string }
+                  steps: { type: integer }
+                  model: { type: string }
+        "400":
+          description: Invalid body or model not found
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+        "401":
+          description: Unauthorized
+        "429":
+          description: Rate limit exceeded (ADMIN 60/min, CAPTAIN 20/min)
+          headers:
+            Retry-After:
+              schema: { type: integer }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+        "503":
+          description: No AI models configured
+
+  /api/cabildos:
+    get:
+      tags: [cabildos]
+      summary: List cabildos (CAPTAIN auto-scoped)
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Cabildo list
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Cabildo" }
+        "401":
+          description: Unauthorized
+    post:
+      tags: [cabildos]
+      summary: Create cabildo (ADMIN)
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [nombre, resguardo, comunidad, vigencia]
+              properties:
+                nombre: { type: string }
+                resguardo: { type: string }
+                comunidad: { type: string }
+                vigencia: { type: integer, minimum: 2000, maximum: 2100 }
+      responses:
+        "201":
+          description: Cabildo created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Cabildo" }
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden (not ADMIN)
+
+  /api/cabildos/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    get:
+      tags: [cabildos]
+      summary: Get cabildo by id
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Cabildo
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Cabildo" }
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found (CAPTAIN cross-cabildo also 404)
+    put:
+      tags: [cabildos]
+      summary: Update cabildo (ADMIN)
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                nombre: { type: string }
+                resguardo: { type: string }
+                comunidad: { type: string }
+                vigencia: { type: integer }
+      responses:
+        "200":
+          description: Cabildo updated
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Cabildo" }
+        "400":
+          description: Validation error
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden
+        "404":
+          description: Not found
+    delete:
+      tags: [cabildos]
+      summary: Delete cabildo (ADMIN)
+      security:
+        - BearerAuth: []
+      responses:
+        "204":
+          description: Deleted
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden
+        "404":
+          description: Not found
+
+  /api/familias:
+    get:
+      tags: [familias]
+      summary: List familias (optional cabildoId filter, ADMIN only)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: cabildoId
+          in: query
+          required: false
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Familia list
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Familia" }
+        "401":
+          description: Unauthorized
+    post:
+      tags: [familias]
+      summary: Create familia (ADMIN)
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [numero, cabildoId]
+              properties:
+                numero: { type: integer, minimum: 1 }
+                direccion: { type: string, nullable: true }
+                telefono: { type: string, nullable: true }
+                cabildoId: { type: string, format: uuid }
+      responses:
+        "201":
+          description: Familia created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Familia" }
+        "400":
+          description: Validation error
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden
+        "404":
+          description: Cabildo not found
+
+  /api/familias/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    get:
+      tags: [familias]
+      summary: Get familia by id (includes miembros)
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Familia with miembros
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - { $ref: "#/components/schemas/Familia" }
+                  - type: object
+                    properties:
+                      miembros:
+                        type: array
+                        items: { $ref: "#/components/schemas/Miembro" }
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+    put:
+      tags: [familias]
+      summary: Update familia (ADMIN)
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                numero: { type: integer }
+                direccion: { type: string }
+                telefono: { type: string }
+      responses:
+        "200":
+          description: Familia updated
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Familia" }
+        "400":
+          description: Validation error
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden
+        "404":
+          description: Not found
+    delete:
+      tags: [familias]
+      summary: Delete familia (ADMIN)
+      security:
+        - BearerAuth: []
+      responses:
+        "204":
+          description: Deleted
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden
+        "404":
+          description: Not found
+
+  /api/miembros:
+    get:
+      tags: [miembros]
+      summary: List miembros (optional search query)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: search
+          in: query
+          required: false
+          schema: { type: string }
+          description: Contains match on nombres, apellidos, numeroDocumento
+      responses:
+        "200":
+          description: Miembro list
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Miembro" }
+        "401":
+          description: Unauthorized
+    post:
+      tags: [miembros]
+      summary: Create miembro (CAPTAIN or ADMIN)
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [tipoIdentificacion, numeroDocumento, nombres, apellidos, fechaNacimiento, parentesco, sexo, integrantes, familiaId, cabildoId]
+              properties:
+                tipoIdentificacion: { $ref: "#/components/schemas/TipoIdentificacion" }
+                numeroDocumento: { type: string }
+                nombres: { type: string }
+                apellidos: { type: string }
+                fechaNacimiento: { type: string, description: "DD/MM/YYYY" }
+                parentesco: { $ref: "#/components/schemas/Parentesco" }
+                sexo: { $ref: "#/components/schemas/Sexo" }
+                integrantes: { type: integer, minimum: 1 }
+                familiaId: { type: string, format: uuid }
+                cabildoId: { type: string, format: uuid, description: "Overridden by CAPTAIN JWT scope" }
+                estadoCivil: { $ref: "#/components/schemas/EstadoCivil" }
+                profesion: { type: string }
+                escolaridad: { $ref: "#/components/schemas/Escolaridad" }
+                direccion: { type: string }
+                telefono: { type: string }
+                novedad: { type: string }
+      responses:
+        "201":
+          description: Miembro created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Miembro" }
+        "400":
+          description: Validation error or invalid familiaId
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden
+        "409":
+          description: Duplicate numeroDocumento+cabildoId
+
+  /api/miembros/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    get:
+      tags: [miembros]
+      summary: Get miembro by id (includes familia)
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Miembro with familia
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - { $ref: "#/components/schemas/Miembro" }
+                  - type: object
+                    properties:
+                      familia: { $ref: "#/components/schemas/Familia" }
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found (CAPTAIN cross-cabildo also 404)
+    put:
+      tags: [miembros]
+      summary: Update miembro (CAPTAIN or ADMIN)
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                tipoIdentificacion: { $ref: "#/components/schemas/TipoIdentificacion" }
+                numeroDocumento: { type: string }
+                nombres: { type: string }
+                apellidos: { type: string }
+                fechaNacimiento: { type: string }
+                parentesco: { $ref: "#/components/schemas/Parentesco" }
+                sexo: { $ref: "#/components/schemas/Sexo" }
+                integrantes: { type: integer }
+                estadoCivil: { $ref: "#/components/schemas/EstadoCivil" }
+                profesion: { type: string }
+                escolaridad: { $ref: "#/components/schemas/Escolaridad" }
+                direccion: { type: string }
+                telefono: { type: string }
+                novedad: { type: string }
+      responses:
+        "200":
+          description: Miembro updated
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Miembro" }
+        "400":
+          description: Validation error
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden
+        "404":
+          description: Not found
+    delete:
+      tags: [miembros]
+      summary: Delete miembro (ADMIN only)
+      security:
+        - BearerAuth: []
+      responses:
+        "204":
+          description: Deleted
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden (CAPTAIN cannot delete)
+        "404":
+          description: Not found
+
+  /api/admin/cabildos/{cabildoId}/captains/{usuarioId}:
+    parameters:
+      - name: cabildoId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+      - name: usuarioId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    post:
+      tags: [admin]
+      summary: Assign captain to cabildo (ADMIN)
+      security:
+        - BearerAuth: []
+      responses:
+        "201":
+          description: Captain assigned
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  usuarioId: { type: string, format: uuid }
+                  cabildoId: { type: string, format: uuid }
+                  rolEnCabildo: { type: string, enum: [CAPTAIN] }
+        "400":
+          description: User is not CAPTAIN
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden
+        "404":
+          description: Usuario not found
+        "409":
+          description: Already assigned
+    delete:
+      tags: [admin]
+      summary: Remove captain from cabildo (ADMIN)
+      security:
+        - BearerAuth: []
+      responses:
+        "204":
+          description: Removed
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden
+        "404":
+          description: Assignment not found
