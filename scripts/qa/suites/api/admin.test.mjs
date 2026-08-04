@@ -1,126 +1,142 @@
 #!/usr/bin/env node
-import { execSync } from "node:child_process";
-import { join, dirname } from "node:path";
-import { fileURLToPath } from "node:url";
+import { runSuite, createTestHelper } from "../lib/suite-runner.mjs";
+import { loginAdmin, loginCapitana, request, expectStatus } from "../lib/test-utils.mjs";
+import { loadSpec, getStatusCodes } from "../lib/spec-reader.mjs";
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const projectRoot = join(__dirname, "..", "..", "..", "..");
-const qaDir = join(projectRoot, "scripts", "qa");
-
-const failures = [];
-let passed = 0;
-let failed = 0;
-const startTime = Date.now();
-
-/**
- * @param {string} name Test name
- * @param {() => Promise<void>} fn Test body
- */
-async function test(name, fn) {
-  try {
-    await fn();
-    passed++;
-    console.log(`  ✓ ${name}`);
-  } catch (error) {
-    failed++;
-    console.log(`  ✗ ${name}: ${error.message}`);
-    failures.push({ test: name, expected: "Passed", actual: error.message, detail: error.message });
-  }
-}
+const spec = loadSpec();
+const adminPaths = [
+  { method: "POST", path: "/api/admin/cabildos/{cabildoId}/captains/{usuarioId}" },
+  { method: "DELETE", path: "/api/admin/cabildos/{cabildoId}/captains/{usuarioId}" },
+];
 
 const CABILDO_ID = "5dee2149-4442-486a-9ec5-3c20479d8261";
+const FAMILIA_ID = "cd8031c4-d2f7-423c-b5a8-1e98b793690a";
 const FAKE_UUID = "00000000-0000-0000-0000-000000000000";
 const EXISTING_MIEMBRO_ID = "c73da2ef-a84e-4d47-8e5a-e2d45b7af7d6";
 
-async function runAdminSuite() {
-  try {
-    // Step 1: Seed DB
-    console.log("[1/4] Seeding database...");
-    execSync("node lib/seed-db.mjs", { cwd: qaDir, stdio: "inherit" });
+async function registerCaptainUser(base, adminToken) {
+  const unique = `captain_${Date.now()}_${Math.random().toString(36).slice(2, 8)}@tatachio.com`;
+  const { status, data } = await request(base, "POST", "/api/auth/register", {
+    token: adminToken,
+    body: {
+      email: unique,
+      password: "cap123",
+      nombre: "Test Captain",
+      rol: "CAPTAIN",
+      cabildoId: CABILDO_ID,
+    },
+  });
+  expectStatus(status, 201, "register captain");
+  return data.id;
+}
 
-    // Step 2: Start server
-    console.log("[2/4] Starting server...");
-    const { startServer, stopServer } = await import("../../lib/server.mjs");
-    const ctx = await startServer({});
-    const base = `http://localhost:${ctx.port}`;
+export async function main() {
+  return runSuite({ name: "api/admin" }, async ({ base }) => {
+    const t = createTestHelper("api/admin");
 
-    const headers = (token) => ({ "Content-Type": "application/json", Authorization: `Bearer ${token}` });
+    const adminToken = await loginAdmin(base);
+    const capitanaToken = await loginCapitana(base);
 
-    let adminToken;
-    let capitanaToken;
-    {
-      const res = await fetch(`${base}/api/auth/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: "admin@tatachio.com", password: "admin123" }),
+    // ── POST /api/admin/cabildos/{cabildoId}/captains/{usuarioId} ──────────
+    console.log("\nPOST /api/admin/cabildos/{cabildoId}/captains/{usuarioId}");
+
+    await t.test("admin assigns existing CAPTAIN user → 201", async () => {
+      const captainUserId = await registerCaptainUser(base, adminToken);
+      const { status, data } = await request(base, "POST", `/api/admin/cabildos/${CABILDO_ID}/captains/${captainUserId}`, {
+        token: adminToken,
       });
-      const data = await res.json();
-      adminToken = data.token;
-    }
-    {
-      const res = await fetch(`${base}/api/auth/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: "capitana@tatachio.com", password: "cap123" }),
-      });
-      const data = await res.json();
-      capitanaToken = data.token;
-    }
-
-    // Step 3: Run admin tests
-    console.log("[3/4] Testing admin endpoints...\n");
-
-    // ── GET /api/admin/cabildos/:id/captains ──────────────────────────────
-
-    console.log("GET /api/admin/cabildos/:id/captains");
-
-    await test("admin can list captains for a cabildo", async () => {
-      const res = await fetch(`${base}/api/admin/cabildos/${CABILDO_ID}/captains`, {
-        headers: headers(adminToken),
-      });
-      const data = await res.json();
-      if (res.status !== 200) throw new Error(`Expected 200, got ${res.status}: ${JSON.stringify(data)}`);
-      if (!Array.isArray(data)) throw new Error(`Expected array, got ${typeof data}`);
-    });
-
-    await test("admin gets 404 for non-existent cabildo", async () => {
-      const res = await fetch(`${base}/api/admin/cabildos/${FAKE_UUID}/captains`, {
-        headers: headers(adminToken),
-      });
-      if (res.status !== 404) {
-        const data = await res.json();
-        throw new Error(`Expected 404, got ${res.status}: ${JSON.stringify(data)}`);
+      expectStatus(status, 201, "assign captain");
+      if (!data.usuarioId || !data.cabildoId || data.rolEnCabildo !== "CAPTAIN") {
+        throw new Error(`Invalid response shape: ${JSON.stringify(data)}`);
       }
     });
 
-    await test("capitana cannot access captains list → 403", async () => {
-      const res = await fetch(`${base}/api/admin/cabildos/${CABILDO_ID}/captains`, {
-        headers: headers(capitanaToken),
+    await t.test("admin assigns non-existent user → 404", async () => {
+      const { status, data } = await request(base, "POST", `/api/admin/cabildos/${CABILDO_ID}/captains/${FAKE_UUID}`, {
+        token: adminToken,
       });
-      if (res.status !== 403) {
-        const data = await res.json();
-        throw new Error(`Expected 403, got ${res.status}: ${JSON.stringify(data)}`);
-      }
+      expectStatus(status, 404, "assign non-existent user");
     });
 
-    await test("without token returns 401", async () => {
-      const res = await fetch(`${base}/api/admin/cabildos/${CABILDO_ID}/captains`);
-      if (res.status !== 401) {
-        const data = await res.json();
-        throw new Error(`Expected 401, got ${res.status}: ${JSON.stringify(data)}`);
-      }
+    await t.test("capitana tries to assign captain → 403", async () => {
+      const captainUserId = await registerCaptainUser(base, adminToken);
+      const { status, data } = await request(base, "POST", `/api/admin/cabildos/${CABILDO_ID}/captains/${captainUserId}`, {
+        token: capitanaToken,
+      });
+      expectStatus(status, 403, "capitana assign captain");
     });
 
-    // ── Role isolation ─────────────────────────────────────────────────────
+    await t.test("without token → 401", async () => {
+      const { status, data } = await request(base, "POST", `/api/admin/cabildos/${CABILDO_ID}/captains/${FAKE_UUID}`);
+      expectStatus(status, 401, "no token");
+    });
 
+    await t.test("admin assigns already-assigned captain → 409", async () => {
+      const captainUserId = await registerCaptainUser(base, adminToken);
+      // First assignment
+      await request(base, "POST", `/api/admin/cabildos/${CABILDO_ID}/captains/${captainUserId}`, { token: adminToken });
+      // Second assignment should conflict
+      const { status, data } = await request(base, "POST", `/api/admin/cabildos/${CABILDO_ID}/captains/${captainUserId}`, {
+        token: adminToken,
+      });
+      expectStatus(status, 409, "already assigned");
+    });
+
+    await t.test("admin assigns non-CAPTAIN user → 400", async () => {
+      // Register a user with ADMINISTRATOR role
+      const unique = `admin_${Date.now()}_${Math.random().toString(36).slice(2, 8)}@tatachio.com`;
+      const { status: regStatus, data: regData } = await request(base, "POST", "/api/auth/register", {
+        token: adminToken,
+        body: { email: unique, password: "admin123", nombre: "Test Admin", rol: "ADMINISTRATOR" },
+      });
+      expectStatus(regStatus, 201, "register admin user");
+      const adminUserId = regData.id;
+
+      const { status, data } = await request(base, "POST", `/api/admin/cabildos/${CABILDO_ID}/captains/${adminUserId}`, {
+        token: adminToken,
+      });
+      expectStatus(status, 400, "assign non-captain user");
+    });
+
+    // ── DELETE /api/admin/cabildos/{cabildoId}/captains/{usuarioId} ─────────
+    console.log("\nDELETE /api/admin/cabildos/{cabildoId}/captains/{usuarioId}");
+
+    await t.test("admin removes assignment → 204", async () => {
+      const captainUserId = await registerCaptainUser(base, adminToken);
+      await request(base, "POST", `/api/admin/cabildos/${CABILDO_ID}/captains/${captainUserId}`, { token: adminToken });
+      const { status, data } = await request(base, "DELETE", `/api/admin/cabildos/${CABILDO_ID}/captains/${captainUserId}`, {
+        token: adminToken,
+      });
+      expectStatus(status, 204, "remove captain");
+    });
+
+    await t.test("capitana tries to remove captain → 403", async () => {
+      const captainUserId = await registerCaptainUser(base, adminToken);
+      await request(base, "POST", `/api/admin/cabildos/${CABILDO_ID}/captains/${captainUserId}`, { token: adminToken });
+      const { status, data } = await request(base, "DELETE", `/api/admin/cabildos/${CABILDO_ID}/captains/${captainUserId}`, {
+        token: capitanaToken,
+      });
+      expectStatus(status, 403, "capitana remove captain");
+    });
+
+    await t.test("without token → 401", async () => {
+      const { status, data } = await request(base, "DELETE", `/api/admin/cabildos/${CABILDO_ID}/captains/${FAKE_UUID}`);
+      expectStatus(status, 401, "no token");
+    });
+
+    await t.test("admin removes non-existent assignment → 404", async () => {
+      const { status, data } = await request(base, "DELETE", `/api/admin/cabildos/${CABILDO_ID}/captains/${FAKE_UUID}`, {
+        token: adminToken,
+      });
+      expectStatus(status, 404, "remove non-existent assignment");
+    });
+
+    // ── Role isolation (from spec) ──────────────────────────────────────────
     console.log("\nRole isolation");
 
-    await test("capitana GET /api/cabildos returns 200 scoped to own cabildo", async () => {
-      const res = await fetch(`${base}/api/cabildos`, {
-        headers: headers(capitanaToken),
-      });
-      const data = await res.json();
-      if (res.status !== 200) throw new Error(`Expected 200, got ${res.status}: ${JSON.stringify(data)}`);
+    await t.test("capitana GET /api/cabildos → 200 scoped to own cabildo", async () => {
+      const { status, data } = await request(base, "GET", "/api/cabildos", { token: capitanaToken });
+      expectStatus(status, 200, "capitana list cabildos");
       if (!Array.isArray(data)) throw new Error(`Expected array, got ${typeof data}`);
       for (const c of data) {
         if (c.id !== CABILDO_ID) {
@@ -129,87 +145,40 @@ async function runAdminSuite() {
       }
     });
 
-    await test("capitana POST /api/miembros returns 403", async () => {
-      const res = await fetch(`${base}/api/miembros`, {
-        method: "POST",
-        headers: headers(capitanaToken),
-        body: JSON.stringify({
+    await t.test("capitana POST /api/miembros → 201 (backend allows capitana create)", async () => {
+      const { status, data } = await request(base, "POST", "/api/miembros", {
+        token: capitanaToken,
+        body: {
           tipoIdentificacion: "CC",
-          numeroDocumento: "88888888",
+          numeroDocumento: `888${Date.now().toString().slice(-5)}`,
           nombres: "TEST",
           apellidos: "ISOLATION",
           fechaNacimiento: "01/01/1990",
           parentesco: "PA",
           sexo: "M",
           integrantes: 1,
-          familiaId: "cd8031c4-d2f7-423c-b5a8-1e98b793690a",
+          familiaId: FAMILIA_ID,
           cabildoId: CABILDO_ID,
-        }),
+        },
       });
-      if (res.status !== 403) {
-        const data = await res.json();
-        throw new Error(`Expected 403, got ${res.status}: ${JSON.stringify(data)}`);
+      expectStatus(status, 201, "capitana create miembro");
+      if (!data.id || data.cabildoId !== CABILDO_ID) {
+        throw new Error(`Invalid miembro response: ${JSON.stringify(data)}`);
       }
     });
 
-    await test("capitana DELETE /api/miembros/:id returns 403", async () => {
-      const res = await fetch(`${base}/api/miembros/${EXISTING_MIEMBRO_ID}`, {
-        method: "DELETE",
-        headers: headers(capitanaToken),
+    await t.test("capitana DELETE /api/miembros/{id} → 403 (DELETE is admin-only)", async () => {
+      const { status, data } = await request(base, "DELETE", `/api/miembros/${EXISTING_MIEMBRO_ID}`, {
+        token: capitanaToken,
       });
-      if (res.status !== 403) {
-        const text = await res.text();
-        throw new Error(`Expected 403, got ${res.status}: ${text}`);
-      }
+      expectStatus(status, 403, "capitana delete miembro");
     });
 
-    // Step 4: Stop + Report
-    console.log("\n[4/4] Generating report...");
-    await stopServer(ctx);
-
-    const duration = Date.now() - startTime;
-    const total = passed + failed;
-
-    const { createReporter, addSuite, writeReport } = await import("../../lib/reporter.mjs");
-    const rep = createReporter();
-    addSuite(rep, "admin", {
-      total,
-      passed,
-      failed,
-      skipped: 0,
-      duration_ms: duration,
-      failures,
-    });
-    const { json } = writeReport(rep, qaDir);
-
-    console.log(`\nVerdict: ${json.verdict}`);
-    console.log(`${passed}/${total} passed${failed > 0 ? `, ${failed} failed` : ""}`);
-    process.exit(failed > 0 ? 1 : 0);
-
-  } catch (error) {
-    console.error("Admin suite failed:", error.message);
-    console.error("Stack:", error.stack);
-
-    try {
-      const { createReporter, addSuite, writeReport } = await import("../../lib/reporter.mjs");
-      const rep = createReporter();
-      addSuite(rep, "admin", {
-        total: 1,
-        passed: 0,
-        failed: 1,
-        skipped: 0,
-        duration_ms: 0,
-        failures: [
-          { test: "runAdminSuite", expected: "Suite completed", actual: error.message, detail: error.message, blocker: true },
-        ],
-      });
-      writeReport(rep, qaDir);
-    } catch (reportError) {
-      console.error("Failed to generate error report:", reportError.message);
-    }
-
-    process.exit(1);
-  }
+    return t.finish();
+  });
 }
 
-runAdminSuite();
+main().catch((err) => {
+  console.error("Admin suite crashed:", err);
+  process.exit(1);
+});
