@@ -191,8 +191,30 @@ El agente QA recibe el rol vía skill `qa-flow`, ejecuta `node scripts/qa/run-al
 - [ ] `lib/server.mjs` — limpiar useDev hardcodeado
 
 **Validar**
-- [ ] Fire test pasa limpio con contract-driven
+- [x] Fire test pasa limpio con contract-driven (8 suites PASS, 6 fallos = bugs reales backend)
 - [ ] Fix backend 500→404 se refleja solo en QA (openapi.yaml updated)
+
+### Fase 7: QA CLI (simular usuario real con el CLI)
+> El CLI consume la misma API. El QA de API cubre la API; esta fase cubre el CLI como interfaz:
+> ejecutar el binario real contra el server QA y validar su output.
+
+**Crear**
+- [ ] `lib/cli-utils.mjs` — helpers: runCli(args, { env }), login via CLI, parse JSON output
+- [ ] `suites/cli/auth.test.mjs` — login correcto/incorrecto, logout
+- [ ] `suites/cli/miembros.test.mjs` — list/get/create/update (--json)
+- [ ] `suites/cli/familias.test.mjs` — list/get
+- [ ] `suites/cli/cabildos.test.mjs` — list/get
+- [ ] `suites/cli/chat.test.mjs` — chat (si aplica, condicional a AI)
+
+**Reglas**
+- Apunta al server QA (TATACHIO_BASE_URL = port dinamico) → qa.db aislada
+- Usa `suite-runner.mjs` para seed + server
+- Valida output JSON estructurado (modo `--json` del CLI)
+- NUNCA toca mirabel.db
+
+**Validar**
+- [ ] Correr `run-all.mjs` incluye las suites CLI
+- [ ] Sub-agente simula usuario CLI contra QA (flujo completo)
 
 ---
 
