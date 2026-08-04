@@ -138,13 +138,14 @@ El agente QA recibe el rol vía skill `qa-flow`, ejecuta `node scripts/qa/run-al
 ### Fase 0: Fixtures y datos de prueba
 - [x] `generate-fixtures.mjs` — script generador con PRNG determinista (seed 2026)
 - [x] `fixtures/seed.json` — 1000 miembros, ~200 familias, 3 cabildos, 50 altas
-- [ ] `lib/seed-db.mjs` — lee `seed.json` y popula `qa.db` via Prisma Client (excepcion consciente: infraestructura, no testing)
+- [x] `lib/seed-db.mjs` — lee `seed.json` y popula `qa.db` via Prisma Client (excepcion consciente: infraestructura, no testing)
 
 ### Fase 1: Infraestructura base
 - [x] Crear estructura `scripts/qa/`
-- [ ] `lib/server.mjs` — spawn `pnpm start` en puerto dinamico, health check, teardown
-- [ ] `lib/reporter.mjs` — genera `qa-report.json` + JUnit XML
-- [ ] Smoke test: `suites/api/health.test.mjs` — login → 200, server vivo
+- [x] `lib/server.mjs` — spawn `pnpm dev` en puerto dinamico, health check, teardown
+- [x] `lib/reporter.mjs` — genera `qa-report.json` + JUnit XML
+- [x] Smoke test: `suites/api/health.test.mjs` — login → 200, server vivo
+- [x] Judgment Day: 2 jueces, 8 WARNING corregidos, smoke test PASS
 
 ### Fase 2: OpenAPI spec (deferred — post-infra)
 - [ ] Generar `specs/openapi.yaml` desde codigo con `zod-to-openapi` + route scanning
@@ -152,22 +153,18 @@ El agente QA recibe el rol vía skill `qa-flow`, ejecuta `node scripts/qa/run-al
 - [ ] Evaluar `lib/spec-reader.mjs` solo si el OpenAPI generado lo justifica
 
 ### Fase 3: Tests API black-box
-- [ ] `suites/api/auth.test.mjs`
-- [ ] `suites/api/miembros.test.mjs`
-- [ ] `suites/api/familias.test.mjs`
-- [ ] `suites/api/cabildos.test.mjs`
-- [ ] `suites/api/chat.test.mjs` (incluye prompt-injection como casos negativos)
-- [ ] `suites/api/admin.test.mjs`
-
-> Nota: Endpoints se hardcodean en cada suite. `spec-reader.mjs` se evalua para Fase 2+.
+- [x] `suites/api/auth.test.mjs` — login, register, models (~15 tests)
+- [x] `suites/api/miembros.test.mjs` — CRUD + cabildo scoping (~17 tests)
+- [x] `suites/api/familias.test.mjs` — CRUD + scoping (~16 tests)
+- [x] `suites/api/cabildos.test.mjs` — CRUD + auth gates (~22 tests)
+- [x] `suites/api/chat.test.mjs` — chat, SSE, prompt injection (~10 tests)
+- [x] `suites/api/admin.test.mjs` — captain assignment, role isolation (~10 tests)
 
 ### Fase 4: Chaos testing
-- [ ] `suites/chaos/auth-bypass.test.mjs`
-- [ ] `suites/chaos/injection.test.mjs` (SQL injection, XSS)
-- [ ] `suites/chaos/rate-limit.test.mjs`
-- [ ] `suites/chaos/boundary.test.mjs`
-
-> Prompt-injection se prueba dentro de `chat.test.mjs`, no como suite separada.
+- [x] `suites/chaos/auth-bypass.test.mjs` — JWT tampering, fake tokens (9 tests)
+- [x] `suites/chaos/injection.test.mjs` — SQL injection, XSS, path traversal (34 tests)
+- [x] `suites/chaos/rate-limit.test.mjs` — 429 bursts, Retry-After (5 tests)
+- [x] `suites/chaos/boundary.test.mjs` — tipos mal, vacios, concurrencia (10 tests)
 
 ### Fase 5: Orquestador + Skill QA
 - [ ] `run-all.mjs` — flujo completo: resetDb → server → api tests → chaos → report → stop
