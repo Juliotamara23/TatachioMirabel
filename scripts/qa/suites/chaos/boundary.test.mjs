@@ -44,6 +44,10 @@ await runSuite(
     const token = await getAuthToken(base);
     const auth = { token };
 
+    // Use real IDs from seed fixture (scripts/qa/fixtures/seed.json)
+    const CABILDO_ID = "5dee2149-4442-486a-9ec5-3c20479d8261";
+    const FAMILIA_ID = "cd8031c4-d2f7-423c-b5a8-1e98b793690a";
+
     const MIEMBROS = "/api/miembros";
 
     // 1. POST with empty body
@@ -69,8 +73,8 @@ await runSuite(
           parentesco: "PA",
           sexo: "M",
           integrantes: 1,
-          familiaId: "00000000-0000-0000-0000-000000000001",
-          cabildoId: "00000000-0000-0000-0000-000000000001",
+          familiaId: FAMILIA_ID,
+          cabildoId: CABILDO_ID,
           algunCampoInventado: "should be ignored",
           otroFalso: 42,
         },
@@ -102,8 +106,8 @@ await runSuite(
           parentesco: "PA",
           sexo: "M",
           integrantes: 1,
-          familiaId: "00000000-0000-0000-0000-000000000001",
-          cabildoId: "00000000-0000-0000-0000-000000000001",
+          familiaId: FAMILIA_ID,
+          cabildoId: CABILDO_ID,
         }),
       });
       expectTolerant(res.status, [400, 201], "wrong Content-Type");
@@ -128,8 +132,8 @@ await runSuite(
           parentesco: "PA",
           sexo: "M",
           integrantes: 1,
-          familiaId: "00000000-0000-0000-0000-000000000001",
-          cabildoId: "00000000-0000-0000-0000-000000000001",
+          familiaId: FAMILIA_ID,
+          cabildoId: CABILDO_ID,
         },
       });
       expectTolerant(res.status, [400], "boolean nombres");
@@ -161,8 +165,8 @@ await runSuite(
           parentesco: "PA",
           sexo: "M",
           integrantes: 1,
-          familiaId: "00000000-0000-0000-0000-000000000001",
-          cabildoId: "00000000-0000-0000-0000-000000000001",
+          familiaId: FAMILIA_ID,
+          cabildoId: CABILDO_ID,
         },
       });
       expectTolerant(res.status, [400], "null required field");
@@ -192,8 +196,8 @@ await runSuite(
           parentesco: "PA",
           sexo: "M",
           integrantes: 1,
-          familiaId: "00000000-0000-0000-0000-000000000001",
-          cabildoId: "00000000-0000-0000-0000-000000000001",
+          familiaId: FAMILIA_ID,
+          cabildoId: CABILDO_ID,
         },
       });
       expectTolerant(res.status, [200, 201], "unicode fields");

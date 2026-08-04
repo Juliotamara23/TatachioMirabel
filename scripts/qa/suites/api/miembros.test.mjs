@@ -1,7 +1,7 @@
 #!/usr/bin/env node
-import { loadSpec, getStatusCodes } from "../../../lib/spec-reader.mjs";
-import { runSuite, createTestHelper } from "../../../lib/suite-runner.mjs";
-import { loginAdmin, loginCapitana, request, expectStatus } from "../../../lib/test-utils.mjs";
+import { loadSpec, getStatusCodes } from "../../lib/spec-reader.mjs";
+import { runSuite, createTestHelper } from "../../lib/suite-runner.mjs";
+import { loginAdmin, loginCapitana, request, expectStatus } from "../../lib/test-utils.mjs";
 
 const spec = loadSpec();
 

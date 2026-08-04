@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-import { runSuite, createTestHelper } from "../lib/suite-runner.mjs";
-import { request, loginAdmin } from "../lib/test-utils.mjs";
+import { runSuite, createTestHelper } from "../../lib/suite-runner.mjs";
+import { request, loginAdmin } from "../../lib/test-utils.mjs";
 
 /**
  * assertNoCrash - Contract-driven assertion for chaos injection tests.

@@ -69,10 +69,12 @@ async function waitForHealth(
 export async function startServer(options = {}) {
   const port = options.port || await findFreePort();
   const dbPath = options.dbPath || join(projectRoot, "scripts", "qa", "qa.db");
+  const extraEnv = options.env || {};
 
   // Prepare environment variables for the backend
   const env = {
     ...process.env,
+    ...extraEnv,
     PORT: String(port),
     DATABASE_URL: `file:${resolve(dbPath)}`,
     JWT_SECRET: "qa-secret",
@@ -97,6 +99,9 @@ export async function startServer(options = {}) {
       env,
       stdio: "pipe",
       shell: false,
+      // detached creates a new process group so stopServer can kill the whole
+      // tree (pnpm → tsx → node child) — otherwise tsx/node children survive.
+      detached: true,
     });
 
     // Capture stdout/stderr to log files for debugging
@@ -157,14 +162,21 @@ export async function stopServer(ctx) {
     return;
   }
 
-  // Send SIGTERM for graceful shutdown
-  backendProcess.kill("SIGTERM");
+  // Kill the whole process group (pnpm → tsx → node child). The spawn used
+  // detached:true so the child has its own process group (-pid targets it).
+  try {
+    process.kill(-backendProcess.pid, "SIGTERM");
+  } catch (e) {
+    // Process group may already be gone
+    try { backendProcess.kill("SIGTERM"); } catch (_) { /* ignore */ }
+  }
 
   // Wait up to 5s for graceful shutdown
   await new Promise((resolve) => {
     const timeout = setTimeout(() => {
       console.log("Server did not stop gracefully, sending SIGKILL");
-      backendProcess.kill("SIGKILL");
+      try { process.kill(-backendProcess.pid, "SIGKILL"); } catch (_) { /* ignore */ }
+      try { backendProcess.kill("SIGKILL"); } catch (_) { /* ignore */ }
       resolve();
     }, 5000);
 

@@ -7,6 +7,9 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const projectRoot = resolve(__dirname, "..", "..", "..");
 const qaDir = join(projectRoot, "scripts", "qa");
 
+// Increments per suite so each run gets a fresh port range (avoids TIME_WAIT collisions)
+let nextSuitePort = 0;
+
 /**
  * Run a QA test suite with shared lifecycle: seed → start server → run tests → stop server → write report.
  *
@@ -14,10 +17,11 @@ const qaDir = join(projectRoot, "scripts", "qa");
  * @param {string} options.name - Suite name (e.g. "api/auth")
  * @param {boolean} [options.seed=true] - Whether to seed the database before running
  * @param {boolean} [options.start=true] - Whether to start the server
+ * @param {Object} [options.env={}] - Environment variables to pass to the server process
  * @param {Function} testFn - Async function receiving { base } (base URL), returns suite results
  * @returns {Promise<Object>} Test results { verdict, passed, failed, duration_ms, failures }
  */
-export async function runSuite({ name, seed = true, start = true }, testFn) {
+export async function runSuite({ name, seed = true, start = true, env = {} }, testFn) {
   let serverCtx = null;
   const startTime = Date.now();
   let verdict = "PASS";
@@ -37,7 +41,10 @@ export async function runSuite({ name, seed = true, start = true }, testFn) {
     if (start) {
       console.log(`[${name}] Starting server...`);
       const { startServer } = await import("./server.mjs");
-      serverCtx = await startServer({});
+      // Each suite gets a unique port base to avoid TIME_WAIT collisions from
+      // the previous suite's server (ports linger ~60s after SIGTERM).
+      const portBase = 3500 + (nextSuitePort++ * 5);
+      serverCtx = await startServer({ env, port: portBase });
       base = `http://localhost:${serverCtx.port}`;
       global.__QA_BASE_URL__ = base;
       console.log(`[${name}] Server ready at ${base}`);

@@ -48,39 +48,59 @@ async function runTests({ base }) {
   const adminToken = await loginAdmin(base);
   const capToken = await loginCapitana(base);
 
-  // ── Test 1: Admin burst (65 requests, capacity=60) ─────────────────
-  await helper.test("Admin burst — 65 requests (capacity=60) → some 429", async () => {
+  // ── Test 1: Independent limits across users ────────────────────────
+  // Run FIRST with fresh buckets to verify per-user isolation
+  await helper.test("Independent limits — exhausting admin doesn't block captain", async () => {
+    // Use initial tokens (fresh buckets for both users)
+    // Exhaust admin bucket (65 requests, capacity=60)
+    await fireBurst(base, adminToken, 65);
+
+    // Captain should still have full capacity (25 requests → ~20 ok, ~5 429)
+    const capResults = await fireBurst(base, capToken, 25);
+    const capOk = capResults.filter((r) => r.status === 200 || r.status === 503).length;
+    const cap429 = capResults.filter((r) => r.status === 429).length;
+
+    if (cap429 === 0) {
+      throw new Error("Captain unexpectedly blocked — limits not independent");
+    }
+    if (capOk < 15 || capOk > 25) {
+      throw new Error(`Captain OK count unexpected after admin exhausted: ${capOk} (expected ~20)`);
+    }
+  });
+
+  // ── Test 2: Admin burst on pre-exhausted bucket ────────────────────
+  await helper.test("Admin burst — pre-exhausted bucket yields 429", async () => {
     const results = await fireBurst(base, adminToken, 65);
     const ok = results.filter((r) => r.status === 200 || r.status === 503).length;
     const rateLimited = results.filter((r) => r.status === 429).length;
     const other = results.filter((r) => r.status !== 200 && r.status !== 429 && r.status !== 503).length;
 
-    // Expect: ~60 OK (200 or 503), ~5 rate-limited (429)
-    // 503 is acceptable (no AI models configured) — rate limit triggers FIRST
+    // Bucket exhausted by Test 1 → expect all 429, 0 OK
     if (rateLimited === 0) {
-      throw new Error(`Expected some 429 responses, got ${ok} ok, ${rateLimited} 429, ${other} other`);
+      throw new Error(`Expected all 429 on exhausted bucket, got ${ok} ok, ${rateLimited} 429, ${other} other`);
     }
-    if (ok < 55 || ok > 65) {
-      throw new Error(`Unexpected OK count: ${ok} (expected ~60)`);
+    if (ok !== 0) {
+      throw new Error(`Unexpected OK count on exhausted bucket: ${ok} (expected 0)`);
     }
   });
 
-  // ── Test 2: Captain burst (25 requests, capacity=20) ───────────────
-  await helper.test("Captain burst — 25 requests (capacity=20) → some 429", async () => {
+  // ── Test 3: Captain burst on pre-exhausted bucket ──────────────────
+  await helper.test("Captain burst — pre-exhausted bucket yields 429", async () => {
     const results = await fireBurst(base, capToken, 25);
     const ok = results.filter((r) => r.status === 200 || r.status === 503).length;
     const rateLimited = results.filter((r) => r.status === 429).length;
     const other = results.filter((r) => r.status !== 200 && r.status !== 429 && r.status !== 503).length;
 
+    // Bucket exhausted by Test 1 (25 requests used ~20 capacity) → expect all 429
     if (rateLimited === 0) {
-      throw new Error(`Expected some 429 responses, got ${ok} ok, ${rateLimited} 429, ${other} other`);
+      throw new Error(`Expected all 429 on exhausted bucket, got ${ok} ok, ${rateLimited} 429, ${other} other`);
     }
-    if (ok < 15 || ok > 25) {
-      throw new Error(`Unexpected OK count: ${ok} (expected ~20)`);
+    if (ok !== 0) {
+      throw new Error(`Unexpected OK count on exhausted bucket: ${ok} (expected 0)`);
     }
   });
 
-  // ── Test 3: Retry-After header on 429 ──────────────────────────────
+  // ── Test 4: Retry-After header on 429 ──────────────────────────────
   await helper.test("Retry-After header present on 429 responses", async () => {
     // Fire small bursts using fetch directly to access headers
     async function burstWithHeaders(base, token, count) {
@@ -136,7 +156,7 @@ async function runTests({ base }) {
     }
   });
 
-  // ── Test 4: Rate limit resets after refill window ──────────────────
+  // ── Test 5: Rate limit resets after refill window ──────────────────
   await helper.test("Rate limit resets after refill window", async () => {
     // Login fresh captain for clean bucket
     const freshCapToken = await loginCapitana(base);
@@ -168,33 +188,11 @@ async function runTests({ base }) {
     }
   });
 
-  // ── Test 5: Independent limits across users ────────────────────────
-  await helper.test("Independent limits — exhausting admin doesn't block captain", async () => {
-    // Fresh tokens for isolation
-    const adminToken2 = await loginAdmin(base);
-    const capToken2 = await loginCapitana(base);
-
-    // Exhaust admin bucket (65 requests)
-    await fireBurst(base, adminToken2, 65);
-
-    // Captain should still have full capacity (25 requests → ~20 ok, ~5 429)
-    const capResults = await fireBurst(base, capToken2, 25);
-    const capOk = capResults.filter((r) => r.status === 200 || r.status === 503).length;
-    const cap429 = capResults.filter((r) => r.status === 429).length;
-
-    if (cap429 === 0) {
-      throw new Error("Captain unexpectedly blocked — limits not independent");
-    }
-    if (capOk < 15 || capOk > 25) {
-      throw new Error(`Captain OK count unexpected after admin exhausted: ${capOk} (expected ~20)`);
-    }
-  });
-
   return helper.finish();
 }
 
 // Run via shared suite runner
 await runSuite(
-  { name: "chaos/rate-limit", seed: true, start: true },
+  { name: "chaos/rate-limit", seed: true, start: true, env: { GOOGLE_GENERATIVE_AI_API_KEY: "", OLLAMA_BASE_URL: "" } },
   runTests
 );

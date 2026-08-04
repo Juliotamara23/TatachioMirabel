@@ -165,6 +165,5 @@ runSuite({ name: "api/auth" }, async ({ base }) => {
     });
   }
 
-  const result = helper.finish();
-  process.exit(result.failed > 0 ? 1 : 0);
+  return helper.finish();
 });
