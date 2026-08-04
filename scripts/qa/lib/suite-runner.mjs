@@ -26,8 +26,8 @@ export async function runSuite({ name, seed = true, start = true }, testFn) {
   let failures = [];
 
   try {
-    // Step 1: Seed database if requested
-    if (seed) {
+    // Step 1: Seed database if requested (skip if orchestrator already seeded)
+    if (seed && !process.env.QA_SKIP_SEED) {
       console.log(`[${name}] Seeding database...`);
       execSync("node lib/seed-db.mjs", { cwd: qaDir, stdio: "inherit" });
     }
@@ -103,7 +103,9 @@ export async function runSuite({ name, seed = true, start = true }, testFn) {
 
   console.log(`[${name}] Verdict: ${verdict} (passed: ${passed}, failed: ${failed})`);
 
-  return { verdict, passed, failed, duration_ms, failures };
+  // Terminate explicitly — otherwise lingering handles (server logs, connections)
+  // keep the event loop alive and the suite hangs after reporting.
+  process.exit(verdict === "PASS" ? 0 : 1);
 }
 
 /**
@@ -116,23 +118,29 @@ export function createTestHelper(suiteName) {
   let passed = 0;
   let failed = 0;
   const failures = [];
+  const pending = [];
 
-  async function test(name, fn) {
-    try {
-      await fn();
-      passed++;
-      console.log(`  ✓ ${name}`);
-    } catch (error) {
-      failed++;
-      failures.push({
-        test: name,
-        expected: "Test to pass",
-        actual: error.message,
-        detail: error.stack,
-        blocker: false,
-      });
-      console.log(`  ✗ ${name}: ${error.message}`);
-    }
+  function test(name, fn) {
+    // Always await the promise so runSuite waits for all tests to complete
+    const p = (async () => {
+      try {
+        await fn();
+        passed++;
+        console.log(`  ✓ ${name}`);
+      } catch (error) {
+        failed++;
+        failures.push({
+          test: name,
+          expected: "Test to pass",
+          actual: error.message,
+          detail: error.stack,
+          blocker: false,
+        });
+        console.log(`  ✗ ${name}: ${error.message}`);
+      }
+    })();
+    pending.push(p);
+    return p;
   }
 
   function addFailure(name, error) {
@@ -147,7 +155,9 @@ export function createTestHelper(suiteName) {
     console.log(`  ✗ ${name}: ${error?.message ?? error}`);
   }
 
-  function finish() {
+  async function finish() {
+    // Wait for any in-flight tests registered without await
+    await Promise.all(pending);
     const duration_ms = 0; // Duration tracked externally if needed
     const verdict = failed > 0 ? "WARN" : "PASS";
     if ((suiteName === "auth" || suiteName.startsWith("auth/")) && failed > 0) {

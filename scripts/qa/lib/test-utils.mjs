@@ -56,7 +56,8 @@ export async function request(base, method, path, { token, body, headers } = {})
 }
 
 export function expectStatus(actual, expected, context = "") {
-  if (actual !== expected) {
+  // Normalize: spec-reader returns string codes ("200"), fetch returns number (200)
+  if (String(actual) !== String(expected)) {
     const ctx = context ? ` — ${context}` : "";
     throw new Error(`Expected ${expected}, got ${actual}${ctx}`);
   }

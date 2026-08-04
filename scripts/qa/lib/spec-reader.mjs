@@ -106,7 +106,13 @@ function parseYAML(content) {
         continue;
       }
 
-      const key = trimmed.slice(0, colonIdx).trim();
+      const keyRaw = trimmed.slice(0, colonIdx).trim();
+      // Strip surrounding quotes from keys (YAML allows quoted keys like "200")
+      const key = (keyRaw.startsWith('"') && keyRaw.endsWith('"'))
+        ? keyRaw.slice(1, -1).replace(/\\"/g, '"')
+        : (keyRaw.startsWith("'") && keyRaw.endsWith("'"))
+          ? keyRaw.slice(1, -1).replace(/\\'/g, "'")
+          : keyRaw;
       const valuePart = trimmed.slice(colonIdx + 1).trim();
 
       if (valuePart === "" || valuePart === "|" || valuePart === ">") {
