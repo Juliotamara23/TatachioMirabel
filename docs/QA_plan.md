@@ -168,10 +168,31 @@ El agente QA recibe el rol vía skill `qa-flow`, ejecuta `node scripts/qa/run-al
 
 ### Fase 5: Orquestador + Skill QA
 - [x] `run-all.mjs` — flujo completo: resetDb → server → api tests → chaos → report → stop
-- [x] `run-api.mjs` — solo tests black-box
-- [x] `run-chaos.mjs` — solo chaos scenarios
 - [x] `qa-agent.skill.md` — rol del sub-agente + mini referencia de patrones
-- [ ] Validar flujo: orchestrator delega QA sub-agent → ejecuta `run-all.mjs` → analiza report → emite veredicto
+- [x] Validar flujo (prueba de fuego) — destapo bugs reales en backend + suites
+
+### Fase 6: Contract-driven QA (de-hardcodear suites)
+> La prueba de fuego destapo que las suites hardcodean expectativas en vez de leer el contrato real.
+> Regla central: el QA es cliente externo via HTTP, pero sus EXPECTATIVAS vienen de `specs/openapi.yaml`.
+> Cuando el backend cambia el contrato → actualizar OpenAPI → QA se adapta solo. Cero escritura duplicada.
+
+**Borrar**
+- [ ] `run-api.mjs` — inlinea los 7 API suites, duplica a run-all
+- [ ] `run-chaos.mjs` — duplica a run-all
+
+**Crear**
+- [ ] `lib/spec-reader.mjs` — lee specs/openapi.yaml → endpoints, status codes, auth
+- [ ] `lib/suite-runner.mjs` — lifecycle compartido (seed/server/test/report)
+- [ ] `lib/test-utils.mjs` — helpers (test(), loginAdmin(), request())
+
+**Cambiar**
+- [ ] `suites/api/*.test.mjs` (7) — de-hardcodear, leer contrato del OpenAPI
+- [ ] `suites/chaos/*.test.mjs` (4) — igual
+- [ ] `lib/server.mjs` — limpiar useDev hardcodeado
+
+**Validar**
+- [ ] Fire test pasa limpio con contract-driven
+- [ ] Fix backend 500→404 se refleja solo en QA (openapi.yaml updated)
 
 ---
 
