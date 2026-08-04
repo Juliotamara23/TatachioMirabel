@@ -73,6 +73,14 @@ async function main() {
   try {
     console.log("\n[3/4] Seeding data...");
 
+    // Clean existing rows in FK order (idempotent seed — safe to re-run)
+    await prisma.miembro.deleteMany();
+    await prisma.familia.deleteMany();
+    await prisma.cabildo.deleteMany();
+    await prisma.usuarioCabildo.deleteMany();
+    await prisma.usuario.deleteMany();
+    console.log("  ✓ Cleared existing data");
+
     // Cabildos
     for (const c of seed.cabildos) {
       await prisma.cabildo.create({ data: c });

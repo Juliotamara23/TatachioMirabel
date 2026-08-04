@@ -10,12 +10,11 @@ import { join, dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const projectRoot = resolve(__dirname, "..", "..", "..");
+const projectRoot = resolve(__dirname, "..", "..");
 const qaDir = join(projectRoot, "scripts", "qa");
 
 async function runAllSuites() {
   // Import shared utilities
-  const { startServer, stopServer } = await import("./lib/server.mjs");
   const { createReporter, addSuite, writeReport } = await import("./lib/reporter.mjs");
 
   const reporter = createReporter();
@@ -35,21 +34,13 @@ async function runAllSuites() {
     "suites/chaos/boundary",
   ];
 
-  let ctx = null;
   let anyFailed = false;
   let anyBlocked = false;
   let anyWarn = false;
 
   try {
-    // Step 1: Seed DB
-    console.log("\n========== SEED DATABASE ==========");
-    execSync("node lib/seed-db.mjs", { cwd: qaDir, stdio: "inherit" });
-
-    // Step 2: Start server once for all suites
-    console.log("\n========== START SERVER ==========");
-    ctx = await startServer({});
-
-    // Step 3: Run each suite sequentially
+    // Each suite manages its own lifecycle: seed → server → tests → stop → report.
+    // The orchestrator runs them sequentially and aggregates the per-suite reports.
     for (let i = 0; i < suites.length; i++) {
       const suite = suites[i];
       const suiteName = suite.split("/").pop(); // e.g., "health", "auth", "auth-bypass"
@@ -115,13 +106,7 @@ async function runAllSuites() {
       }
     }
 
-    // Step 4: Stop server
-    console.log("\n========== STOP SERVER ==========");
-    if (ctx) {
-      await stopServer(ctx);
-    }
-
-    // Step 5: Determine final verdict
+    // Step 4: Determine final verdict
     let finalVerdict = "PASS";
     if (anyBlocked) {
       finalVerdict = "BLOCKED";

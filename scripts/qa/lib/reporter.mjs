@@ -212,7 +212,7 @@ function generateJUnitXML(rep) {
  * Write the report to disk
  * @param {Object} rep Reporter instance
  * @param {string} outputDir Output directory path
- * @returns {Object} Path to written files
+ * @returns {Object} { jsonPath, xmlPath, json, xml } — written file paths + report objects
  */
 export function writeReport(rep, outputDir) {
   const reportDir = outputDir;
@@ -258,5 +258,7 @@ export function writeReport(rep, outputDir) {
   return {
     jsonPath,
     xmlPath,
+    json,
+    xml,
   };
 }
