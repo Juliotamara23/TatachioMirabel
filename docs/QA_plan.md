@@ -199,22 +199,25 @@ El agente QA recibe el rol vía skill `qa-flow`, ejecuta `node scripts/qa/run-al
 > ejecutar el binario real contra el server QA y validar su output.
 
 **Crear**
-- [ ] `lib/cli-utils.mjs` — helpers: runCli(args, { env }), login via CLI, parse JSON output
-- [ ] `suites/cli/auth.test.mjs` — login correcto/incorrecto, logout
-- [ ] `suites/cli/miembros.test.mjs` — list/get/create/update (--json)
-- [ ] `suites/cli/familias.test.mjs` — list/get
-- [ ] `suites/cli/cabildos.test.mjs` — list/get
-- [ ] `suites/cli/chat.test.mjs` — chat (si aplica, condicional a AI)
+- [x] `lib/cli-utils.mjs` — helpers: runCli(args, { env }), login via CLI, parse JSON output (robusto con balanceo de llaves)
+- [x] `suites/cli/auth.test.mjs` — login correcto/incorrecto, logout (12 tests) PASS
+- [x] `suites/cli/miembros.test.mjs` — list/get/create/update (13 tests) PASS
+- [x] `suites/cli/familias.test.mjs` — list/get (6 tests) PASS
+- [x] `suites/cli/cabildos.test.mjs` — list/get (7 tests) PASS
 
 **Reglas**
-- Apunta al server QA (TATACHIO_BASE_URL = port dinamico) → qa.db aislada
-- Usa `suite-runner.mjs` para seed + server
-- Valida output JSON estructurado (modo `--json` del CLI)
-- NUNCA toca mirabel.db
+- Apunta al server QA (TATACHIO_BASE_URL = port dinamico) → qa.db aislada ✅
+- Usa `suite-runner.mjs` para seed + server ✅
+- Valida output JSON estructurado (modo `--json` del CLI) ✅
+- NUNCA toca mirabel.db ✅
 
 **Validar**
-- [ ] Correr `run-all.mjs` incluye las suites CLI
-- [ ] Sub-agente simula usuario CLI contra QA (flujo completo)
+- [x] Correr `run-all.mjs` incluye las suites CLI (15 suites total)
+- [x] Sub-agente simula usuario CLI contra QA (flujo completo)
+
+**Bugs del CLI detectados por el QA** (documentados como findings, no regresiones)
+- `miembros create --json <body>` → Commander "too many arguments" (flag parsing roto)
+- `miembros list --cabildo-id X` → el backend no filtra (flag existe pero API lo ignora)
 
 ---
 
