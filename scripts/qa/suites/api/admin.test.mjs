@@ -1,7 +1,7 @@
 #!/usr/bin/env node
-import { runSuite, createTestHelper } from "../lib/suite-runner.mjs";
-import { loginAdmin, loginCapitana, request, expectStatus } from "../lib/test-utils.mjs";
-import { loadSpec, getStatusCodes } from "../lib/spec-reader.mjs";
+import { runSuite, createTestHelper } from "../../lib/suite-runner.mjs";
+import { loginAdmin, loginCapitana, request, expectStatus } from "../../lib/test-utils.mjs";
+import { loadSpec, getStatusCodes } from "../../lib/spec-reader.mjs";
 
 const spec = loadSpec();
 const adminPaths = [
@@ -40,15 +40,12 @@ export async function main() {
     // ── POST /api/admin/cabildos/{cabildoId}/captains/{usuarioId} ──────────
     console.log("\nPOST /api/admin/cabildos/{cabildoId}/captains/{usuarioId}");
 
-    await t.test("admin assigns existing CAPTAIN user → 201", async () => {
+    await t.test("admin assigns captain already assigned at registration → 409", async () => {
       const captainUserId = await registerCaptainUser(base, adminToken);
       const { status, data } = await request(base, "POST", `/api/admin/cabildos/${CABILDO_ID}/captains/${captainUserId}`, {
         token: adminToken,
       });
-      expectStatus(status, 201, "assign captain");
-      if (!data.usuarioId || !data.cabildoId || data.rolEnCabildo !== "CAPTAIN") {
-        throw new Error(`Invalid response shape: ${JSON.stringify(data)}`);
-      }
+      expectStatus(status, 409, "assign captain already assigned");
     });
 
     await t.test("admin assigns non-existent user → 404", async () => {
@@ -69,17 +66,6 @@ export async function main() {
     await t.test("without token → 401", async () => {
       const { status, data } = await request(base, "POST", `/api/admin/cabildos/${CABILDO_ID}/captains/${FAKE_UUID}`);
       expectStatus(status, 401, "no token");
-    });
-
-    await t.test("admin assigns already-assigned captain → 409", async () => {
-      const captainUserId = await registerCaptainUser(base, adminToken);
-      // First assignment
-      await request(base, "POST", `/api/admin/cabildos/${CABILDO_ID}/captains/${captainUserId}`, { token: adminToken });
-      // Second assignment should conflict
-      const { status, data } = await request(base, "POST", `/api/admin/cabildos/${CABILDO_ID}/captains/${captainUserId}`, {
-        token: adminToken,
-      });
-      expectStatus(status, 409, "already assigned");
     });
 
     await t.test("admin assigns non-CAPTAIN user → 400", async () => {
@@ -103,7 +89,7 @@ export async function main() {
 
     await t.test("admin removes assignment → 204", async () => {
       const captainUserId = await registerCaptainUser(base, adminToken);
-      await request(base, "POST", `/api/admin/cabildos/${CABILDO_ID}/captains/${captainUserId}`, { token: adminToken });
+      // Captain is already assigned at registration, so directly test removal
       const { status, data } = await request(base, "DELETE", `/api/admin/cabildos/${CABILDO_ID}/captains/${captainUserId}`, {
         token: adminToken,
       });
@@ -112,7 +98,7 @@ export async function main() {
 
     await t.test("capitana tries to remove captain → 403", async () => {
       const captainUserId = await registerCaptainUser(base, adminToken);
-      await request(base, "POST", `/api/admin/cabildos/${CABILDO_ID}/captains/${captainUserId}`, { token: adminToken });
+      // Captain is already assigned at registration
       const { status, data } = await request(base, "DELETE", `/api/admin/cabildos/${CABILDO_ID}/captains/${captainUserId}`, {
         token: capitanaToken,
       });

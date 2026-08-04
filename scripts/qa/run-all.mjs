@@ -39,6 +39,11 @@ async function runAllSuites() {
   let anyWarn = false;
 
   try {
+    // Seed ONCE for all suites (suites skip their own seed via QA_SKIP_SEED)
+    console.log("\n========== SEED DATABASE (once) ==========");
+    execSync("node lib/seed-db.mjs", { cwd: qaDir, stdio: "inherit" });
+    process.env.QA_SKIP_SEED = "1";
+
     // Each suite manages its own lifecycle: seed → server → tests → stop → report.
     // The orchestrator runs them sequentially and aggregates the per-suite reports.
     for (let i = 0; i < suites.length; i++) {

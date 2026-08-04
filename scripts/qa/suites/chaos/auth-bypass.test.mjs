@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 import { createHmac } from "node:crypto";
-import { runSuite, createTestHelper } from "../lib/suite-runner.mjs";
-import { loadSpec, getStatusCodes } from "../lib/spec-reader.mjs";
-import { request, expectStatus, loginAdmin } from "../lib/test-utils.mjs";
+import { runSuite, createTestHelper } from "../../lib/suite-runner.mjs";
+import { loadSpec, getStatusCodes } from "../../lib/spec-reader.mjs";
+import { request, expectStatus, loginAdmin } from "../../lib/test-utils.mjs";
 
 const spec = loadSpec();
 const statusCodes = getStatusCodes(spec, "get", "/api/cabildos");

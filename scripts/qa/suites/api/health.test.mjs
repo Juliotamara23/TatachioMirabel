@@ -21,7 +21,5 @@ runSuite({ name: "api/health" }, async ({ base }) => {
     if (!Array.isArray(data)) throw new Error("Response is not an array");
   });
 
-  const result = helper.finish();
-  console.log(`\nSmoke verdict: ${result.verdict} | ${result.passed}/${result.failed === 0 ? result.passed : result.passed + result.failed} passed`);
-  process.exit(result.failed > 0 ? 1 : 0);
+  return helper.finish();
 });
