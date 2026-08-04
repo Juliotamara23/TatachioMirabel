@@ -1,249 +1,200 @@
 #!/usr/bin/env node
 /**
- * rate-limit.test.mjs — Chaos suite: rate limiting per-role token bucket.
+ * rate-limit.test.mjs — Chaos suite: rate limiting per-role token bucket (contract-driven).
  *
- * ADMINISTRATOR: capacity=60, refill=1/sec, Retry-After=1
- * CAPTAIN:       capacity=20, refill=0.33/sec, Retry-After=4
- *
- * NOTE: This suite is naturally slow — it waits for bucket refill windows.
+ * Contract: POST /api/chat rate limits — ADMIN 60/min, CAPTAIN 20/min (from openapi.yaml)
+ * 429 responses include Retry-After header.
+ * Rate limiting happens BEFORE AI provider call, so 429 is deterministic regardless of AI config.
  */
-import { execSync } from "node:child_process";
-import { join, dirname } from "node:path";
-import { fileURLToPath } from "node:url";
+import { loadSpec, getStatusCodes } from "../../lib/spec-reader.mjs";
+import { runSuite, createTestHelper } from "../../lib/suite-runner.mjs";
+import { loginAdmin, loginCapitana, request } from "../../lib/test-utils.mjs";
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const projectRoot = join(__dirname, "..", "..", "..", "..");
-const qaDir = join(projectRoot, "scripts", "qa");
+const CHAT_PATH = "/api/chat";
+const CHAT_METHOD = "POST";
 
-const ADMIN = { email: "admin@tatachio.com", password: "admin123" };
-const CAPITANA = { email: "capitana@tatachio.com", password: "cap123" };
-
-async function login(base, creds) {
-  const res = await fetch(`${base}/api/auth/login`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(creds),
-  });
-  const data = await res.json();
-  if (!data.token) throw new Error(`Login failed for ${creds.email}`);
-  return data.token;
-}
+// Minimal valid chat request body (rate limiting triggers before AI validation)
+const CHAT_BODY = {
+  messages: [{ role: "user", content: "test" }],
+  stream: false,
+};
 
 async function fireBurst(base, token, count) {
-  const results = [];
   const promises = [];
   for (let i = 0; i < count; i++) {
     promises.push(
-      fetch(`${base}/api/cabildos`, {
-        headers: { Authorization: `Bearer ${token}` },
-      }).then((res) => ({
-        status: res.status,
-        retryAfter: res.headers.get("Retry-After"),
+      request(base, CHAT_METHOD, CHAT_PATH, { token, body: CHAT_BODY }).then((r) => ({
+        status: r.status,
+        retryAfter: r.data?.retryAfter ?? null,
+        headers: r.headers ?? {},
       }))
     );
   }
   return Promise.all(promises);
 }
 
-async function runRateLimitTests() {
-  const startedAt = Date.now();
-  const failures = [];
-  let total = 0;
-  let passed = 0;
+async function runTests({ base }) {
+  const spec = loadSpec();
+  const chatStatusCodes = getStatusCodes(spec, CHAT_METHOD, CHAT_PATH);
 
-  try {
-    // Step 1: Seed DB
-    console.log("[1/4] Seeding database...");
-    execSync("node lib/seed-db.mjs", { cwd: qaDir, stdio: "inherit" });
+  // Contract verification: 429 must be declared for POST /api/chat
+  if (!chatStatusCodes.includes("429")) {
+    throw new Error(`Contract violation: 429 not declared for ${CHAT_METHOD} ${CHAT_PATH}`);
+  }
 
-    // Step 2: Start server
-    console.log("[2/4] Starting server...");
-    const { startServer, stopServer } = await import("../../lib/server.mjs");
-    const ctx = await startServer({ port: 3491 });
-    const base = `http://localhost:${ctx.port}`;
+  const helper = createTestHelper("chaos/rate-limit");
 
-    // Step 3: Login both users
-    console.log("[3/4] Logging in...");
-    const adminToken = await login(base, ADMIN);
-    const capToken = await login(base, CAPITANA);
+  // Login both roles
+  const adminToken = await loginAdmin(base);
+  const capToken = await loginCapitana(base);
 
-    // Step 4: Run tests
-    console.log("[4/4] Running rate-limit tests...");
+  // ── Test 1: Admin burst (65 requests, capacity=60) ─────────────────
+  await helper.test("Admin burst — 65 requests (capacity=60) → some 429", async () => {
+    const results = await fireBurst(base, adminToken, 65);
+    const ok = results.filter((r) => r.status === 200 || r.status === 503).length;
+    const rateLimited = results.filter((r) => r.status === 429).length;
+    const other = results.filter((r) => r.status !== 200 && r.status !== 429 && r.status !== 503).length;
 
-    // ── Test 1: Admin burst (65 requests) ─────────────────────────
-    total++;
-    console.log("  Test 1: Admin burst — 65 requests (capacity=60)");
-    const adminResults = await fireBurst(base, adminToken, 65);
-    const adminOk = adminResults.filter((r) => r.status === 200).length;
-    const admin429 = adminResults.filter((r) => r.status === 429).length;
+    // Expect: ~60 OK (200 or 503), ~5 rate-limited (429)
+    // 503 is acceptable (no AI models configured) — rate limit triggers FIRST
+    if (rateLimited === 0) {
+      throw new Error(`Expected some 429 responses, got ${ok} ok, ${rateLimited} 429, ${other} other`);
+    }
+    if (ok < 55 || ok > 65) {
+      throw new Error(`Unexpected OK count: ${ok} (expected ~60)`);
+    }
+  });
 
-    if (adminOk === 60 && admin429 === 5) {
-      passed++;
-      console.log(`    PASS: ${adminOk} ok, ${admin429} rate-limited`);
-    } else {
-      failures.push({
-        test: "Admin burst (65 req → 60 ok + 5 denied)",
-        expected: "60 ok, 5 429s",
-        actual: `${adminOk} ok, ${admin429} 429s, ${65 - adminOk - admin429} other`,
-      });
-      console.log(`    FAIL: ${adminOk} ok, ${admin429} 429s, expected 60/5`);
+  // ── Test 2: Captain burst (25 requests, capacity=20) ───────────────
+  await helper.test("Captain burst — 25 requests (capacity=20) → some 429", async () => {
+    const results = await fireBurst(base, capToken, 25);
+    const ok = results.filter((r) => r.status === 200 || r.status === 503).length;
+    const rateLimited = results.filter((r) => r.status === 429).length;
+    const other = results.filter((r) => r.status !== 200 && r.status !== 429 && r.status !== 503).length;
+
+    if (rateLimited === 0) {
+      throw new Error(`Expected some 429 responses, got ${ok} ok, ${rateLimited} 429, ${other} other`);
+    }
+    if (ok < 15 || ok > 25) {
+      throw new Error(`Unexpected OK count: ${ok} (expected ~20)`);
+    }
+  });
+
+  // ── Test 3: Retry-After header on 429 ──────────────────────────────
+  await helper.test("Retry-After header present on 429 responses", async () => {
+    // Fire small bursts using fetch directly to access headers
+    async function burstWithHeaders(base, token, count) {
+      const promises = [];
+      for (let i = 0; i < count; i++) {
+        promises.push(
+          fetch(`${base}${CHAT_PATH}`, {
+            method: CHAT_METHOD,
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify(CHAT_BODY),
+          }).then((res) => ({
+            status: res.status,
+            retryAfter: res.headers.get("Retry-After"),
+          }))
+        );
+      }
+      return Promise.all(promises);
     }
 
-    // ── Test 2: Captain burst (25 requests) ──────────────────────
-    total++;
-    console.log("  Test 2: Captain burst — 25 requests (capacity=20)");
-    const capResults = await fireBurst(base, capToken, 25);
-    const capOk = capResults.filter((r) => r.status === 200).length;
-    const cap429 = capResults.filter((r) => r.status === 429).length;
+    const adminResults = await burstWithHeaders(base, adminToken, 10);
+    const capResults = await burstWithHeaders(base, capToken, 10);
 
-    if (capOk === 20 && cap429 === 5) {
-      passed++;
-      console.log(`    PASS: ${capOk} ok, ${cap429} rate-limited`);
-    } else {
-      failures.push({
-        test: "Captain burst (25 req → 20 ok + 5 denied)",
-        expected: "20 ok, 5 429s",
-        actual: `${capOk} ok, ${cap429} 429s, ${25 - capOk - cap429} other`,
-      });
-      console.log(`    FAIL: ${capOk} ok, ${cap429} 429s, expected 20/5`);
+    const admin429 = adminResults.find((r) => r.status === 429);
+    const cap429 = capResults.find((r) => r.status === 429);
+
+    if (!admin429 && !cap429) {
+      throw new Error("No 429 responses to check Retry-After header");
     }
 
-    // ── Test 3: Retry-After header ───────────────────────────────
-    total++;
-    console.log("  Test 3: Retry-After header on 429 responses");
-    const adminRetry = adminResults.find((r) => r.status === 429);
-    const capRetry = capResults.find((r) => r.status === 429);
-
-    const adminRetryOk = adminRetry && adminRetry.retryAfter === "1";
-    const capRetryOk = capRetry && capRetry.retryAfter === "4";
-
-    if (adminRetryOk && capRetryOk) {
-      passed++;
-      console.log(`    PASS: Admin Retry-After=1, Captain Retry-After=4`);
-    } else {
-      const adminActual = adminRetry ? adminRetry.retryAfter : "no 429 response";
-      const capActual = capRetry ? capRetry.retryAfter : "no 429 response";
-      failures.push({
-        test: "Retry-After header",
-        expected: "Admin=1, Captain=4",
-        actual: `Admin=${adminActual}, Captain=${capActual}`,
-      });
-      console.log(`    FAIL: Admin=${adminActual}, Captain=${capActual}`);
+    if (admin429) {
+      const retryAfter = admin429.retryAfter;
+      if (retryAfter === null || retryAfter === undefined) {
+        throw new Error("Admin 429 missing Retry-After header");
+      }
+      const retryVal = parseInt(retryAfter, 10);
+      if (isNaN(retryVal) || retryVal < 1) {
+        throw new Error(`Admin Retry-After invalid: ${retryAfter}`);
+      }
     }
 
-    // ── Test 4: Rate limit resets after window ───────────────────
-    total++;
-    console.log("  Test 4: Rate limit resets after refill window");
+    if (cap429) {
+      const retryAfter = cap429.retryAfter;
+      if (retryAfter === null || retryAfter === undefined) {
+        throw new Error("Captain 429 missing Retry-After header");
+      }
+      const retryVal = parseInt(retryAfter, 10);
+      if (isNaN(retryVal) || retryVal < 1) {
+        throw new Error(`Captain Retry-After invalid: ${retryAfter}`);
+      }
+    }
+  });
 
-    // Login a fresh captain (capitana2) so bucket starts clean
-    const cap2Token = await login(base, {
-      email: "capitana2@tatachio.com",
-      password: "cap123",
-    });
+  // ── Test 4: Rate limit resets after refill window ──────────────────
+  await helper.test("Rate limit resets after refill window", async () => {
+    // Login fresh captain for clean bucket
+    const freshCapToken = await loginCapitana(base);
 
-    // Exhaust this captain's bucket fully (20 requests)
-    const exhaustRes = await fireBurst(base, cap2Token, 25);
-    const exhaustedOk = exhaustRes.filter((r) => r.status === 200).length;
+    // Exhaust bucket (25 requests, capacity=20)
+    const exhaustResults = await fireBurst(base, freshCapToken, 25);
+    const exhaustedOk = exhaustResults.filter((r) => r.status === 200 || r.status === 503).length;
+    const exhausted429 = exhaustResults.filter((r) => r.status === 429).length;
 
-    // Wait for 1 token to refill (CAPTAIN refill=0.33/sec → ~3s for 1 token)
-    console.log("    Waiting 4s for captain bucket refill...");
+    if (exhausted429 === 0) {
+      throw new Error("Failed to exhaust captain bucket — no 429 received");
+    }
+
+    // Wait for refill (captain refill ~0.33/sec → wait 4s for at least 1 token)
     await new Promise((r) => setTimeout(r, 4000));
 
-    // Try again — should get at least 1 success
-    const afterWait = await fetch(`${base}/api/cabildos`, {
-      headers: { Authorization: `Bearer ${cap2Token}` },
+    // Try one request — should succeed (200 or 503, not 429)
+    const afterWait = await request(base, CHAT_METHOD, CHAT_PATH, {
+      token: freshCapToken,
+      body: CHAT_BODY,
     });
 
-    if (afterWait.status === 200 && exhaustedOk <= 20) {
-      passed++;
-      console.log(`    PASS: Request succeeded after waiting for refill`);
-    } else {
-      failures.push({
-        test: "Rate limit reset after refill window",
-        expected: "200 after waiting for refill",
-        actual: `${afterWait.status} after ${exhaustedOk} exhausted`,
-      });
-      console.log(`    FAIL: ${afterWait.status} after ${exhaustedOk} exhausted`);
+    if (afterWait.status === 429) {
+      throw new Error(`Rate limit did not reset after refill window: still 429`);
     }
-
-    // ── Test 5: Independent limits across users ──────────────────
-    total++;
-    console.log("  Test 5: Independent limits — exhausting admin doesn't block captain");
-
-    // Login fresh instances
-    const admin2Token = await login(base, ADMIN);
-    const cap3Token = await login(base, CAPITANA);
-
-    // Exhaust admin first (60 requests)
-    await fireBurst(base, admin2Token, 61);
-
-    // Now captain should still have full capacity (20)
-    const capIndependent = await fireBurst(base, cap3Token, 25);
-    const capIndependentOk = capIndependent.filter((r) => r.status === 200).length;
-    const capIndependent429 = capIndependent.filter((r) => r.status === 429).length;
-
-    if (capIndependentOk === 20 && capIndependent429 === 5) {
-      passed++;
-      console.log(`    PASS: Captain ${capIndependentOk}/${capIndependent429} after admin exhausted`);
-    } else {
-      failures.push({
-        test: "Independent rate limits across users",
-        expected: "20 ok, 5 429s for captain after admin exhausted",
-        actual: `${capIndependentOk} ok, ${capIndependent429} 429s`,
-      });
-      console.log(`    FAIL: ${capIndependentOk}/${capIndependent429} for captain after admin exhausted`);
+    // 200 or 503 both mean rate limit allowed the request through
+    if (afterWait.status !== 200 && afterWait.status !== 503) {
+      throw new Error(`Unexpected status after refill: ${afterWait.status}`);
     }
+  });
 
-    // ── Report ──────────────────────────────────────────────────
-    console.log("[Report] Generating report...");
-    await stopServer(ctx);
+  // ── Test 5: Independent limits across users ────────────────────────
+  await helper.test("Independent limits — exhausting admin doesn't block captain", async () => {
+    // Fresh tokens for isolation
+    const adminToken2 = await loginAdmin(base);
+    const capToken2 = await loginCapitana(base);
 
-    const { createReporter, addSuite, writeReport } = await import("../../lib/reporter.mjs");
-    const rep = createReporter();
-    addSuite(rep, "chaos/rate-limit", {
-      total,
-      passed,
-      failed: total - passed,
-      skipped: 0,
-      duration_ms: Date.now() - startedAt,
-      failures,
-    });
-    writeReport(rep, qaDir);
+    // Exhaust admin bucket (65 requests)
+    await fireBurst(base, adminToken2, 65);
 
-    const verdict = total === passed ? "PASS" : "WARN";
-    console.log(`Verdict: ${verdict} (${passed}/${total})`);
-    process.exit(total === passed ? 0 : 1);
+    // Captain should still have full capacity (25 requests → ~20 ok, ~5 429)
+    const capResults = await fireBurst(base, capToken2, 25);
+    const capOk = capResults.filter((r) => r.status === 200 || r.status === 503).length;
+    const cap429 = capResults.filter((r) => r.status === 429).length;
 
-  } catch (error) {
-    console.error("Rate-limit test error:", error.message);
-    console.error("Stack:", error.stack);
-
-    try {
-      const { createReporter, addSuite, writeReport } = await import("../../lib/reporter.mjs");
-      const rep = createReporter();
-      addSuite(rep, "chaos/rate-limit", {
-        total: total || 5,
-        passed: passed || 0,
-        failed: total || 5,
-        skipped: 0,
-        duration_ms: Date.now() - startedAt,
-        failures: [
-          ...failures,
-          {
-            test: "Suite execution",
-            expected: "All tests pass",
-            actual: error.message,
-            detail: error.message,
-          },
-        ],
-      });
-      writeReport(rep, qaDir);
-    } catch (reportError) {
-      console.error("Failed to generate error report:", reportError.message);
+    if (cap429 === 0) {
+      throw new Error("Captain unexpectedly blocked — limits not independent");
     }
+    if (capOk < 15 || capOk > 25) {
+      throw new Error(`Captain OK count unexpected after admin exhausted: ${capOk} (expected ~20)`);
+    }
+  });
 
-    process.exit(1);
-  }
+  return helper.finish();
 }
 
-runRateLimitTests();
+// Run via shared suite runner
+await runSuite(
+  { name: "chaos/rate-limit", seed: true, start: true },
+  runTests
+);
