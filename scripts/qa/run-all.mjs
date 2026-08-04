@@ -32,6 +32,10 @@ async function runAllSuites() {
     "suites/chaos/injection",
     "suites/chaos/rate-limit",
     "suites/chaos/boundary",
+    "suites/cli/auth",
+    "suites/cli/cabildos",
+    "suites/cli/familias",
+    "suites/cli/miembros",
   ];
 
   let anyFailed = false;
