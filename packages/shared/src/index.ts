@@ -25,7 +25,7 @@ export const memberSchema = z.object({
   telefono: z.string().optional(),
   novedad: z.string().optional(),
   familiaId: z.string().uuid(),
-  cabildoId: z.string().uuid(),
+  cabildoId: z.string().uuid().optional(),
 });
 
 export type MemberInput = z.infer<typeof memberSchema>;

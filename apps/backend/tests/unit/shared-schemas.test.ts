@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { cabildoSchema, familiaSchema } from "@tatachio/shared";
+import { cabildoSchema, familiaSchema, memberSchema } from "@tatachio/shared";
 
 describe("cabildoSchema", () => {
   it("should accept valid cabildo data", () => {
@@ -87,5 +87,47 @@ describe("familiaSchema", () => {
     expect(result.numero).toBe(5);
     expect(result.direccion).toBeUndefined();
     expect(result.telefono).toBeUndefined();
+  });
+});
+
+describe("memberSchema", () => {
+  const validMemberBase = {
+    tipoIdentificacion: "CC" as const,
+    numeroDocumento: "12345678",
+    nombres: "Juan",
+    apellidos: "Perez",
+    fechaNacimiento: "01/01/1990",
+    parentesco: "PA" as const,
+    sexo: "M" as const,
+    integrantes: 3,
+    familiaId: "123e4567-e89b-12d3-a456-426614174000",
+  };
+
+  it("should accept valid member data with cabildoId", () => {
+    const valid = {
+      ...validMemberBase,
+      cabildoId: "123e4567-e89b-12d3-a456-426614174000",
+    };
+
+    const result = memberSchema.parse(valid);
+
+    expect(result.cabildoId).toBe("123e4567-e89b-12d3-a456-426614174000");
+  });
+
+  it("should accept valid member data without cabildoId (optional)", () => {
+    const valid = { ...validMemberBase };
+
+    const result = memberSchema.parse(valid);
+
+    expect(result.cabildoId).toBeUndefined();
+  });
+
+  it("should reject invalid cabildoId format when provided", () => {
+    const invalid = {
+      ...validMemberBase,
+      cabildoId: "not-a-uuid",
+    };
+
+    expect(() => memberSchema.parse(invalid)).toThrow();
   });
 });

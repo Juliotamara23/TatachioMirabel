@@ -1,27 +1,32 @@
-import { Request, Response } from "express";
+import { Request, Response, NextFunction } from "express";
 import { ZodError } from "zod";
 import prisma from "../database.js";
 import { memberSchema } from "@tatachio/shared";
 import type { Prisma } from "@prisma/client";
 import { applyCabildoScope } from "../middleware/authMiddleware.js";
 
-export const createMember = async (req: Request, res: Response) => {
+export const createMember = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const validatedData = memberSchema.parse(req.body);
-    const where: Record<string, unknown> = {};
-    applyCabildoScope(req, where);
+    const userRole = req.usuario?.rol;
+    const userCabildoId = req.usuario?.cabildoId;
 
-    const dataToCreate: {
-      nombres: string;
-      apellidos: string;
-      numeroDocumento: string;
-      email: string;
-      estado: string;
-      cabildoId?: string;
-      familiaId?: string;
-    } = { ...validatedData };
-    if (where.cabildoId) {
-      dataToCreate.cabildoId = where.cabildoId as string;
+    let dataToCreate = { ...validatedData };
+
+    if (userRole === "CAPTAIN") {
+      if (validatedData.cabildoId && validatedData.cabildoId !== userCabildoId) {
+        return res.status(403).json({ error: "cabildoId en el body no coincide con el del JWT" });
+      }
+      if (!validatedData.cabildoId) {
+        if (!userCabildoId) {
+          return res.status(400).json({ error: "CAPTAIN sin cabildoId asignado" });
+        }
+        dataToCreate.cabildoId = userCabildoId;
+      }
+    } else if (userRole === "ADMINISTRATOR") {
+      if (!validatedData.cabildoId) {
+        return res.status(400).json({ error: "cabildoId es requerido para ADMINISTRATOR" });
+      }
     }
 
     const nuevoMiembro = await prisma.miembro.create({
@@ -33,16 +38,15 @@ export const createMember = async (req: Request, res: Response) => {
     if (error instanceof ZodError) {
       return res.status(400).json({ error: error.issues });
     }
-    void error; // Prevent unused variable warning
-    res.status(500).json({ error: "Error al crear miembro" });
+    next(error);
   }
 };
 
-export const getMembers = async (req: Request, res: Response) => {
+export const getMembers = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { search } = req.query;
+    const { search, cabildoId } = req.query;
     const where: Prisma.MiembroWhereInput = {};
-    
+
     if (search) {
       where.OR = [
         { nombres: { contains: search as string } },
@@ -50,7 +54,12 @@ export const getMembers = async (req: Request, res: Response) => {
         { numeroDocumento: { contains: search as string } },
       ];
     }
-    
+
+    // Admin can filter by cabildoId query param; Captain is scoped to JWT
+    if (req.usuario?.rol === "ADMINISTRATOR" && cabildoId) {
+      where.cabildoId = cabildoId as string;
+    }
+
     applyCabildoScope(req, where);
 
     const miembros = await prisma.miembro.findMany({
@@ -60,8 +69,8 @@ export const getMembers = async (req: Request, res: Response) => {
       },
     });
     res.json(miembros);
-  } catch {
-    res.status(500).json({ error: "Error al obtener miembros" });
+  } catch (error: unknown) {
+    next(error);
   }
 };
 
