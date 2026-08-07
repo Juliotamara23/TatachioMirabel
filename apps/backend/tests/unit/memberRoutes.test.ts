@@ -151,6 +151,38 @@ describe("memberController.createMember", () => {
     expect(mockStatus).toHaveBeenCalledWith(400);
     expect(prisma.miembro.create).not.toHaveBeenCalled();
   });
+
+  it("extreme age (>99) → 201 with warnings, not blocked", async () => {
+    mockReq.body = { ...validMemberBody, fechaNacimiento: "01/01/1900", cabildoId: "11111111-1111-4111-8111-111111111111" };
+    mockReq.usuario = { id: "user-1", rol: "ADMINISTRATOR", cabildoId: "11111111-1111-4111-8111-111111111111" };
+    (prisma.miembro.create as ReturnType<typeof vi.fn>).mockResolvedValue({
+      id: "member-1",
+      ...mockReq.body,
+      cabildoId: "11111111-1111-4111-8111-111111111111",
+    });
+
+    await createMember(mockReq as Request, mockRes as Response);
+
+    expect(mockStatus).toHaveBeenCalledWith(201);
+    expect(mockJson).toHaveBeenCalledWith(expect.objectContaining({
+      warnings: expect.arrayContaining([expect.stringContaining("edad extrema")]),
+    }));
+  });
+
+  it("plausible age → 201 without warnings", async () => {
+    mockReq.body = { ...validMemberBody, fechaNacimiento: "09/07/1931", cabildoId: "11111111-1111-4111-8111-111111111111" };
+    mockReq.usuario = { id: "user-1", rol: "ADMINISTRATOR", cabildoId: "11111111-1111-4111-8111-111111111111" };
+    (prisma.miembro.create as ReturnType<typeof vi.fn>).mockResolvedValue({
+      id: "member-1",
+      ...mockReq.body,
+      cabildoId: "11111111-1111-4111-8111-111111111111",
+    });
+
+    await createMember(mockReq as Request, mockRes as Response);
+
+    expect(mockStatus).toHaveBeenCalledWith(201);
+    expect(mockJson).toHaveBeenCalledWith(expect.not.objectContaining({ warnings: expect.anything() }));
+  });
 });
 
 describe("memberController.getMembers", () => {
@@ -304,6 +336,33 @@ describe("memberController.updateMember", () => {
 
     expect(mockStatus).toHaveBeenCalledWith(400);
     expect(mockNext).not.toHaveBeenCalled();
+  });
+
+  it("update without fechaNacimiento → 200 without crash (partial update)", async () => {
+    mockReq.body = { nombres: "Solo nombre" };
+    (prisma.miembro.update as ReturnType<typeof vi.fn>).mockResolvedValue({
+      id: memberId,
+      nombres: "Solo nombre",
+    });
+
+    await updateMember(mockReq as Request, mockRes as Response, mockNext);
+
+    expect(mockStatus).not.toHaveBeenCalledWith(500);
+    expect(mockNext).not.toHaveBeenCalled();
+  });
+
+  it("update with extreme age → 200 with warnings", async () => {
+    mockReq.body = { fechaNacimiento: "01/01/1900" };
+    (prisma.miembro.update as ReturnType<typeof vi.fn>).mockResolvedValue({
+      id: memberId,
+      fechaNacimiento: "01/01/1900",
+    });
+
+    await updateMember(mockReq as Request, mockRes as Response, mockNext);
+
+    expect(mockJson).toHaveBeenCalledWith(expect.objectContaining({
+      warnings: expect.arrayContaining([expect.stringContaining("edad extrema")]),
+    }));
   });
 });
 

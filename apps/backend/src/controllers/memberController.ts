@@ -1,9 +1,18 @@
 import { Request, Response, NextFunction } from "express";
 import { ZodError } from "zod";
 import prisma from "../database.js";
-import { memberSchema } from "@tatachio/shared";
+import { memberSchema, ageFromFechaNacimiento, MAX_PLAUSIBLE_AGE_YEARS } from "@tatachio/shared";
 import type { Prisma } from "@prisma/client";
 import { applyCabildoScope } from "../middleware/authMiddleware.js";
+
+function ageWarnings(validatedData: { fechaNacimiento?: string }): string[] {
+  if (!validatedData.fechaNacimiento) return [];
+  const age = ageFromFechaNacimiento(validatedData.fechaNacimiento);
+  if (age > MAX_PLAUSIBLE_AGE_YEARS) {
+    return [`fechaNacimiento sugiere edad extrema (>${MAX_PLAUSIBLE_AGE_YEARS} años, calculada ${age}). Verificar posible error de transcripción.`];
+  }
+  return [];
+}
 
 export const createMember = async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -33,7 +42,8 @@ export const createMember = async (req: Request, res: Response, next: NextFuncti
       data: dataToCreate,
     });
 
-    res.status(201).json(nuevoMiembro);
+    const warnings = ageWarnings(dataToCreate);
+    res.status(201).json(warnings.length > 0 ? { ...nuevoMiembro, warnings } : nuevoMiembro);
   } catch (error: unknown) {
     if (error instanceof ZodError) {
       return res.status(400).json({ error: error.issues });
@@ -118,7 +128,8 @@ export const updateMember = async (req: Request, res: Response, next: NextFuncti
       data: validatedData,
     });
 
-    res.json(miembroActualizado);
+    const warnings = ageWarnings(validatedData);
+    res.json(warnings.length > 0 ? { ...miembroActualizado, warnings } : miembroActualizado);
   } catch (error: unknown) {
     if (error instanceof ZodError) {
       return res.status(400).json({ error: error.issues });

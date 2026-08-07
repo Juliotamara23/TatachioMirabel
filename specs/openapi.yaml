@@ -82,7 +82,7 @@ components:
         numeroDocumento: { type: string }
         nombres: { type: string }
         apellidos: { type: string }
-        fechaNacimiento: { type: string, description: "DD/MM/YYYY" }
+        fechaNacimiento: { type: string, description: "DD/MM/YYYY. Validación semántica: rechaza calendario inválido y fecha futura; warning si edad >99 años" }
         parentesco: { $ref: "#/components/schemas/Parentesco" }
         sexo: { $ref: "#/components/schemas/Sexo" }
         estadoCivil: { $ref: "#/components/schemas/EstadoCivil", nullable: true }
@@ -100,6 +100,7 @@ components:
         updatedAt: { type: string, format: date-time }
         cabildoId: { type: string, format: uuid }
         familiaId: { type: string, format: uuid }
+        warnings: { type: array, items: { type: string }, description: "Advertencias no bloqueantes (p.ej. edad >99 años)" }
 
     LoginRequest:
       type: object
@@ -570,7 +571,7 @@ paths:
                 numeroDocumento: { type: string }
                 nombres: { type: string }
                 apellidos: { type: string }
-                fechaNacimiento: { type: string, description: "DD/MM/YYYY" }
+                fechaNacimiento: { type: string, description: "DD/MM/YYYY. Validación semántica: rechaza calendario inválido y fecha futura; warning si edad >99 años" }
                 parentesco: { $ref: "#/components/schemas/Parentesco" }
                 sexo: { $ref: "#/components/schemas/Sexo" }
                 integrantes: { type: integer, minimum: 1 }
@@ -639,7 +640,7 @@ paths:
                 numeroDocumento: { type: string }
                 nombres: { type: string }
                 apellidos: { type: string }
-                fechaNacimiento: { type: string }
+                fechaNacimiento: { type: string, description: "DD/MM/YYYY. Validación semántica: rechaza calendario inválido y fecha futura; warning si edad >99 años" }
                 parentesco: { $ref: "#/components/schemas/Parentesco" }
                 sexo: { $ref: "#/components/schemas/Sexo" }
                 integrantes: { type: integer }
