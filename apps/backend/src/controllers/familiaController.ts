@@ -1,4 +1,4 @@
-import { Request, Response } from "express";
+import { Request, Response, NextFunction } from "express";
 import { ZodError } from "zod";
 import prisma from "../database.js";
 import { familiaSchema } from "@tatachio/shared";
@@ -71,7 +71,7 @@ export const getFamiliaById = async (req: Request, res: Response) => {
   }
 };
 
-export const updateFamilia = async (req: Request, res: Response) => {
+export const updateFamilia = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
     const validated = familiaSchema.partial().parse(req.body);
@@ -86,18 +86,18 @@ export const updateFamilia = async (req: Request, res: Response) => {
     if (error instanceof ZodError) {
       return res.status(400).json({ error: error.issues });
     }
-    res.status(500).json({ error: "Error al actualizar familia" });
+    next(error);
   }
 };
 
-export const deleteFamilia = async (req: Request, res: Response) => {
+export const deleteFamilia = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
     await prisma.familia.delete({
       where: { id },
     });
     res.status(204).send();
-  } catch {
-    res.status(500).json({ error: "Error al eliminar familia" });
+  } catch (error: unknown) {
+    next(error);
   }
 };

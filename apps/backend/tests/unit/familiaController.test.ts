@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { Request, Response } from "express";
+import { Request, Response, NextFunction } from "express";
+import { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
 
 // Mock Prisma before importing the controller
 vi.mock("../../src/database.js", () => ({
@@ -22,6 +23,7 @@ import {
   createFamilia,
   getFamilias,
   getFamiliaById,
+  updateFamilia,
   deleteFamilia,
 } from "../../src/controllers/familiaController.js";
 
@@ -32,6 +34,18 @@ function mockRes() {
     send: vi.fn().mockReturnThis(),
   };
   return res as Response;
+}
+
+function mockNext() {
+  return vi.fn() as NextFunction;
+}
+
+function makeP2025Error(): PrismaClientKnownRequestError {
+  return new PrismaClientKnownRequestError(
+    "Record not found",
+    { code: "P2025", clientVersion: "5.0.0" },
+    undefined
+  );
 }
 
 describe("familiaController", () => {
@@ -146,6 +160,66 @@ describe("familiaController", () => {
 
       expect(res.status).toHaveBeenCalledWith(204);
       expect(res.send).toHaveBeenCalled();
+    });
+
+    it("should call next with P2025 error when familia not found", async () => {
+      const req = { params: { id: "non-existent-uuid" } } as unknown as Request;
+      const p2025 = makeP2025Error();
+      vi.mocked(prisma.familia.delete).mockRejectedValue(p2025);
+
+      const res = mockRes();
+      const next = mockNext();
+      await deleteFamilia(req, res, next);
+
+      expect(next).toHaveBeenCalledWith(p2025);
+      expect(res.status).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("updateFamilia", () => {
+    it("should return 200 on successful update", async () => {
+      const req = {
+        params: { id: "fam-1" },
+        body: { numero: 2 },
+      } as unknown as Request;
+      const updatedFamilia = { id: "fam-1", numero: 2, direccion: "Calle 10", cabildoId: "cab-1" };
+      vi.mocked(prisma.familia.update).mockResolvedValue(updatedFamilia as never);
+
+      const res = mockRes();
+      await updateFamilia(req, res);
+
+      expect(res.json).toHaveBeenCalledWith(updatedFamilia);
+    });
+
+    it("should call next with P2025 error when familia not found", async () => {
+      const req = {
+        params: { id: "non-existent-uuid" },
+        body: { numero: 2 },
+      } as unknown as Request;
+      const p2025 = makeP2025Error();
+      vi.mocked(prisma.familia.update).mockRejectedValue(p2025);
+
+      const res = mockRes();
+      const next = mockNext();
+      await updateFamilia(req, res, next);
+
+      expect(next).toHaveBeenCalledWith(p2025);
+      expect(res.status).not.toHaveBeenCalled();
+    });
+
+    it("should return 400 on Zod validation error", async () => {
+      const req = {
+        params: { id: "fam-1" },
+        body: { numero: -1 },
+      } as unknown as Request;
+
+      const res = mockRes();
+      await updateFamilia(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({ error: expect.any(Array) })
+      );
     });
   });
 });
