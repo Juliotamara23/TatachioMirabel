@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { Request, Response } from "express";
-import { createMember, getMembers, updateMember, deleteMember } from "../../src/controllers/memberController.js";
+import { createMember, getMembers, getMemberById, updateMember, deleteMember } from "../../src/controllers/memberController.js";
 import { memberSchema } from "@tatachio/shared";
 
 // Mock Prisma
@@ -374,6 +374,76 @@ describe("memberController.deleteMember", () => {
     await deleteMember(mockReq as Request, mockRes as Response, mockNext);
 
     expect(mockNext).toHaveBeenCalledWith(genericError);
+    expect(mockStatus).not.toHaveBeenCalledWith(500);
+  });
+});
+
+describe("memberController.getMemberById", () => {
+  let mockReq: Partial<Request>;
+  let mockRes: Partial<Response>;
+  let mockJson: ReturnType<typeof vi.fn>;
+  let mockStatus: ReturnType<typeof vi.fn>;
+  let mockNext: ReturnType<typeof vi.fn>;
+
+  const jwtCabildoId = "11111111-1111-4111-8111-111111111111";
+  const otherCabildoId = "22222222-2222-4222-8222-222222222222";
+  const memberId = "33333333-3333-4333-8333-333333333333";
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockJson = vi.fn().mockReturnThis();
+    mockStatus = vi.fn().mockReturnValue({ json: mockJson });
+    mockNext = vi.fn();
+    mockReq = {
+      params: { id: memberId },
+      usuario: { id: "user-1", rol: "ADMINISTRATOR", cabildoId: null },
+    };
+    mockRes = {
+      status: mockStatus,
+      json: mockJson,
+    };
+  });
+
+  it("returns 404 when member does not exist", async () => {
+    (prisma.miembro.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+
+    await getMemberById(mockReq as Request, mockRes as Response, mockNext);
+
+    expect(mockStatus).toHaveBeenCalledWith(404);
+    expect(mockNext).not.toHaveBeenCalled();
+  });
+
+  it("returns 404 for CAPTAIN accessing member of another cabildo", async () => {
+    (prisma.miembro.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({
+      id: memberId,
+      cabildoId: otherCabildoId,
+    });
+    mockReq.usuario = { id: "user-1", rol: "CAPTAIN", cabildoId: jwtCabildoId };
+
+    await getMemberById(mockReq as Request, mockRes as Response, mockNext);
+
+    expect(mockStatus).toHaveBeenCalledWith(404);
+  });
+
+  it("returns 200 for ADMIN", async () => {
+    (prisma.miembro.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({
+      id: memberId,
+      cabildoId: jwtCabildoId,
+    });
+
+    await getMemberById(mockReq as Request, mockRes as Response, mockNext);
+
+    expect(mockStatus).not.toHaveBeenCalledWith(404);
+    expect(mockJson).toHaveBeenCalledWith(expect.objectContaining({ id: memberId }));
+  });
+
+  it("forwards unexpected errors to next (no catch-all 500)", async () => {
+    const dbError = new Error("db down");
+    (prisma.miembro.findUnique as ReturnType<typeof vi.fn>).mockRejectedValue(dbError);
+
+    await getMemberById(mockReq as Request, mockRes as Response, mockNext);
+
+    expect(mockNext).toHaveBeenCalledWith(dbError);
     expect(mockStatus).not.toHaveBeenCalledWith(500);
   });
 });

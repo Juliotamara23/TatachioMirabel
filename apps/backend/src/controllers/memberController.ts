@@ -74,7 +74,7 @@ export const getMembers = async (req: Request, res: Response, next: NextFunction
   }
 };
 
-export const getMemberById = async (req: Request, res: Response) => {
+export const getMemberById = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
     const miembro = await prisma.miembro.findUnique({
@@ -93,8 +93,8 @@ export const getMemberById = async (req: Request, res: Response) => {
     }
 
     res.json(miembro);
-  } catch {
-    res.status(500).json({ error: "Error al obtener miembro" });
+  } catch (error: unknown) {
+    next(error);
   }
 };
 
