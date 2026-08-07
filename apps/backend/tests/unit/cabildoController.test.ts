@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { Request, Response } from "express";
+import { Request, Response, NextFunction } from "express";
+import { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
 
 // Mock Prisma before importing the controller
 vi.mock("../../src/database.js", () => ({
@@ -32,6 +33,19 @@ function mockRes() {
   return res as Response;
 }
 
+function mockNext() {
+  return vi.fn() as NextFunction;
+}
+
+function createP2025Error(): PrismaClientKnownRequestError {
+  // Create a minimal P2025 error - record not found
+  const error = new PrismaClientKnownRequestError(
+    "Record not found",
+    { code: "P2025", clientVersion: "5.0.0" }
+  );
+  return error;
+}
+
 describe("cabildoController", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -52,10 +66,12 @@ describe("cabildoController", () => {
       vi.mocked(prisma.cabildo.create).mockResolvedValue(mockCreated);
 
       const res = mockRes();
-      await createCabildo(req, res);
+      const next = mockNext();
+      await createCabildo(req, res, next);
 
       expect(res.status).toHaveBeenCalledWith(201);
       expect(res.json).toHaveBeenCalledWith(mockCreated);
+      expect(next).not.toHaveBeenCalled();
     });
 
     it("should return 400 on Zod validation error", async () => {
@@ -64,7 +80,8 @@ describe("cabildoController", () => {
       } as Request;
 
       const res = mockRes();
-      await createCabildo(req, res);
+      const next = mockNext();
+      await createCabildo(req, res, next);
 
       expect(res.status).toHaveBeenCalledWith(400);
       expect(res.json).toHaveBeenCalledWith(
@@ -74,6 +91,7 @@ describe("cabildoController", () => {
       const callArg = vi.mocked(res.json).mock.calls[0]?.[0] as Record<string, unknown>;
       expect(Array.isArray(callArg?.error)).toBe(true);
       expect((callArg?.error as unknown[] | undefined)?.length).toBeGreaterThan(0);
+      expect(next).not.toHaveBeenCalled();
     });
   });
 
@@ -84,9 +102,11 @@ describe("cabildoController", () => {
       vi.mocked(prisma.cabildo.findMany).mockResolvedValue(mockList as never);
 
       const res = mockRes();
-      await getCabildos(req, res);
+      const next = mockNext();
+      await getCabildos(req, res, next);
 
       expect(res.json).toHaveBeenCalledWith(mockList);
+      expect(next).not.toHaveBeenCalled();
     });
   });
 
@@ -97,9 +117,11 @@ describe("cabildoController", () => {
       vi.mocked(prisma.cabildo.findUnique).mockResolvedValue(mockCabildo as never);
 
       const res = mockRes();
-      await getCabildoById(req, res);
+      const next = mockNext();
+      await getCabildoById(req, res, next);
 
       expect(res.json).toHaveBeenCalledWith(mockCabildo);
+      expect(next).not.toHaveBeenCalled();
     });
 
     it("should return 404 when cabildo not found", async () => {
@@ -107,12 +129,14 @@ describe("cabildoController", () => {
       vi.mocked(prisma.cabildo.findUnique).mockResolvedValue(null);
 
       const res = mockRes();
-      await getCabildoById(req, res);
+      const next = mockNext();
+      await getCabildoById(req, res, next);
 
       expect(res.status).toHaveBeenCalledWith(404);
       expect(res.json).toHaveBeenCalledWith(
         expect.objectContaining({ error: "Cabildo no encontrado" })
       );
+      expect(next).not.toHaveBeenCalled();
     });
   });
 
@@ -126,9 +150,45 @@ describe("cabildoController", () => {
       vi.mocked(prisma.cabildo.update).mockResolvedValue(mockUpdated as never);
 
       const res = mockRes();
-      await updateCabildo(req, res);
+      const next = mockNext();
+      await updateCabildo(req, res, next);
 
       expect(res.json).toHaveBeenCalledWith(mockUpdated);
+      expect(next).not.toHaveBeenCalled();
+    });
+
+    it("should call next with PrismaClientKnownRequestError P2025 when cabildo not found", async () => {
+      const req = {
+        params: { id: "non-existent-id" },
+        body: { nombre: "Nuevo Nombre" },
+      } as unknown as Request;
+      const p2025Error = createP2025Error();
+      vi.mocked(prisma.cabildo.update).mockRejectedValue(p2025Error);
+
+      const res = mockRes();
+      const next = mockNext();
+      await updateCabildo(req, res, next);
+
+      expect(next).toHaveBeenCalledWith(p2025Error);
+      expect(res.status).not.toHaveBeenCalled();
+      expect(res.json).not.toHaveBeenCalled();
+    });
+
+    it("should return 400 on Zod validation error", async () => {
+      const req = {
+        params: { id: "cab-1" },
+        body: { nombre: "" }, // invalid - empty string
+      } as unknown as Request;
+
+      const res = mockRes();
+      const next = mockNext();
+      await updateCabildo(req, res, next);
+
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({ error: expect.any(Array) })
+      );
+      expect(next).not.toHaveBeenCalled();
     });
   });
 
@@ -138,10 +198,27 @@ describe("cabildoController", () => {
       vi.mocked(prisma.cabildo.delete).mockResolvedValue({} as never);
 
       const res = mockRes();
-      await deleteCabildo(req, res);
+      const next = mockNext();
+      await deleteCabildo(req, res, next);
 
       expect(res.status).toHaveBeenCalledWith(204);
       expect(res.send).toHaveBeenCalled();
+      expect(next).not.toHaveBeenCalled();
+    });
+
+    it("should call next with PrismaClientKnownRequestError P2025 when cabildo not found", async () => {
+      const req = { params: { id: "non-existent-id" } } as unknown as Request;
+      const p2025Error = createP2025Error();
+      vi.mocked(prisma.cabildo.delete).mockRejectedValue(p2025Error);
+
+      const res = mockRes();
+      const next = mockNext();
+      await deleteCabildo(req, res, next);
+
+      expect(next).toHaveBeenCalledWith(p2025Error);
+      expect(res.status).not.toHaveBeenCalled();
+      expect(res.json).not.toHaveBeenCalled();
+      expect(res.send).not.toHaveBeenCalled();
     });
   });
 });

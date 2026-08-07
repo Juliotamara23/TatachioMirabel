@@ -1,10 +1,10 @@
-import { Request, Response } from "express";
+import { Request, Response, NextFunction } from "express";
 import { ZodError } from "zod";
 import { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
 import prisma from "../database.js";
 import { cabildoSchema } from "@tatachio/shared";
 
-export const createCabildo = async (req: Request, res: Response) => {
+export const createCabildo = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const validated = cabildoSchema.parse(req.body);
     const cabildo = await prisma.cabildo.create({ data: validated });
@@ -16,11 +16,11 @@ export const createCabildo = async (req: Request, res: Response) => {
     if (error instanceof PrismaClientKnownRequestError && error.code === "P2002") {
       return res.status(409).json({ error: "Ya existe un registro con esos datos" });
     }
-    res.status(500).json({ error: "Error al crear cabildo" });
+    next(error);
   }
 };
 
-export const getCabildos = async (req: Request, res: Response) => {
+export const getCabildos = async (req: Request, res: Response, next: NextFunction) => {
   try {
     // CAPTAIN: only see their assigned cabildo
     if (req.usuario?.rol === "CAPTAIN" && req.usuario?.cabildoId) {
@@ -32,12 +32,12 @@ export const getCabildos = async (req: Request, res: Response) => {
     
     const cabildos = await prisma.cabildo.findMany();
     res.json(cabildos);
-  } catch {
-    res.status(500).json({ error: "Error al obtener cabildos" });
+  } catch (error: unknown) {
+    next(error);
   }
 };
 
-export const getCabildoById = async (req: Request, res: Response) => {
+export const getCabildoById = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
     
@@ -53,12 +53,12 @@ export const getCabildoById = async (req: Request, res: Response) => {
     }
 
     res.json(cabildo);
-  } catch {
-    res.status(500).json({ error: "Error al obtener cabildo" });
+  } catch (error: unknown) {
+    next(error);
   }
 };
 
-export const updateCabildo = async (req: Request, res: Response) => {
+export const updateCabildo = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
     const validated = cabildoSchema.partial().parse(req.body);
@@ -73,18 +73,21 @@ export const updateCabildo = async (req: Request, res: Response) => {
     if (error instanceof ZodError) {
       return res.status(400).json({ error: error.issues });
     }
-    res.status(500).json({ error: "Error al actualizar cabildo" });
+    next(error);
   }
 };
 
-export const deleteCabildo = async (req: Request, res: Response) => {
+export const deleteCabildo = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
     await prisma.cabildo.delete({
       where: { id },
     });
     res.status(204).send();
-  } catch {
-    res.status(500).json({ error: "Error al eliminar cabildo" });
+  } catch (error: unknown) {
+    if (error instanceof ZodError) {
+      return res.status(400).json({ error: error.issues });
+    }
+    next(error);
   }
 };
