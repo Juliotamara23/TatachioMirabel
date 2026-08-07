@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { Request, Response } from "express";
-import { createMember, getMembers } from "../../src/controllers/memberController.js";
+import { createMember, getMembers, updateMember, deleteMember } from "../../src/controllers/memberController.js";
 import { memberSchema } from "@tatachio/shared";
 
 // Mock Prisma
@@ -9,6 +9,9 @@ vi.mock("../../src/database.js", () => ({
     miembro: {
       create: vi.fn(),
       findMany: vi.fn(),
+      findUnique: vi.fn(),
+      update: vi.fn(),
+      delete: vi.fn(),
     },
   },
 }));
@@ -223,5 +226,154 @@ describe("memberController.getMembers", () => {
         }),
       })
     );
+  });
+});
+
+describe("memberController.updateMember", () => {
+  let mockReq: Partial<Request>;
+  let mockRes: Partial<Response>;
+  let mockJson: ReturnType<typeof vi.fn>;
+  let mockStatus: ReturnType<typeof vi.fn>;
+  let mockNext: ReturnType<typeof vi.fn>;
+
+  const jwtCabildoId = "11111111-1111-4111-8111-111111111111";
+  const memberId = "33333333-3333-4333-8333-333333333333";
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockJson = vi.fn().mockReturnThis();
+    mockStatus = vi.fn().mockReturnValue({ json: mockJson });
+    mockNext = vi.fn();
+    mockReq = {
+      params: { id: memberId },
+      body: { nombres: "Actualizado" },
+      usuario: { id: "user-1", rol: "ADMINISTRATOR", cabildoId: null },
+    };
+    mockRes = {
+      status: mockStatus,
+      json: mockJson,
+    };
+    (prisma.miembro.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({
+      id: memberId,
+      cabildoId: jwtCabildoId,
+    });
+  });
+
+  it("returns 404 when member does not exist", async () => {
+    (prisma.miembro.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+
+    await updateMember(mockReq as Request, mockRes as Response, mockNext);
+
+    expect(mockStatus).toHaveBeenCalledWith(404);
+    expect(prisma.miembro.update).not.toHaveBeenCalled();
+  });
+
+  it("returns 404 for CAPTAIN accessing member of another cabildo", async () => {
+    mockReq.usuario = { id: "user-1", rol: "CAPTAIN", cabildoId: "99999999-9999-4999-8999-999999999999" };
+
+    await updateMember(mockReq as Request, mockRes as Response, mockNext);
+
+    expect(mockStatus).toHaveBeenCalledWith(404);
+    expect(prisma.miembro.update).not.toHaveBeenCalled();
+  });
+
+  it("forwards P2002 (unique constraint) to next so global handler returns 409", async () => {
+    const p2002 = Object.assign(new Error("Unique constraint failed"), { code: "P2002" });
+    (prisma.miembro.update as ReturnType<typeof vi.fn>).mockRejectedValue(p2002);
+
+    await updateMember(mockReq as Request, mockRes as Response, mockNext);
+
+    expect(mockNext).toHaveBeenCalledWith(p2002);
+    expect(mockStatus).not.toHaveBeenCalledWith(500);
+  });
+
+  it("forwards P2025 (record not found) to next so global handler returns 404", async () => {
+    const p2025 = Object.assign(new Error("Record not found"), { code: "P2025" });
+    (prisma.miembro.update as ReturnType<typeof vi.fn>).mockRejectedValue(p2025);
+
+    await updateMember(mockReq as Request, mockRes as Response, mockNext);
+
+    expect(mockNext).toHaveBeenCalledWith(p2025);
+    expect(mockStatus).not.toHaveBeenCalledWith(500);
+  });
+
+  it("returns 400 for ZodError and does NOT forward to next", async () => {
+    mockReq.body = { nombres: 123 }; // invalid type → memberSchema.partial().parse throws ZodError
+
+    await updateMember(mockReq as Request, mockRes as Response, mockNext);
+
+    expect(mockStatus).toHaveBeenCalledWith(400);
+    expect(mockNext).not.toHaveBeenCalled();
+  });
+});
+
+describe("memberController.deleteMember", () => {
+  let mockReq: Partial<Request>;
+  let mockRes: Partial<Response>;
+  let mockJson: ReturnType<typeof vi.fn>;
+  let mockStatus: ReturnType<typeof vi.fn>;
+  let mockNext: ReturnType<typeof vi.fn>;
+  let mockSend: ReturnType<typeof vi.fn>;
+
+  const jwtCabildoId = "11111111-1111-4111-8111-111111111111";
+  const memberId = "33333333-3333-4333-8333-333333333333";
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockJson = vi.fn().mockReturnThis();
+    mockSend = vi.fn().mockReturnThis();
+    mockStatus = vi.fn().mockReturnValue({ json: mockJson, send: mockSend });
+    mockNext = vi.fn();
+    mockReq = {
+      params: { id: memberId },
+      usuario: { id: "user-1", rol: "ADMINISTRATOR", cabildoId: null },
+    };
+    mockRes = {
+      status: mockStatus,
+      json: mockJson,
+      send: mockSend,
+    };
+    (prisma.miembro.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({
+      id: memberId,
+      cabildoId: jwtCabildoId,
+    });
+  });
+
+  it("returns 404 when member does not exist", async () => {
+    (prisma.miembro.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+
+    await deleteMember(mockReq as Request, mockRes as Response, mockNext);
+
+    expect(mockStatus).toHaveBeenCalledWith(404);
+    expect(prisma.miembro.delete).not.toHaveBeenCalled();
+  });
+
+  it("returns 204 and deletes existing member", async () => {
+    (prisma.miembro.delete as ReturnType<typeof vi.fn>).mockResolvedValue({ id: memberId });
+
+    await deleteMember(mockReq as Request, mockRes as Response, mockNext);
+
+    expect(mockStatus).toHaveBeenCalledWith(204);
+    expect(prisma.miembro.delete).toHaveBeenCalledWith({ where: { id: memberId } });
+  });
+
+  it("forwards P2025 (race: record deleted between find and delete) to next", async () => {
+    const p2025 = Object.assign(new Error("Record not found"), { code: "P2025" });
+    (prisma.miembro.delete as ReturnType<typeof vi.fn>).mockRejectedValue(p2025);
+
+    await deleteMember(mockReq as Request, mockRes as Response, mockNext);
+
+    expect(mockNext).toHaveBeenCalledWith(p2025);
+    expect(mockStatus).not.toHaveBeenCalledWith(500);
+  });
+
+  it("forwards other unexpected errors to next (no catch-all 500)", async () => {
+    const genericError = new Error("db down");
+    (prisma.miembro.delete as ReturnType<typeof vi.fn>).mockRejectedValue(genericError);
+
+    await deleteMember(mockReq as Request, mockRes as Response, mockNext);
+
+    expect(mockNext).toHaveBeenCalledWith(genericError);
+    expect(mockStatus).not.toHaveBeenCalledWith(500);
   });
 });

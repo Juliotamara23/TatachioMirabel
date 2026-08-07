@@ -98,7 +98,7 @@ export const getMemberById = async (req: Request, res: Response) => {
   }
 };
 
-export const updateMember = async (req: Request, res: Response) => {
+export const updateMember = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
     const validatedData = memberSchema.partial().parse(req.body);
@@ -123,11 +123,11 @@ export const updateMember = async (req: Request, res: Response) => {
     if (error instanceof ZodError) {
       return res.status(400).json({ error: error.issues });
     }
-    res.status(500).json({ error: "Error al actualizar miembro" });
+    next(error);
   }
 };
 
-export const deleteMember = async (req: Request, res: Response) => {
+export const deleteMember = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
     const miembro = await prisma.miembro.findUnique({ where: { id: id as string } });
@@ -144,7 +144,7 @@ export const deleteMember = async (req: Request, res: Response) => {
       where: { id: id as string },
     });
     res.status(204).send();
-  } catch {
-    res.status(500).json({ error: "Error al eliminar miembro" });
+  } catch (error: unknown) {
+    next(error);
   }
 };
