@@ -17,21 +17,22 @@ program
   .name("tatachio")
   .description("CLI for Tatachio Mirabel management")
   .version(process.env.npm_package_version || "1.0.0")
-  .option("--json", "Output in JSON format")
   .allowExcessArguments(false);
 
 program
   .command("login")
   .description("Login to the Tatachio service")
-  .action(async () => {
-    await loginCmd(undefined, undefined, outputMode);
+  .option("--json", "Output in JSON format")
+  .action(async (options) => {
+    await loginCmd(undefined, undefined, options.json ? "json" : outputMode);
   });
 
 program
   .command("logout")
   .description("Logout from the Tatachio service")
-  .action(async () => {
-    await logoutCmd(outputMode);
+  .option("--json", "Output in JSON format")
+  .action(async (options) => {
+    await logoutCmd(options.json ? "json" : outputMode);
   });
 
 const miembrosCmd = program

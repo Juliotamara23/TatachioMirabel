@@ -271,7 +271,7 @@ await runSuite({ name: "cli/miembros", seed: true, start: true }, async ({ base 
       return;
     }
     const body = JSON.stringify({ nombres: "UPDATED", direccion: "NEW ADDRESS" });
-    const res = runCli(base, adminToken, ["miembros", "update", createdId, "--json", body, "--json"]);
+    const res = runCli(base, adminToken, ["miembros", "update", createdId, "--json", body]);
     if (res.status !== 0) throw new Error(`Expected exit 0, got ${res.status}: ${res.stderr}`);
     const data = parseJsonOutput(res.stdout);
     if (data.nombres !== "UPDATED") throw new Error(`nombres not updated: ${data.nombres}`);
@@ -279,7 +279,7 @@ await runSuite({ name: "cli/miembros", seed: true, start: true }, async ({ base 
 
   await helper.test("miembros update <fake-uuid> --json returns error", async () => {
     const body = JSON.stringify({ nombres: "GHOST" });
-    const res = runCli(base, adminToken, ["miembros", "update", FAKE_UUID, "--json", body, "--json"]);
+    const res = runCli(base, adminToken, ["miembros", "update", FAKE_UUID, "--json", body]);
     if (res.status === 0) throw new Error("Expected non-zero exit for fake UUID");
   });
 
@@ -290,7 +290,7 @@ await runSuite({ name: "cli/miembros", seed: true, start: true }, async ({ base 
       return;
     }
     const body = JSON.stringify({ nombres: "NOAUTH" });
-    const res = runCliNoToken(base, ["miembros", "update", createdId, "--json", body, "--json"]);
+    const res = runCliNoToken(base, ["miembros", "update", createdId, "--json", body]);
     if (res.status === 0) throw new Error("Expected non-zero exit without token");
     const stderr = res.stderr.toLowerCase();
     if (!stderr.includes("token") && !stderr.includes("auth") && !stderr.includes("login")) {

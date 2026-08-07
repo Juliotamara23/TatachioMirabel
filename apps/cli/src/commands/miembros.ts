@@ -63,7 +63,7 @@ export async function createMiembroCmd(
     const baseUrl = await getBaseUrl();
 
     let data: Record<string, unknown>;
-    if (isPipeMode() && fields) {
+    if (fields) {
       data = fields;
     } else {
       console.log("Enter member details (press enter to skip optional fields):");
@@ -158,7 +158,7 @@ export async function updateMiembroCmd(
     const baseUrl = await getBaseUrl();
 
     let data: Record<string, unknown>;
-    if (isPipeMode() && fields) {
+    if (fields) {
       data = fields;
     } else {
       console.log("Enter fields to update (press enter to skip):");
@@ -239,11 +239,11 @@ export async function updateMiembroCmd(
 
 export function setupMiembrosCommand(program: Command): void {
   program
-    .option("--json", "Output in JSON format")
     .command("list")
     .description("List members")
     .option("--search <value>", "Filter by search term")
     .option("--cabildo-id <value>", "Filter by cabildo ID")
+    .option("--json", "Output in JSON format")
     .action(async (options) => {
       await listMiembrosCmd(
         options.search,
@@ -254,6 +254,7 @@ export function setupMiembrosCommand(program: Command): void {
   program
     .command("get <id>")
     .description("Get member by ID")
+    .option("--json", "Output in JSON format")
     .action(async (id) => {
       await getMiembroCmd(id);
     });
@@ -263,7 +264,7 @@ export function setupMiembrosCommand(program: Command): void {
     .description("Create a new member")
     .option("--json <jsonString>", "JSON string with member fields for pipe mode")
     .action(async (options) => {
-      if (options.json && isPipeMode()) {
+      if (options.json) {
         try {
           const fields = JSON.parse(options.json);
           await createMiembroCmd(fields);
@@ -272,6 +273,10 @@ export function setupMiembrosCommand(program: Command): void {
           displayError(error, outputMode);
           setExitCode(1);
         }
+      } else if (isPipeMode()) {
+        const error = new Error("JSON input required in pipe mode (use --json)");
+        displayError(error, outputMode);
+        setExitCode(1);
       } else {
         await createMiembroCmd();
       }
@@ -282,7 +287,7 @@ export function setupMiembrosCommand(program: Command): void {
     .description("Update a member")
     .option("--json <jsonString>", "JSON string with fields to update for pipe mode")
     .action(async (id, options) => {
-      if (options.json && isPipeMode()) {
+      if (options.json) {
         try {
           const fields = JSON.parse(options.json);
           await updateMiembroCmd(id, fields);
@@ -291,6 +296,10 @@ export function setupMiembrosCommand(program: Command): void {
           displayError(error, outputMode);
           setExitCode(1);
         }
+      } else if (isPipeMode()) {
+        const error = new Error("JSON input required in pipe mode (use --json)");
+        displayError(error, outputMode);
+        setExitCode(1);
       } else {
         await updateMiembroCmd(id);
       }

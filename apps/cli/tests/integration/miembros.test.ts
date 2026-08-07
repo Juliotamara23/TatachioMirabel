@@ -4,8 +4,10 @@ import { setupServer } from "msw/node";
 import { promises as fs } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
+import { Command } from "commander";
 
 import { listMiembros, getMiembro, createMiembro, updateMiembro } from "../../src/api/miembros.js";
+import { setupMiembrosCommand } from "../../src/commands/miembros.js";
 
 const BASE_URL = "http://localhost:3000";
 
@@ -160,5 +162,154 @@ describe("Miembros CRUD API", () => {
     expect((result as Record<string, unknown>).nombres).toBe("Juan Pérez Actualizado");
     expect((result as Record<string, unknown>).rol).toBe("SUPERUSER");
     expect((result as Record<string, unknown>).email).toBe("juan@test.com");
+  });
+
+  describe("CLI miembros create --json", () => {
+    let program: Command;
+    let mockServer: ReturnType<typeof setupServer>;
+    let capturedBody: Record<string, unknown> | null;
+
+    beforeEach(async () => {
+      await writeConfig();
+      capturedBody = null;
+      mockServer = setupServer(
+        http.post(`${BASE_URL}/api/miembros`, async ({ request }) => {
+          const auth = request.headers.get("authorization");
+          if (auth !== "Bearer test-token") {
+            return HttpResponse.json({ error: "Unauthorized" }, { status: 401 });
+          }
+          const body = await request.json();
+          capturedBody = body;
+          const newMiembro = {
+            id: `m${Math.random().toString(36).substring(2, 5)}`,
+            ...body,
+          };
+          return HttpResponse.json(newMiembro);
+        }),
+      );
+      mockServer.listen();
+
+      program = new Command();
+      program.name("tatachio").allowExcessArguments(false);
+      const miembrosCmd = program.command("miembros").description("Manage members");
+      setupMiembrosCommand(miembrosCmd);
+    });
+
+    afterEach(async () => {
+      await clearConfig();
+      mockServer.resetHandlers();
+      mockServer.close();
+    });
+
+    it("creates member via CLI with valid JSON", async () => {
+      const validJson = JSON.stringify({
+        tipoIdentificacion: "CC",
+        numeroDocumento: "123456789",
+        nombres: "Test",
+        apellidos: "User",
+        fechaNacimiento: "01/01/1990",
+        parentesco: "PA",
+        sexo: "M",
+        integrantes: 1,
+        familiaId: "f1",
+      });
+
+      await program.parseAsync(["miembros", "create", "--json", validJson], { from: "user" });
+
+      expect(capturedBody).not.toBeNull();
+      expect(capturedBody!.tipoIdentificacion).toBe("CC");
+      expect(capturedBody!.numeroDocumento).toBe("123456789");
+      expect(capturedBody!.nombres).toBe("Test");
+      expect(capturedBody!.apellidos).toBe("User");
+      expect(capturedBody!.fechaNacimiento).toBe("01/01/1990");
+      expect(capturedBody!.parentesco).toBe("PA");
+      expect(capturedBody!.sexo).toBe("M");
+      expect(capturedBody!.integrantes).toBe(1);
+      expect(capturedBody!.familiaId).toBe("f1");
+    });
+
+it("rejects malformed JSON without making HTTP request", async () => {
+      const malformedJson = "{ invalid json }";
+      let requestMade = false;
+
+      const testServer = setupServer(
+        http.post(`${BASE_URL}/api/miembros`, async () => {
+          requestMade = true;
+          return HttpResponse.json({ id: "m1" });
+        }),
+      );
+      testServer.listen();
+
+      const testProgram = new Command();
+      testProgram.name("tatachio").allowExcessArguments(false);
+      const testMiembrosCmd = testProgram.command("miembros").description("Manage members");
+      setupMiembrosCommand(testMiembrosCmd);
+
+      try {
+        await testProgram.parseAsync(["miembros", "create", "--json", malformedJson], { from: "user" });
+      } catch (err) {
+        // Expected to throw due to invalid JSON
+      }
+
+      expect(requestMade).toBe(false);
+      testServer.close();
+    });
+  });
+
+  describe("CLI miembros list --cabildo-id", () => {
+    let program: Command;
+    let mockServer: ReturnType<typeof setupServer>;
+    let capturedUrl: string | null;
+
+    beforeEach(async () => {
+      await writeConfig();
+      capturedUrl = null;
+      mockServer = setupServer(
+        http.get(`${BASE_URL}/api/miembros`, async ({ request }) => {
+          const auth = request.headers.get("authorization");
+          if (auth !== "Bearer test-token") {
+            return HttpResponse.json({ error: "Unauthorized" }, { status: 401 });
+          }
+
+          capturedUrl = request.url;
+
+          const url = new URL(request.url);
+          const cabildoId = url.searchParams.get("cabildoId");
+
+          const allMiembros = [
+            { id: "m1", nombres: "Juan Pérez", apellidos: "Pérez", email: "juan@test.com", cabildoId: "c1" },
+            { id: "m2", nombres: "María García", apellidos: "García", email: "maria@test.com", cabildoId: "c1" },
+            { id: "m3", nombres: "Carlos López", apellidos: "López", email: "carlos@test.com", cabildoId: "c2" },
+          ];
+
+          const filtered = allMiembros.filter(function(item) {
+            if (cabildoId && item.cabildoId !== cabildoId) return false;
+            return true;
+          });
+
+          return HttpResponse.json(filtered);
+        }),
+      );
+      mockServer.listen();
+
+      program = new Command();
+      program.name("tatachio").exitOverride();
+      const miembrosCmd = program.command("miembros").description("Manage members");
+      setupMiembrosCommand(miembrosCmd);
+    });
+
+    afterEach(async () => {
+      await clearConfig();
+      mockServer.resetHandlers();
+      mockServer.close();
+    });
+
+    it("filters members by cabildoId via CLI", async () => {
+      await program.parseAsync(["miembros", "list", "--cabildo-id", "c1"], { from: "user" });
+
+      expect(capturedUrl).not.toBeNull();
+      const url = new URL(capturedUrl!);
+      expect(url.searchParams.get("cabildoId")).toBe("c1");
+    });
   });
 });
