@@ -7,7 +7,7 @@ import { homedir } from "node:os";
 import { Command } from "commander";
 
 import { listMiembros, getMiembro, createMiembro, updateMiembro } from "../../src/api/miembros.js";
-import { setupMiembrosCommand } from "../../src/commands/miembros.js";
+import { setupMiembrosCommand, validateDate } from "../../src/commands/miembros.js";
 
 const BASE_URL = "http://localhost:3000";
 
@@ -28,8 +28,28 @@ async function clearConfig() {
   }
 }
 
-describe("Miembros CRUD API", () => {
-  const mockServer = setupServer(
+describe("validateDate (interactive fechaNacimiento)", () => {
+  it("accepts old dates (1919) — real census data", () => {
+    expect(validateDate("28/11/1919", "fechaNacimiento")).toBe("28/11/1919");
+  });
+
+  it("accepts recent dates", () => {
+    expect(validateDate("17/08/2025", "fechaNacimiento")).toBe("17/08/2025");
+  });
+
+  it("rejects invalid format", () => {
+    expect(() => validateDate("1990/01/01", "fechaNacimiento")).toThrow();
+    expect(() => validateDate("01-01-1990", "fechaNacimiento")).toThrow();
+    expect(() => validateDate("01/01/90", "fechaNacimiento")).toThrow();
+  });
+
+  it("rejects non-date strings", () => {
+    expect(() => validateDate("DD/MM/YYYY", "fechaNacimiento")).toThrow();
+    expect(() => validateDate("abc", "fechaNacimiento")).toThrow();
+  });
+});
+
+describe("Miembros CRUD API", () => {  const mockServer = setupServer(
     http.get(`${BASE_URL}/api/miembros`, async ({ request }) => {
       const auth = request.headers.get("authorization");
       if (auth !== "Bearer test-token") {

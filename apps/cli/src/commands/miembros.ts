@@ -7,6 +7,17 @@ import { listMiembros, getMiembro, createMiembro, updateMiembro } from "../api/m
 
 const outputMode = (isPipeMode() ? "json" : "pretty") as OutputMode;
 
+// Validates a date in DD/MM/YYYY format (same contract as the backend
+// memberSchema regex: /^\d{2}\/\d{2}\/\d{4}$/). Accepts any 4-digit year.
+export const DATE_REGEX = /^\d{2}\/\d{2}\/\d{4}$/;
+
+export function validateDate(value: string, fieldName: string): string {
+  if (!DATE_REGEX.test(value)) {
+    throw new Error(`Valor inválido. ${fieldName} debe tener formato DD/MM/YYYY (ej. 28/11/1919)`);
+  }
+  return value;
+}
+
 export async function listMiembrosCmd(
   search?: string,
   cabildoId?: string,
@@ -107,7 +118,7 @@ export async function createMiembroCmd(
         numeroDocumento: numeroDocumento,
         nombres: nombres,
         apellidos: apellidos,
-        fechaNacimiento: validateEnum(fechaNacimiento, ["DD/MM/YYYY"]),
+        fechaNacimiento: validateDate(fechaNacimiento, "fechaNacimiento"),
         parentesco: validateEnum(parentesco, enumOptions.parentesco),
         sexo: validateEnum(sexo, enumOptions.sexo),
         estadoCivil: estadoCivil ? validateEnum(estadoCivil, enumOptions.estadoCivil) : undefined,
@@ -203,7 +214,7 @@ export async function updateMiembroCmd(
         numeroDocumento: numeroDocumento || undefined,
         nombres: nombres || undefined,
         apellidos: apellidos || undefined,
-        fechaNacimiento: fechaNacimiento ? validateEnum(fechaNacimiento, ["DD/MM/YYYY"]) : undefined,
+        fechaNacimiento: fechaNacimiento ? validateDate(fechaNacimiento, "fechaNacimiento") : undefined,
         parentesco: parentesco ? validateEnum(parentesco, enumOptions.parentesco) : undefined,
         sexo: sexo ? validateEnum(sexo, enumOptions.sexo) : undefined,
         estadoCivil: estadoCivil ? validateEnum(estadoCivil, enumOptions.estadoCivil) : undefined,
