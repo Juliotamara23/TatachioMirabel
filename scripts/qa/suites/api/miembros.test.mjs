@@ -112,7 +112,7 @@ await runSuite({ name: "api/miembros", seed: true, start: true }, async ({ base 
   });
 
   await helper.test("POST /api/miembros returns 201 with valid body as capitana (captain+admin per spec)", async () => {
-    const { status, data } = await request(base, "POST", "/api/miembros", { token: capitanaToken, body: VALID_MEMBER });
+    const { status, data } = await request(base, "POST", "/api/miembros", { token: capitanaToken, body: { ...VALID_MEMBER, numeroDocumento: "88888888" } });
     expectStatus(status, 201, "capitana create miembro");
     if (!data.id) throw new Error("Response missing id");
   });
