@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { cabildoSchema, familiaSchema, memberSchema } from "@tatachio/shared";
+import { cabildoSchema, familiaSchema, memberSchema, ageFromFechaNacimiento, MAX_PLAUSIBLE_AGE_YEARS } from "@tatachio/shared";
 
 describe("cabildoSchema", () => {
   it("should accept valid cabildo data", () => {
@@ -129,5 +129,48 @@ describe("memberSchema", () => {
     };
 
     expect(() => memberSchema.parse(invalid)).toThrow();
+  });
+
+  it("should reject calendar-invalid date (Feb 31)", () => {
+    const invalid = { ...validMemberBase, fechaNacimiento: "31/02/1990" };
+    expect(() => memberSchema.parse(invalid)).toThrow();
+  });
+
+  it("should reject future date", () => {
+    const invalid = { ...validMemberBase, fechaNacimiento: "01/01/2030" };
+    expect(() => memberSchema.parse(invalid)).toThrow();
+  });
+
+  it("should accept oldest real census record (09/07/1931)", () => {
+    const valid = { ...validMemberBase, fechaNacimiento: "09/07/1931" };
+    const result = memberSchema.parse(valid);
+    expect(result.fechaNacimiento).toBe("09/07/1931");
+  });
+
+  it("should accept old-but-plausible date (1919)", () => {
+    const valid = { ...validMemberBase, fechaNacimiento: "28/11/1919" };
+    const result = memberSchema.parse(valid);
+    expect(result.fechaNacimiento).toBe("28/11/1919");
+  });
+});
+
+describe("ageFromFechaNacimiento", () => {
+  it("returns 0 for today", () => {
+    const now = new Date();
+    const d = String(now.getUTCDate()).padStart(2, "0");
+    const m = String(now.getUTCMonth() + 1).padStart(2, "0");
+    const y = now.getUTCFullYear();
+    expect(ageFromFechaNacimiento(`${d}/${m}/${y}`)).toBe(0);
+  });
+
+  it("computes exact age for known date", () => {
+    const now = new Date();
+    const age = ageFromFechaNacimiento("09/07/1931");
+    expect(age).toBe(now.getUTCFullYear() - 1931 - (now.getUTCMonth() < 6 ? 1 : 0));
+  });
+
+  it("flags >99 as warning-level age", () => {
+    expect(ageFromFechaNacimiento("01/01/1900")).toBeGreaterThan(MAX_PLAUSIBLE_AGE_YEARS);
+    expect(ageFromFechaNacimiento("01/01/1935")).toBeLessThanOrEqual(MAX_PLAUSIBLE_AGE_YEARS);
   });
 });

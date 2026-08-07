@@ -14,7 +14,18 @@ export const memberSchema = z.object({
   numeroDocumento: z.string().min(1),
   nombres: z.string().min(1),
   apellidos: z.string().min(1),
-  fechaNacimiento: z.string().regex(/^\d{2}\/\d{2}\/\d{4}$/, "Formato esperado: DD/MM/YYYY"),
+  fechaNacimiento: z
+    .string()
+    .regex(/^\d{2}\/\d{2}\/\d{4}$/, "Formato esperado: DD/MM/YYYY")
+    .refine((val) => {
+      const [day, month, year] = val.split("/").map(Number);
+      const date = new Date(Date.UTC(year, month - 1, day));
+      return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
+    }, "Fecha de nacimiento inválida (no existe en el calendario)")
+    .refine((val) => {
+      const year = parseInt(val.split("/")[2], 10);
+      return year <= new Date().getFullYear();
+    }, "Fecha de nacimiento no puede ser futura"),
   parentesco: ParentescoEnum,
   sexo: SexoEnum,
   estadoCivil: EstadoCivilEnum.optional(),
@@ -27,6 +38,23 @@ export const memberSchema = z.object({
   familiaId: z.string().uuid(),
   cabildoId: z.string().uuid().optional(),
 });
+
+// Age above which a member is flagged with a warning (presumed dead / data error).
+// Census data oldest real record is 09/07/1931 (~95 years); 99 keeps the warning
+// tight while not flagging legitimate records.
+export const MAX_PLAUSIBLE_AGE_YEARS = 99;
+
+export function ageFromFechaNacimiento(fechaNacimiento: string): number {
+  const [day, month, year] = fechaNacimiento.split("/").map(Number);
+  const birth = new Date(Date.UTC(year, month - 1, day));
+  const now = new Date();
+  let age = now.getUTCFullYear() - birth.getUTCFullYear();
+  const monthDiff = now.getUTCMonth() - birth.getUTCMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && now.getUTCDate() < birth.getUTCDate())) {
+    age -= 1;
+  }
+  return age;
+}
 
 export type MemberInput = z.infer<typeof memberSchema>;
 
