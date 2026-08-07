@@ -529,7 +529,7 @@ paths:
   /api/miembros:
     get:
       tags: [miembros]
-      summary: List miembros (optional search query)
+      summary: List miembros (optional search query, optional cabildoId filter)
       security:
         - BearerAuth: []
       parameters:
@@ -538,6 +538,11 @@ paths:
           required: false
           schema: { type: string }
           description: Contains match on nombres, apellidos, numeroDocumento
+        - name: cabildoId
+          in: query
+          required: false
+          schema: { type: string, format: uuid }
+          description: Filter by cabildoId (ADMIN only; CAPTAIN scoped automatically)
       responses:
         "200":
           description: Miembro list
@@ -559,7 +564,7 @@ paths:
           application/json:
             schema:
               type: object
-              required: [tipoIdentificacion, numeroDocumento, nombres, apellidos, fechaNacimiento, parentesco, sexo, integrantes, familiaId, cabildoId]
+              required: [tipoIdentificacion, numeroDocumento, nombres, apellidos, fechaNacimiento, parentesco, sexo, integrantes, familiaId]
               properties:
                 tipoIdentificacion: { $ref: "#/components/schemas/TipoIdentificacion" }
                 numeroDocumento: { type: string }
@@ -570,7 +575,7 @@ paths:
                 sexo: { $ref: "#/components/schemas/Sexo" }
                 integrantes: { type: integer, minimum: 1 }
                 familiaId: { type: string, format: uuid }
-                cabildoId: { type: string, format: uuid, description: "Overridden by CAPTAIN JWT scope" }
+                cabildoId: { type: string, format: uuid, description: "Optional for CAPTAIN (derived from JWT); required for ADMIN" }
                 estadoCivil: { $ref: "#/components/schemas/EstadoCivil" }
                 profesion: { type: string }
                 escolaridad: { $ref: "#/components/schemas/Escolaridad" }
