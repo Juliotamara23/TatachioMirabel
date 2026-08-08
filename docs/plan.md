@@ -159,9 +159,16 @@ Prioridad: **media** — PWA offline-first, tipo chat.
 ### Fase 4 — Reportes Excel (Ministerio del Interior)
 Prioridad: **baja** — se necesita al final del ciclo censal.
 
-- [ ] Generación de .xlsx en formato oficial Ministerio del Interior
-- [ ] Censo general, Altas, Bajas
+**Arquitectura (decisión 2026-08): dos piezas, sin servicio externo.**
+- **Formateador ministerial** (`scripts/excel-formateador/`): script Python portado de AnalisisCensal. Copia la plantilla del Ministerio preservando logos/estructura (openpyxl celda a celda) e inyecta los datos transformados. Se ejecuta bajo demanda. ✅ portado
+- **Endpoints de exportación** (backend Node + SheetJS): generan el Excel ORIGEN con estructura ministerial desde la DB.
+
+- [x] Formateador ministerial portado al monorepo (`scripts/excel-formateador/`)
+- [ ] Endpoints de exportación: `GET /api/reportes/censo.xlsx` (Censo general, Altas, Bajas)
 - [ ] API de descarga
+- [ ] Flujo completo: DB → export (SheetJS) → formateador (openpyxl) → plantilla ministerial
+
+**Nota**: el análisis de inconsistencias (repetidos, edades, muertos presuntos) NO vive en Python — el backend valida en escritura (duplicados → 409, edad >99 → `warnings[]`). El formateador solo cubre la entrega ministerial.
 
 ## Normas de Desarrollo
 

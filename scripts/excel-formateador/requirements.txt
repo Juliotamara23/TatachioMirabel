@@ -1,0 +1,5 @@
+# Dependencias del formateador de censos (scripts/excel-formateador/formateador.py)
+# Instalar con: pip install -r scripts/excel-formateador/requirements.txt
+# Python 3.13+
+pandas>=2.0
+openpyxl>=3.1
