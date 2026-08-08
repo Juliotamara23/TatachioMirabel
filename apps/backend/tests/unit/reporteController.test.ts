@@ -168,8 +168,8 @@ describe("reporteController.generarCenso", () => {
 
     // 3. El JSON temporal contiene las 3 secciones con las claves exactas del template
     const { tmpJson, tmpXlsx } = getTmpPaths();
-    expect(tmpJson).toMatch(/reporte-\d+\.json$/);
-    expect(tmpXlsx).toMatch(/reporte-\d+\.xlsx$/);
+    expect(tmpJson).toMatch(/reporte-\d+-[a-z0-9]+\.json$/);
+    expect(tmpXlsx).toMatch(/reporte-\d+-[a-z0-9]+\.xlsx$/);
 
     const data = JSON.parse(readFileSync(tmpJson, "utf-8")) as {
       censo: Record<string, unknown>[];
