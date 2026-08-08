@@ -165,7 +165,9 @@ paths:
   /api/auth/register:
     post:
       tags: [auth]
-      summary: Register a new user
+      summary: Register a new user (admin only — issue #38)
+      security:
+        - BearerAuth: []
       requestBody:
         required: true
         content:
@@ -179,6 +181,16 @@ paths:
               schema: { type: object }
         "400":
           description: Missing fields, cabildo required for CAPTAIN, duplicate email
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+        "401":
+          description: Token not provided or invalid
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+        "403":
+          description: Requires ADMINISTRATOR role
           content:
             application/json:
               schema: { $ref: "#/components/schemas/ApiError" }

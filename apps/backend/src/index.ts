@@ -8,11 +8,17 @@ import chatRouter from "./routes/chat.js";
 import modelsRouter from "./routes/models.js";
 import adminRouter from "./routes/admin.js";
 import reportesRouter from "./routes/reportes.js";
+import { ensureInitialAdmin } from "./controllers/authController.js";
 import { errorHandler } from "./middleware/errorHandler.js";
 const app = express();
 app.use(express.json());
 
 const PORT = process.env.PORT || 3000;
+
+// Bootstrap: crear el primer administrador desde env si no existe (issue #38)
+ensureInitialAdmin().catch((err) => {
+  console.error("[auth] Error al crear el primer administrador:", err);
+});
 
 app.get("/test", (_req, res) => {
 
