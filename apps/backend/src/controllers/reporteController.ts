@@ -85,12 +85,23 @@ function limpiarTemporales(paths: string[]): void {
  * Ejecuta formateador.py con spawn (no execFile) y resuelve cuando termina.
  * Captura stdout/stderr para diagnóstico.
  */
+const FORMATEADOR_TIMEOUT_MS = 60_000;
+
 function ejecutarFormateador(formateadorPath: string, tmpJson: string, tmpXlsx: string): Promise<void> {
   return new Promise((resolve, reject) => {
     const child = spawn("python3", [formateadorPath, "--data", tmpJson, "--output", tmpXlsx]);
 
     let stdout = "";
     let stderr = "";
+    let settled = false;
+
+    const timeout = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      child.kill("SIGKILL");
+      reject(new Error(`formateador.py no respondió en ${FORMATEADOR_TIMEOUT_MS / 1000}s`));
+    }, FORMATEADOR_TIMEOUT_MS);
+
     child.stdout?.on("data", (chunk: Buffer) => {
       stdout += chunk.toString();
     });
@@ -99,10 +110,16 @@ function ejecutarFormateador(formateadorPath: string, tmpJson: string, tmpXlsx: 
     });
 
     child.on("error", (err) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeout);
       reject(new Error(`No se pudo ejecutar el formateador: ${err.message}`));
     });
 
     child.on("close", (code) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeout);
       if (code === 0) {
         resolve();
       } else {
@@ -119,9 +136,9 @@ export async function generarCenso(
   res: Response,
   next: NextFunction,
 ): Promise<void> {
-  const timestamp = Date.now();
-  const tmpJson = path.join(os.tmpdir(), `reporte-${timestamp}.json`);
-  const tmpXlsx = path.join(os.tmpdir(), `reporte-${timestamp}.xlsx`);
+  const unique = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  const tmpJson = path.join(os.tmpdir(), `reporte-${unique}.json`);
+  const tmpXlsx = path.join(os.tmpdir(), `reporte-${unique}.xlsx`);
 
   try {
     const [censo, altas, bajas] = await Promise.all([
