@@ -166,11 +166,24 @@ Prioridad: **baja** — se necesita al final del ciclo censal.
 - **Decisión de stack verificada con evidencia**: openpyxl preserva imagen/merged/estilos; exceljs CRASHA al leer templates con imágenes (descartado). pandas no aporta (datos vienen normalizados de la DB).
 
 - [x] Template ministerial descargado al monorepo (`scripts/excel-formateador/templates/`)
-- [x] Script formateador mínimo portado (`scripts/excel-formateador/`)
-- [ ] Backend: consulta DB y genera el Excel (3 pestañas) — `GET /api/reportes/censo.xlsx` o endpoint único
+- [x] Script formateador mínimo portado (`scripts/excel-formateador/`) — verificado con 1000 miembros reales de la DB QA
+- [ ] Backend: consulta DB y genera el Excel (3 pestañas)
 - [ ] CLI: comando `tatachio reportes generar` que invoca el flujo
-- [ ] API de descarga
 - [ ] Flujo completo: DB → script openpyxl → Formato Censal.xlsx copia con 3 pestañas → descarga
+
+### Detalle del endpoint (decisión 2026-08)
+
+- **Endpoint**: `GET /api/reportes/censo.xlsx` — requiere auth (JWT, dato censal sensible)
+- **Flujo interno** (en `reporteController.generarCenso`):
+  1. Consulta DB (Prisma): censo = miembros `ACTIVO`; altas/bajas = según `novedad`/`estado`/`fechaAlta`/`fechaBaja`
+  2. Mapea a estructura del template (18 col censo / 15 col altas-bajas, campos ya normalizados en schema)
+  3. Escribe JSON temporal en `os.tmpdir()`
+  4. Invoca el script: `spawn("python3", [formateador.py, --data tmp.json, --output tmp.xlsx])` (spawn, no execFile — evita shell injection)
+  5. Lee el `.xlsx` temporal → `res.download()`
+  6. Limpia temporales (finally)
+- **Archivos**: `apps/backend/src/controllers/reporteController.ts` (nuevo), `apps/backend/src/routes/reportes.ts` (nuevo), `apps/backend/src/index.ts` (montar `app.use("/api/reportes", reportesRouter)`)
+- **Salida**: `censo-{año}.xlsx` (nombre del archivo devuelto), 3 pestañas siempre
+- **Tests**: unit del controller (mock Prisma + mock spawn) + integración del flujo real
 
 **Nota**: el análisis de inconsistencias (repetidos, edades, muertos presuntos) NO vive en Python — el backend valida en escritura (duplicados → 409, edad >99 → `warnings[]`). El formateador solo cubre la entrega ministerial.
 
