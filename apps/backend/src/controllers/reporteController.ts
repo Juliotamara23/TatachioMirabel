@@ -147,15 +147,11 @@ export async function generarCenso(
         include: INCLUDE_CABILDO_FAMILIA,
       }),
       prisma.miembro.findMany({
-        where: {
-          OR: [{ novedad: { not: null } }, { estado: { not: "ACTIVO" } }],
-        },
+        where: { estado: "PENDIENTE" },
         include: INCLUDE_CABILDO_FAMILIA,
       }),
       prisma.miembro.findMany({
-        where: {
-          OR: [{ fechaBaja: { not: null } }, { estado: "BAJA" }],
-        },
+        where: { estado: "BAJA" },
         include: INCLUDE_CABILDO_FAMILIA,
       }),
     ]);

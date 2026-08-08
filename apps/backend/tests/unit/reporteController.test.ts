@@ -145,14 +145,10 @@ describe("reporteController.generarCenso", () => {
       expect.objectContaining({ where: { estado: "ACTIVO" } }),
     );
     expect(vi.mocked(prisma.miembro.findMany).mock.calls[1][0]).toEqual(
-      expect.objectContaining({
-        where: { OR: expect.arrayContaining([expect.any(Object), expect.any(Object)]) },
-      }),
+      expect.objectContaining({ where: { estado: "PENDIENTE" } }),
     );
     expect(vi.mocked(prisma.miembro.findMany).mock.calls[2][0]).toEqual(
-      expect.objectContaining({
-        where: { OR: expect.arrayContaining([expect.any(Object), expect.any(Object)]) },
-      }),
+      expect.objectContaining({ where: { estado: "BAJA" } }),
     );
 
     // 2. Se invoca el script con python3, la ruta del formateador y los temporales
