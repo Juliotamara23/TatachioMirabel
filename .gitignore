@@ -49,3 +49,7 @@ scripts/qa/qa-report.xml
 .codegraph/
 .claude/
 .windsurf/
+
+# Python
+__pycache__/
+*.pyc
