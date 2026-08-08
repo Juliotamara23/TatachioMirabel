@@ -5,6 +5,36 @@ import prisma from "../database.js";
 
 const JWT_SECRET = process.env.JWT_SECRET || "supersecret";
 
+/**
+ * Crea el primer ADMINISTRATOR desde variables de entorno si no existe ninguno.
+ * Se ejecuta al arrancar el backend (bootstrap inicial, issue #38).
+ * Env: ADMIN_EMAIL, ADMIN_PASSWORD, ADMIN_NOMBRE
+ */
+export async function ensureInitialAdmin(): Promise<void> {
+  const email = process.env.ADMIN_EMAIL;
+  const password = process.env.ADMIN_PASSWORD;
+  const nombre = process.env.ADMIN_NOMBRE;
+
+  // Si no se configuran credenciales de admin, no hay nada que crear
+  if (!email || !password) return;
+
+  const adminExistente = await prisma.usuario.findFirst({
+    where: { rol: "ADMINISTRATOR" },
+  });
+  if (adminExistente) return;
+
+  const passwordHash = await bcrypt.hash(password, 10);
+  await prisma.usuario.create({
+    data: {
+      email,
+      passwordHash,
+      nombre: nombre || "Administrador",
+      rol: "ADMINISTRATOR",
+    },
+  });
+  console.log(`[auth] Primer administrador creado: ${email}`);
+}
+
 interface RegisterBody {
   email?: string;
   password?: string;

@@ -49,14 +49,29 @@ runSuite({ name: "api/auth" }, async ({ base }) => {
     });
   }
 
-  // ── POST /api/auth/register ───────────────────────────────────────────────
+  // ── POST /api/auth/register (solo admin, issue #38) ─────────────────────
+  const registerToken = await loginAdmin(base);
   const registerCodes = getStatusCodes(spec, "post", "/api/auth/register");
   const registerCreated = registerCodes.includes("201") ? 201 : registerCodes[0];
   const registerBadRequest = registerCodes.includes("400") ? 400 : null;
   const registerServerError = registerCodes.includes("500") ? 500 : null;
+  const registerUnauthorized = registerCodes.includes("401") ? 401 : 401;
+
+  helper.test("register without token returns 401 (admin-only)", async () => {
+    const { status } = await request(base, "POST", "/api/auth/register", {
+      body: {
+        email: "sin-token@tatachio.com",
+        password: "Pass123!",
+        nombre: "SIN TOKEN",
+        rol: "ADMINISTRATOR",
+      },
+    });
+    expectStatus(status, registerUnauthorized, "register without token");
+  });
 
   helper.test("register a new admin user returns 201", async () => {
     const { status, data } = await request(base, "POST", "/api/auth/register", {
+      token: registerToken,
       body: {
         email: "nuevo-admin@tatachio.com",
         password: "Pass123!",
@@ -74,6 +89,7 @@ runSuite({ name: "api/auth" }, async ({ base }) => {
   helper.test("register a new captain user returns 201", async () => {
     const cabildoId = "5dee2149-4442-486a-9ec5-3c20479d8261";
     const { status, data } = await request(base, "POST", "/api/auth/register", {
+      token: registerToken,
       body: {
         email: "nueva-capitana@tatachio.com",
         password: "Pass123!",
@@ -90,6 +106,7 @@ runSuite({ name: "api/auth" }, async ({ base }) => {
   if (registerBadRequest) {
     helper.test("register captain without cabildoId returns 400", async () => {
       const { status } = await request(base, "POST", "/api/auth/register", {
+        token: registerToken,
         body: {
           email: "capitan-sin-cabildo@tatachio.com",
           password: "Pass123!",
@@ -102,6 +119,7 @@ runSuite({ name: "api/auth" }, async ({ base }) => {
 
     helper.test("register with duplicate email returns 400", async () => {
       const { status } = await request(base, "POST", "/api/auth/register", {
+        token: registerToken,
         body: {
           email: "admin@tatachio.com",
           password: "Admin123!",
@@ -114,6 +132,7 @@ runSuite({ name: "api/auth" }, async ({ base }) => {
 
     helper.test("register with missing fields returns 400", async () => {
       const { status } = await request(base, "POST", "/api/auth/register", {
+        token: registerToken,
         body: { email: "missing-fields@tatachio.com" },
       });
       expectStatus(status, registerBadRequest, "missing fields");
