@@ -7,6 +7,7 @@ import familiaRouter from "./routes/familia.js";
 import chatRouter from "./routes/chat.js";
 import modelsRouter from "./routes/models.js";
 import adminRouter from "./routes/admin.js";
+import reportesRouter from "./routes/reportes.js";
 import { errorHandler } from "./middleware/errorHandler.js";
 const app = express();
 app.use(express.json());
@@ -26,6 +27,7 @@ app.use("/api/familias", familiaRouter);
 app.use("/api/chat", chatRouter);
 app.use("/api/models", modelsRouter);
 app.use("/api/admin", adminRouter);
+app.use("/api/reportes", reportesRouter);
 
 // Global error handler — must be LAST
 app.use(errorHandler);
