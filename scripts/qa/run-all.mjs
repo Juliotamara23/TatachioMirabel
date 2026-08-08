@@ -19,7 +19,7 @@ async function runAllSuites() {
 
   const reporter = createReporter();
 
-  // Suite list - 11 test suites in order
+  // Suite list - 16 test suites in order
   const suites = [
     "suites/api/health",
     "suites/api/auth",
@@ -28,6 +28,7 @@ async function runAllSuites() {
     "suites/api/cabildos",
     "suites/api/chat",
     "suites/api/admin",
+    "suites/api/reportes",
     "suites/chaos/auth-bypass",
     "suites/chaos/injection",
     "suites/chaos/rate-limit",
