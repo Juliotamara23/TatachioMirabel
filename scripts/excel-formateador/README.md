@@ -1,40 +1,51 @@
 # Excel Formateador (Ministerio del Interior)
 
-Script Python que formatea censos para el formato oficial del Ministerio
-del Interior de Colombia. Portado al monorepo desde
-[AnalisisCensal](https://github.com/Juliotamara23/AnalisisCensal) para no
-duplicar funcionalidades: el análisis de datos vive en el backend Node
-(TatachioMirabel); este script cubre SOLO la entrega ministerial.
+Genera el archivo **`censo-{año}.xlsx`** llenando las 3 pestañas del
+template ministerial con los datos de la DB. El formato final es el del
+template (preserva celdas combinadas, estilos y estructura institucional).
 
-## Qué hace
+## Flujo
 
-1. **Valida** que el archivo origen sea compatible con la plantilla del Ministerio
-2. **Transforma** los datos según los mapeos oficiales (códigos, mayúsculas, fechas DD/MM/YYYY, documentos limpios)
-3. **Inyecta** en la plantilla copiando el archivo de referencia (preservando logos, celdas combinadas y estructura) y escribiendo solo las filas de datos con openpyxl celda a celda
+```
+Backend (Node) consulta DB (Prisma) → JSON → formateador.py → censo-2026.xlsx
+```
+
+El backend es la fuente de verdad y normaliza los datos (códigos, mayúsculas,
+fechas DD/MM/YYYY). El script solo abre UNA copia del template y escribe.
 
 ## Requisitos
 
 - Python 3.13+
-- `pip install -r scripts/excel-formateador/requirements.txt` (pandas + openpyxl)
+- `pip install -r scripts/excel-formateador/requirements.txt` (solo openpyxl)
 
 ## Uso
 
 ```bash
 python scripts/excel-formateador/formateador.py \
-    --origen <datos.xlsx> \
-    --plantilla <plantilla-ministerio.xlsx> \
-    --destino <salida.xlsx>
+    --data <datos.json> \
+    [--template <Formato Censal.xlsx>] \
+    [--output <censo-2026.xlsx>]
 ```
 
-- `--origen`: archivo Excel con datos (puede ser export del backend con estructura ministerial, o cuestionario externo)
-- `--plantilla`: plantilla oficial del Ministerio (NO se sube al repo — propiedad ministerial, pásala por ruta local)
-- `--destino`: archivo de salida
+- `--data`: JSON con las 3 secciones: `{"censo": [...], "altas": [...], "bajas": [...]}`.
+  Cada fila es un dict con las claves = nombres de columnas del template.
+- `--template`: template ministerial (default: `templates/Formato Censal.xlsx` junto al script).
+  El template NUNCA se modifica — siempre se trabaja sobre una copia.
+- `--output`: ruta de salida (default: `censo-{año actual}.xlsx` junto al template).
+
+## Estructura del template (3 pestañas)
+
+| Pestaña | Encabezados | Datos desde | Columnas |
+|---------|-------------|-------------|----------|
+| `FORMATO_CENSOS` | Fila 6 | Fila 7 | 18 (A-R) |
+| `REPORTE ALTAS` | Fila 1 | Fila 2 | 15 (A-O, NOVEDAD al final) |
+| `REPORTE BAJAS` | Fila 1 | Fila 2 | 15 (A-O, NOVEDAD al final) |
 
 ## Notas de arquitectura
 
-- **El análisis de inconsistencias NO vive aquí**: el backend valida en escritura
-  (duplicados → 409 por unique constraint; edad >99 → `warnings[]` no bloqueante).
-- **pandas se usa solo para leer/transformar el origen**; el formateo final es
-  openpyxl celda a celda para preservar la integridad visual de la plantilla.
-- Este es un script de proceso externo, no un servicio: se ejecuta bajo demanda
-  cuando se necesita el reporte ministerial.
+- **Stack verificado con evidencia**: openpyxl preserva imagen/merged/estilos;
+  exceljs CRASHA con templates que tienen imágenes (descartado); pandas no
+  aporta (la fuente es la DB, no un Excel externo).
+- **El análisis de inconsistencias NO vive aquí**: el backend valida en
+  escritura (duplicados → 409, edad >99 → `warnings[]`).
+- Script de proceso bajo demanda, no un servicio.

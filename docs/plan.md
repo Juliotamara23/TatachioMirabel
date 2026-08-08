@@ -159,14 +159,18 @@ Prioridad: **media** — PWA offline-first, tipo chat.
 ### Fase 4 — Reportes Excel (Ministerio del Interior)
 Prioridad: **baja** — se necesita al final del ciclo censal.
 
-**Arquitectura (decisión 2026-08): dos piezas, sin servicio externo.**
-- **Formateador ministerial** (`scripts/excel-formateador/`): script Python portado de AnalisisCensal. Copia la plantilla del Ministerio preservando logos/estructura (openpyxl celda a celda) e inyecta los datos transformados. Se ejecuta bajo demanda. ✅ portado
-- **Endpoints de exportación** (backend Node + SheetJS): generan el Excel ORIGEN con estructura ministerial desde la DB.
+**Arquitectura (decisión 2026-08, actualizada): un solo archivo con 3 pestañas, sin servicio externo.**
+- **Template oficial**: `scripts/excel-formateador/templates/Formato Censal.xlsx` (descargado del Drive, 3 pestañas: FORMATO_CENSOS, REPORTE ALTAS, REPORTE BAJAS). El template NO se modifica — siempre se trabaja sobre una copia.
+- **Script mínimo** (`scripts/excel-formateador/`): openpyxl puro (SIN pandas — la fuente es la DB, no un Excel externo). Abre el template, llena las 3 pestañas (FORMATO_CENSOS desde F7, ALTAS/BAJAS desde F2), guarda UNA copia con las 3 pestañas siempre. Preserva celdas combinadas/estilos del título institucional.
+- **Backend** (Node): consulta la DB (Prisma, fuente de verdad), pasa los datos al script, devuelve el .xlsx. El admin genera desde la API o el CLI; por debajo hace exactamente esto.
+- **Decisión de stack verificada con evidencia**: openpyxl preserva imagen/merged/estilos; exceljs CRASHA al leer templates con imágenes (descartado). pandas no aporta (datos vienen normalizados de la DB).
 
-- [x] Formateador ministerial portado al monorepo (`scripts/excel-formateador/`)
-- [ ] Endpoints de exportación: `GET /api/reportes/censo.xlsx` (Censo general, Altas, Bajas)
+- [x] Template ministerial descargado al monorepo (`scripts/excel-formateador/templates/`)
+- [x] Script formateador mínimo portado (`scripts/excel-formateador/`)
+- [ ] Backend: consulta DB y genera el Excel (3 pestañas) — `GET /api/reportes/censo.xlsx` o endpoint único
+- [ ] CLI: comando `tatachio reportes generar` que invoca el flujo
 - [ ] API de descarga
-- [ ] Flujo completo: DB → export (SheetJS) → formateador (openpyxl) → plantilla ministerial
+- [ ] Flujo completo: DB → script openpyxl → Formato Censal.xlsx copia con 3 pestañas → descarga
 
 **Nota**: el análisis de inconsistencias (repetidos, edades, muertos presuntos) NO vive en Python — el backend valida en escritura (duplicados → 409, edad >99 → `warnings[]`). El formateador solo cubre la entrega ministerial.
 
