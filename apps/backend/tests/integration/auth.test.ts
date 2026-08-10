@@ -2,6 +2,12 @@ import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import request from "supertest";
 import express from "express";
 import { PrismaClient } from "@prisma/client";
+import jwt from "jsonwebtoken";
+
+// Matches src/middleware/authMiddleware.ts and src/controllers/authController.ts.
+// vitest.config.ts sets JWT_SECRET=test-secret in the test env, so both sides
+// resolve the same value either way.
+const JWT_SECRET = process.env.JWT_SECRET || "supersecret";
 
 // Build a minimal app for testing (isolated from the running server)
 const app = express();
@@ -68,17 +74,63 @@ describe("Auth API", () => {
   });
 
   describe("POST /api/auth/register", () => {
-    it("returns 400 when required fields are missing", async () => {
+    // Registration is admin-only (issue #38): the route requires a valid
+    // Bearer token (authMiddleware) AND rol === "ADMINISTRATOR" (isAdmin).
+    // The middleware only inspects the JWT role claim — no DB lookup — so a
+    // signed token with the ADMINISTRATOR role is enough to pass.
+    const adminToken = jwt.sign(
+      { id: "test-admin-id", rol: "ADMINISTRATOR", cabildoId: null },
+      JWT_SECRET,
+      { expiresIn: "1h" }
+    );
+    const captainToken = jwt.sign(
+      { id: "test-captain-id", rol: "CAPTAIN", cabildoId: null },
+      JWT_SECRET,
+      { expiresIn: "1h" }
+    );
+
+    it("returns 401 when no token is provided", async () => {
       const res = await request(app)
         .post("/api/auth/register")
+        .send({
+          email: "anon@test.com",
+          password: "password123",
+          nombre: "Anonymous",
+          rol: "ADMINISTRATOR",
+        });
+
+      expect(res.status).toBe(401);
+      expect(res.body).toHaveProperty("error");
+    });
+
+    it("returns 403 when token rol is not ADMINISTRATOR", async () => {
+      const res = await request(app)
+        .post("/api/auth/register")
+        .set("Authorization", `Bearer ${captainToken}`)
+        .send({
+          email: "captain@test.com",
+          password: "password123",
+          nombre: "Captain",
+          rol: "ADMINISTRATOR",
+        });
+
+      expect(res.status).toBe(403);
+      expect(res.body).toHaveProperty("error");
+    });
+
+    it("returns 400 when required fields are missing (admin token)", async () => {
+      const res = await request(app)
+        .post("/api/auth/register")
+        .set("Authorization", `Bearer ${adminToken}`)
         .send({ email: "incomplete@test.com" });
 
       expect(res.status).toBe(400);
     });
 
-    it("returns 201 for a new user", async () => {
+    it("returns 201 for a new user (admin token)", async () => {
       const res = await request(app)
         .post("/api/auth/register")
+        .set("Authorization", `Bearer ${adminToken}`)
         .send({
           email: testEmail,
           password: "password123",
@@ -91,16 +143,19 @@ describe("Auth API", () => {
       expect(res.body).not.toHaveProperty("passwordHash");
     });
 
-    it("returns 400 when email already exists", async () => {
+    it("returns 400 when email already exists (admin token)", async () => {
       const res = await request(app)
         .post("/api/auth/register")
+        .set("Authorization", `Bearer ${adminToken}`)
         .send({
           email: "admin@tatachio.com",
           password: "password123",
           nombre: "Duplicate",
+          rol: "ADMINISTRATOR",
         });
 
       expect(res.status).toBe(400);
+      expect(res.body).toHaveProperty("error");
     });
   });
 });

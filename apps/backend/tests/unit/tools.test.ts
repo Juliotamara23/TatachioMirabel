@@ -61,12 +61,12 @@ describe("AI Tool Definitions", () => {
         expect(tool).toBeDefined();
         expect(tool.description).toBeTypeOf("string");
         expect(tool.description!.length).toBeGreaterThan(0);
-        expect(tool.parameters).toBeDefined();
+        expect(tool.inputSchema).toBeDefined();
       });
 
       it(`${name} parameters is a Zod schema`, () => {
         // Zod v4 schemas have a safeParse method
-        expect(typeof tool.parameters.safeParse).toBe("function");
+        expect(typeof tool.inputSchema.safeParse).toBe("function");
       });
     }
   });
@@ -75,14 +75,14 @@ describe("AI Tool Definitions", () => {
 
   describe("searchMiembrosTool parameters", () => {
     it("accepts valid input with required query", () => {
-      const result = searchMiembrosTool.parameters.safeParse({
+      const result = searchMiembrosTool.inputSchema.safeParse({
         query: "Garcia",
       });
       expect(result.success).toBe(true);
     });
 
     it("accepts optional limit", () => {
-      const result = searchMiembrosTool.parameters.safeParse({
+      const result = searchMiembrosTool.inputSchema.safeParse({
         query: "Garcia",
         limit: 5,
       });
@@ -93,12 +93,12 @@ describe("AI Tool Definitions", () => {
     });
 
     it("rejects missing query", () => {
-      const result = searchMiembrosTool.parameters.safeParse({});
+      const result = searchMiembrosTool.inputSchema.safeParse({});
       expect(result.success).toBe(false);
     });
 
     it("rejects empty query string", () => {
-      const result = searchMiembrosTool.parameters.safeParse({
+      const result = searchMiembrosTool.inputSchema.safeParse({
         query: "",
       });
       expect(result.success).toBe(false);
@@ -107,21 +107,21 @@ describe("AI Tool Definitions", () => {
 
   describe("getMiembroByIdTool parameters", () => {
     it("accepts valid uuid id", () => {
-      const result = getMiembroByIdTool.parameters.safeParse({
+      const result = getMiembroByIdTool.inputSchema.safeParse({
         id: "550e8400-e29b-41d4-a716-446655440000",
       });
       expect(result.success).toBe(true);
     });
 
     it("rejects missing id", () => {
-      const result = getMiembroByIdTool.parameters.safeParse({});
+      const result = getMiembroByIdTool.inputSchema.safeParse({});
       expect(result.success).toBe(false);
     });
   });
 
   describe("getFamiliaMembersTool parameters", () => {
     it("accepts valid familiaId", () => {
-      const result = getFamiliaMembersTool.parameters.safeParse({
+      const result = getFamiliaMembersTool.inputSchema.safeParse({
         familiaId: "550e8400-e29b-41d4-a716-446655440000",
       });
       expect(result.success).toBe(true);
@@ -130,12 +130,12 @@ describe("AI Tool Definitions", () => {
 
   describe("getCabildoStatsTool parameters", () => {
     it("accepts empty params (cabildoId is optional)", () => {
-      const result = getCabildoStatsTool.parameters.safeParse({});
+      const result = getCabildoStatsTool.inputSchema.safeParse({});
       expect(result.success).toBe(true);
     });
 
     it("accepts optional cabildoId", () => {
-      const result = getCabildoStatsTool.parameters.safeParse({
+      const result = getCabildoStatsTool.inputSchema.safeParse({
         cabildoId: "test-cabildo-id",
       });
       expect(result.success).toBe(true);
@@ -144,14 +144,14 @@ describe("AI Tool Definitions", () => {
 
   describe("getReporteDataTool parameters", () => {
     it("accepts valid reporteId", () => {
-      const result = getReporteDataTool.parameters.safeParse({
+      const result = getReporteDataTool.inputSchema.safeParse({
         reporteId: "550e8400-e29b-41d4-a716-446655440000",
       });
       expect(result.success).toBe(true);
     });
 
     it("rejects missing reporteId", () => {
-      const result = getReporteDataTool.parameters.safeParse({});
+      const result = getReporteDataTool.inputSchema.safeParse({});
       expect(result.success).toBe(false);
     });
   });

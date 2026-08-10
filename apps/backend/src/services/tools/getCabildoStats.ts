@@ -7,7 +7,7 @@ export const getCabildoStatsTool = tool({
     "Obtiene estadísticas agregadas de un cabildo: total de miembros, " +
     "distribución por sexo, estado y escolaridad. Si no se especifica " +
     "cabildoId, usa el primer cabildo activo.",
-  parameters: z.object({
+  inputSchema: z.object({
     cabildoId: z
       .string()
       .optional()

@@ -1,4 +1,4 @@
-import { streamText, type ModelMessage } from "ai";
+import { streamText, stepCountIs, type ModelMessage } from "ai";
 import { resolveModel } from "./modelRegistry.js";
 import { getToolsForRole } from "./tools/index.js";
 
@@ -39,7 +39,9 @@ export function runChat(
     messages,
     tools,
     system: SYSTEM_PROMPT,
-    maxSteps: 5,
+    // AI SDK v6: maxSteps was replaced by stop conditions; stopWhen: stepCountIs(5)
+    // preserves the previous maxSteps: 5 tool-loop limit.
+    stopWhen: stepCountIs(5),
     toolChoice: "auto",
   });
 

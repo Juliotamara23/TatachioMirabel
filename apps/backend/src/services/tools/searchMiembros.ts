@@ -6,7 +6,7 @@ export const searchMiembrosTool = tool({
   description:
     "Busca miembros del cabildo por nombre, apellido o número de documento. " +
     "Útil cuando la captain pregunta '¿cómo está la familia de...?' o 'busca a Juan'.",
-  parameters: z.object({
+  inputSchema: z.object({
     query: z
       .string()
       .min(1)
