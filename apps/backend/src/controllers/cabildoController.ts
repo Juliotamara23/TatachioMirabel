@@ -3,6 +3,7 @@ import { ZodError } from "zod";
 import { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
 import prisma from "../database.js";
 import { cabildoSchema } from "@tatachio/shared";
+import { paramString } from "../utils/params.js";
 
 export const createCabildo = async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -39,7 +40,7 @@ export const getCabildos = async (req: Request, res: Response, next: NextFunctio
 
 export const getCabildoById = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { id } = req.params;
+    const id = paramString(req.params.id);
     
     const cabildo = await prisma.cabildo.findUnique({ where: { id } });
 
@@ -60,7 +61,7 @@ export const getCabildoById = async (req: Request, res: Response, next: NextFunc
 
 export const updateCabildo = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { id } = req.params;
+    const id = paramString(req.params.id);
     const validated = cabildoSchema.partial().parse(req.body);
 
     const cabildo = await prisma.cabildo.update({
@@ -79,7 +80,7 @@ export const updateCabildo = async (req: Request, res: Response, next: NextFunct
 
 export const deleteCabildo = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { id } = req.params;
+    const id = paramString(req.params.id);
     await prisma.cabildo.delete({
       where: { id },
     });

@@ -6,7 +6,7 @@ export const getMiembroByIdTool = tool({
   description:
     "Obtiene los detalles completos de un miembro por su ID. " +
     "Incluye información de la familia y el cabildo al que pertenece.",
-  parameters: z.object({
+  inputSchema: z.object({
     id: z.string().describe("UUID del miembro"),
   }),
   execute: async ({ id }: { id: string }) => {

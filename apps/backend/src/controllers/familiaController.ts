@@ -1,8 +1,10 @@
 import { Request, Response, NextFunction } from "express";
 import { ZodError } from "zod";
+import type { Prisma } from "@prisma/client";
 import prisma from "../database.js";
 import { familiaSchema } from "@tatachio/shared";
 import { applyCabildoScope } from "../middleware/authMiddleware.js";
+import { paramString } from "../utils/params.js";
 
 export const createFamilia = async (req: Request, res: Response) => {
   try {
@@ -19,7 +21,11 @@ export const createFamilia = async (req: Request, res: Response) => {
       return res.status(404).json({ error: "Cabildo no encontrado" });
     }
 
-    const familia = await prisma.familia.create({ data: where });
+    // Runtime shape: familiaSchema fields + cabildoId (added by applyCabildoScope)
+    // for CAPTAIN. The unchecked input matches this flat shape.
+    const familia = await prisma.familia.create({
+      data: where as Prisma.FamiliaUncheckedCreateInput,
+    });
     res.status(201).json(familia);
   } catch (error: unknown) {
     if (error instanceof ZodError) {
@@ -50,7 +56,7 @@ export const getFamilias = async (req: Request, res: Response) => {
 
 export const getFamiliaById = async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
+    const id = paramString(req.params.id);
     const familia = await prisma.familia.findUnique({
       where: { id },
       include: { miembros: true },
@@ -73,7 +79,7 @@ export const getFamiliaById = async (req: Request, res: Response) => {
 
 export const updateFamilia = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { id } = req.params;
+    const id = paramString(req.params.id);
     const validated = familiaSchema.partial().parse(req.body);
 
     const familia = await prisma.familia.update({
@@ -92,7 +98,7 @@ export const updateFamilia = async (req: Request, res: Response, next: NextFunct
 
 export const deleteFamilia = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { id } = req.params;
+    const id = paramString(req.params.id);
     await prisma.familia.delete({
       where: { id },
     });

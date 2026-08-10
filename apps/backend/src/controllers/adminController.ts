@@ -1,10 +1,12 @@
 import { Request, Response } from "express";
 import prisma from "../database.js";
 import { ZodError } from "zod";
+import { paramString } from "../utils/params.js";
 
 export const assignCapitana = async (req: Request, res: Response) => {
   try {
-    const { cabildoId, usuarioId } = req.params;
+    const cabildoId = paramString(req.params.cabildoId);
+    const usuarioId = paramString(req.params.usuarioId);
 
     // Check if usuario exists and has CAPTAIN rol
     const usuario = await prisma.usuario.findUnique({
@@ -47,7 +49,8 @@ export const assignCapitana = async (req: Request, res: Response) => {
 
 export const removeCapitana = async (req: Request, res: Response) => {
   try {
-    const { cabildoId, usuarioId } = req.params;
+    const cabildoId = paramString(req.params.cabildoId);
+    const usuarioId = paramString(req.params.usuarioId);
 
     // Find the UsuarioCabildo entry
     const usuarioCabildo = await prisma.usuarioCabildo.findUnique({

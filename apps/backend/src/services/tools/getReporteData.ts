@@ -9,7 +9,7 @@ export const getReporteDataTool = tool({
   description:
     "Obtiene los datos de un reporte específico incluyendo las altas y bajas. " +
     "SOLO disponible para administratores.",
-  parameters: z.object({
+  inputSchema: z.object({
     reporteId: z.string().describe("UUID del reporte"),
   }),
   execute: async ({ reporteId }: { reporteId: string }) => {

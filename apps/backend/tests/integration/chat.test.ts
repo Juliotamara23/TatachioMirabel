@@ -1,8 +1,34 @@
 import "dotenv/config";
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
 import request from "supertest";
 import express from "express";
 import { throttleAiCall, resetThrottle } from "../helpers/ai-throttle.js";
+
+// ── Deterministic mocks ───────────────────────────────────────────────
+// The 429 in the rate-limit test comes from the app-level token-bucket
+// limiter (src/middleware/rateLimiter.ts), which is fully in-process and
+// independent of the AI provider. Mock the external throttle so the
+// 21-request loop never waits on a real-time pause (Google rate limit),
+// and stub streamText so no real provider call ever happens — the loop
+// must not depend on wall-clock time or external quotas.
+vi.mock("../helpers/ai-throttle.js", () => ({
+  throttleAiCall: vi.fn(async () => {}),
+  resetThrottle: vi.fn(),
+}));
+
+vi.mock("ai", async () => {
+  const actual = await vi.importActual<typeof import("ai")>("ai");
+  return {
+    ...actual,
+    streamText: vi.fn(() => ({
+      textStream: (async function* () {
+        yield "Respuesta de prueba";
+      })(),
+      steps: Promise.resolve([]),
+      text: Promise.resolve("Respuesta de prueba"),
+    })),
+  };
+});
 
 // ── Test AI configuration ──────────────────────────────────────────
 const TEST_AI_MODEL = process.env.TEST_AI_MODEL || "";
@@ -120,8 +146,10 @@ describe("Chat API Integration", () => {
 
   describe("POST /api/chat — Rate Limiting", () => {
     it("returns 429 when CAPTAIN exceeds 20 requests", async () => {
-      // Throttle external API calls to avoid hitting Google's rate limit.
-      // Ollama (local) skips throttling entirely.
+      // The app-level token-bucket limiter (rateLimiter.ts) grants CAPTAIN
+      // 20 tokens. The 21st request must be rejected with 429 before any
+      // chat handling. ThrottleAiCall and streamText are mocked above so the
+      // loop is deterministic: no external calls, no real-time pauses.
       const results: number[] = [];
       for (let i = 0; i < 21; i++) {
         if (THROTTLE) await throttleAiCall();

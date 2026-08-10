@@ -6,7 +6,7 @@ export const getFamiliaMembersTool = tool({
   description:
     "Obtiene todos los miembros que pertenecen a una familia específica. " +
     "Útil para consultas como '¿quiénes viven en la familia 15?'.",
-  parameters: z.object({
+  inputSchema: z.object({
     familiaId: z.string().describe("UUID de la familia"),
   }),
   execute: async ({ familiaId }: { familiaId: string }) => {

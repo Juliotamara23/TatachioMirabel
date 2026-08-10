@@ -38,8 +38,10 @@ export const createMember = async (req: Request, res: Response, next: NextFuncti
       }
     }
 
+    // Runtime shape: memberSchema fields + cabildoId forced from JWT for CAPTAIN.
+    // The unchecked input matches this flat shape (cabildoId/familiaId scalars).
     const nuevoMiembro = await prisma.miembro.create({
-      data: dataToCreate,
+      data: dataToCreate as Prisma.MiembroUncheckedCreateInput,
     });
 
     const warnings = ageWarnings(dataToCreate);
