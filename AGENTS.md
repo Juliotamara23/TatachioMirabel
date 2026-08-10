@@ -3,7 +3,7 @@
 ## How to Use This Guide
 
 - Start here for cross-project norms. Tatachio Mirabel is a monorepo with several components.
-- Each component has an `AGENTS.md` file with specific guidelines (e.g., `apps/backend/AGENTS.md`).
+- Only applications under `apps/` have their own `AGENTS.md` with specific guidelines (e.g., `apps/backend/AGENTS.md`).
 - Component docs override this file when guidance conflicts.
 
 ## Available Skills
@@ -44,12 +44,13 @@ Tatachio Mirabel is a cabildo member management system with AI-powered chat, CLI
 | Component | Location | Tech Stack | AGENTS.md |
 |-----------|----------|------------|-----------|
 | Backend | `apps/backend/` | Node.js, Express, TypeScript, Prisma, SQLite | [AGENTS.md](apps/backend/AGENTS.md) |
-| CLI | `apps/cli/` | Node.js, TypeScript, Commander.js, @inquirer | WIP |
-| Shared | `packages/shared/` | TypeScript, Zod | WIP |
-| QA Scripts | `scripts/qa/` | Node.js, fetch nativo | WIP |
+| CLI | `apps/cli/` | Node.js, TypeScript, Commander.js, @inquirer | [AGENTS.md](apps/cli/AGENTS.md) |
+| Frontend | `apps/frontend/` | pendiente | pendiente |
+| Shared | `packages/shared/` | TypeScript, Zod | -- |
+| QA Scripts | `scripts/qa/` | Node.js, fetch nativo | -- |
 | Docs | `docs/` | Markdown (plan, QA plan) | -- |
 
-WIP = AGENTS.md pendiente
+Solo las aplicaciones bajo `apps/` tienen `AGENTS.md` propio; los paquetes de soporte (`packages/`, `scripts/`) se guían por este archivo.
 
 ---
 
