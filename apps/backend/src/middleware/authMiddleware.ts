@@ -1,7 +1,11 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 
-export const JWT_SECRET = process.env.JWT_SECRET || "supersecret";
+// No fallback: JWT_SECRET is REQUIRED at runtime (issue #45).
+// The cast documents the boot-time invariant enforced in index.ts (the
+// process refuses to start without it). If the value is ever undefined at
+// runtime, jwt.sign/jwt.verify throw "secretOrPublicKey must have a value".
+export const JWT_SECRET = process.env.JWT_SECRET as string;
 
 interface TokenPayload {
   id: string;

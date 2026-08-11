@@ -39,7 +39,18 @@ export const createMember = async (req: Request, res: Response, next: NextFuncti
       return res.status(403).json({ error: "Rol no autorizado" });
     }
 
-    const dataToCreate: Prisma.MiembroUncheckedCreateInput = { ...validatedData, cabildoId };
+    // CAPTAIN: never let a client-supplied cabildoId reach the create input
+    // (issue #45). The JWT cabildoId is authoritative; the 403 mismatch check
+    // above stays as defense-in-depth, but the body value can never win.
+    let dataToCreate: Prisma.MiembroUncheckedCreateInput;
+    if (userRole === "CAPTAIN") {
+      const { cabildoId: _bodyCabildoId, ...rest } = validatedData;
+      void _bodyCabildoId;
+      dataToCreate = { ...rest, cabildoId };
+    } else {
+      // ADMINISTRATOR: body cabildoId is legitimately required (validated above).
+      dataToCreate = { ...validatedData, cabildoId };
+    }
     const nuevoMiembro = await prisma.miembro.create({ data: dataToCreate });
 
     const warnings = ageWarnings(dataToCreate);
