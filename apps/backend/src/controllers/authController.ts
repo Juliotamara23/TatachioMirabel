@@ -2,8 +2,7 @@ import { Request, Response } from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import prisma from "../database.js";
-
-const JWT_SECRET = process.env.JWT_SECRET || "supersecret";
+import { JWT_SECRET } from "../middleware/authMiddleware.js";
 
 /**
  * Crea el primer ADMINISTRATOR desde variables de entorno si no existe ninguno.

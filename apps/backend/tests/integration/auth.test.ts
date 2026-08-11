@@ -3,11 +3,7 @@ import request from "supertest";
 import express from "express";
 import { PrismaClient } from "@prisma/client";
 import jwt from "jsonwebtoken";
-
-// Matches src/middleware/authMiddleware.ts and src/controllers/authController.ts.
-// vitest.config.ts sets JWT_SECRET=test-secret in the test env, so both sides
-// resolve the same value either way.
-const JWT_SECRET = process.env.JWT_SECRET || "supersecret";
+import { JWT_SECRET } from "../../src/middleware/authMiddleware.js";
 
 // Build a minimal app for testing (isolated from the running server)
 const app = express();
