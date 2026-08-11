@@ -10,6 +10,14 @@ import adminRouter from "./routes/admin.js";
 import reportesRouter from "./routes/reportes.js";
 import { ensureInitialAdmin } from "./controllers/authController.js";
 import { errorHandler } from "./middleware/errorHandler.js";
+
+// Fail fast if JWT_SECRET is missing (issue #45). There is no default fallback
+// anymore — a server running with a public secret would forge any token.
+if (!process.env.JWT_SECRET) {
+  console.error("[auth] JWT_SECRET is not set. Refusing to start. Configure it in .env (see .env.example).");
+  process.exit(1);
+}
+
 const app = express();
 app.use(express.json());
 

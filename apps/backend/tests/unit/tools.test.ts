@@ -29,7 +29,7 @@ import { searchMiembrosTool } from "../../src/services/tools/searchMiembros.js";
 import { getMiembroByIdTool } from "../../src/services/tools/getMiembroById.js";
 import { getFamiliaMembersTool } from "../../src/services/tools/getFamiliaMembers.js";
 import { getCabildoStatsTool } from "../../src/services/tools/getCabildoStats.js";
-import { getReporteDataTool } from "../../src/services/tools/getReporteData.js";
+import { createGetReporteDataTool } from "../../src/services/tools/getReporteData.js";
 
 describe("AI Tool Definitions", () => {
   beforeEach(() => {
@@ -53,7 +53,8 @@ describe("AI Tool Definitions", () => {
       { name: "getMiembroById", tool: getMiembroByIdTool },
       { name: "getFamiliaMembers", tool: getFamiliaMembersTool },
       { name: "getCabildoStats", tool: getCabildoStatsTool },
-      { name: "getReporteData", tool: getReporteDataTool },
+      // getReporteData is ADMIN-only: build it via the factory (issue #45)
+      { name: "getReporteData", tool: createGetReporteDataTool("ADMINISTRATOR") },
     ];
 
     for (const { name, tool } of tools) {
@@ -143,15 +144,17 @@ describe("AI Tool Definitions", () => {
   });
 
   describe("getReporteDataTool inputSchema", () => {
+    const getReporteDataAdmin = createGetReporteDataTool("ADMINISTRATOR");
+
     it("accepts valid reporteId", () => {
-      const result = getReporteDataTool.inputSchema.safeParse({
+      const result = getReporteDataAdmin.inputSchema.safeParse({
         reporteId: "550e8400-e29b-41d4-a716-446655440000",
       });
       expect(result.success).toBe(true);
     });
 
     it("rejects missing reporteId", () => {
-      const result = getReporteDataTool.inputSchema.safeParse({});
+      const result = getReporteDataAdmin.inputSchema.safeParse({});
       expect(result.success).toBe(false);
     });
   });
@@ -256,14 +259,26 @@ describe("AI Tool Definitions", () => {
   });
 
   describe("getReporteDataTool execute", () => {
-    it("runs Prisma reporte.findUnique with miembros", async () => {
-      await getReporteDataTool.execute!({ reporteId: "r1" });
+    it("runs Prisma reporte.findUnique with miembros for ADMINISTRATOR", async () => {
+      const getReporteDataAdmin = createGetReporteDataTool("ADMINISTRATOR");
+      await getReporteDataAdmin.execute!({ reporteId: "r1" });
 
       expect(prisma.reporte.findUnique).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { id: "r1" },
         })
       );
+    });
+
+    it("refuses non-ADMINISTRATOR callers without querying (issue #45)", async () => {
+      const getReporteDataCaptain = createGetReporteDataTool("CAPTAIN");
+      const result = await getReporteDataCaptain.execute!({ reporteId: "r1" });
+
+      expect(prisma.reporte.findUnique).not.toHaveBeenCalled();
+      expect(result).toEqual({
+        encontrado: false,
+        mensaje: "Acceso denegado: solo administratores pueden consultar reportes",
+      });
     });
   });
 
@@ -301,12 +316,11 @@ describe("AI Tool Definitions", () => {
   // ── ALL_TOOLS registry ────────────────────────────────────────
 
   describe("ALL_TOOLS", () => {
-    it("contains all five tool definitions", () => {
+    it("contains the four role-independent tool definitions (getReporteData is built dynamically for ADMIN)", () => {
       expect(ALL_TOOLS.searchMiembros).toBeDefined();
       expect(ALL_TOOLS.getMiembroById).toBeDefined();
       expect(ALL_TOOLS.getFamiliaMembers).toBeDefined();
       expect(ALL_TOOLS.getCabildoStats).toBeDefined();
-      expect(ALL_TOOLS.getReporteData).toBeDefined();
     });
   });
 });
