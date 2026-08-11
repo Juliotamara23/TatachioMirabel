@@ -142,6 +142,31 @@ describe("memberController.createMember", () => {
     );
   });
 
+  it("AC3b: CAPTAIN with matching body cabildoId → body value is DISCARDED; exact data passed to Prisma is JWT-only (issue #45)", async () => {
+    // Regression for issue #45: the client-supplied cabildoId must never win.
+    // toEqual is strict — if the body cabildoId leaked into the create input
+    // (e.g. via a spread that carries a different value or an extra key),
+    // this assertion fails.
+    mockReq.body = { ...validMemberBody, cabildoId: jwtCabildoId };
+    mockReq.usuario = { id: "user-1", rol: "CAPTAIN", cabildoId: jwtCabildoId };
+    (prisma.miembro.create as ReturnType<typeof vi.fn>).mockResolvedValue({
+      id: "member-1",
+      ...validMemberBody,
+      cabildoId: jwtCabildoId,
+    });
+
+    await createMember(mockReq as Request, mockRes as Response);
+
+    expect(mockStatus).toHaveBeenCalledWith(201);
+    const createCall = (prisma.miembro.create as ReturnType<typeof vi.fn>).mock.calls[0][0];
+    expect(createCall.data).toEqual({
+      ...validMemberBody,
+      cabildoId: jwtCabildoId,
+    });
+    // The body cabildoId is never the source: data has no key beyond the JWT value.
+    expect(createCall.data).not.toHaveProperty("cabildoId", otherCabildoId);
+  });
+
   it("ADMIN without cabildoId → 400 (required for ADMIN)", async () => {
     mockReq.body = validMemberBody;
     mockReq.usuario = { id: "user-1", rol: "ADMINISTRATOR", cabildoId: null };
