@@ -20,29 +20,27 @@ export const createMember = async (req: Request, res: Response, next: NextFuncti
     const userRole = req.usuario?.rol;
     const userCabildoId = req.usuario?.cabildoId;
 
-    let dataToCreate = { ...validatedData };
-
+    let cabildoId: string;
     if (userRole === "CAPTAIN") {
       if (validatedData.cabildoId && validatedData.cabildoId !== userCabildoId) {
         return res.status(403).json({ error: "cabildoId en el body no coincide con el del JWT" });
       }
-      if (!validatedData.cabildoId) {
-        if (!userCabildoId) {
-          return res.status(400).json({ error: "CAPTAIN sin cabildoId asignado" });
-        }
-        dataToCreate.cabildoId = userCabildoId;
+      if (!userCabildoId) {
+        return res.status(400).json({ error: "CAPTAIN sin cabildoId asignado" });
       }
+      cabildoId = userCabildoId;
     } else if (userRole === "ADMINISTRATOR") {
       if (!validatedData.cabildoId) {
         return res.status(400).json({ error: "cabildoId es requerido para ADMINISTRATOR" });
       }
+      cabildoId = validatedData.cabildoId;
+    } else {
+      // Inalcanzable: la ruta POST /api/miembros exige isCaptain (CAPTAIN|ADMINISTRATOR).
+      return res.status(403).json({ error: "Rol no autorizado" });
     }
 
-    // Runtime shape: memberSchema fields + cabildoId forced from JWT for CAPTAIN.
-    // The unchecked input matches this flat shape (cabildoId/familiaId scalars).
-    const nuevoMiembro = await prisma.miembro.create({
-      data: dataToCreate as Prisma.MiembroUncheckedCreateInput,
-    });
+    const dataToCreate: Prisma.MiembroUncheckedCreateInput = { ...validatedData, cabildoId };
+    const nuevoMiembro = await prisma.miembro.create({ data: dataToCreate });
 
     const warnings = ageWarnings(dataToCreate);
     res.status(201).json(warnings.length > 0 ? { ...nuevoMiembro, warnings } : nuevoMiembro);

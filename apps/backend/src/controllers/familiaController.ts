@@ -9,22 +9,20 @@ import { paramString } from "../utils/params.js";
 export const createFamilia = async (req: Request, res: Response) => {
   try {
     const validated = familiaSchema.parse(req.body);
-    const where: Record<string, unknown> = { ...validated };
+    const where: Prisma.FamiliaUncheckedCreateInput = { ...validated };
     applyCabildoScope(req, where);
 
     // Check cabildo exists before creating familia
     const cabildo = await prisma.cabildo.findUnique({
-      where: { id: where.cabildoId as string },
+      where: { id: where.cabildoId },
     });
 
     if (!cabildo) {
       return res.status(404).json({ error: "Cabildo no encontrado" });
     }
 
-    // Runtime shape: familiaSchema fields + cabildoId (added by applyCabildoScope)
-    // for CAPTAIN. The unchecked input matches this flat shape.
     const familia = await prisma.familia.create({
-      data: where as Prisma.FamiliaUncheckedCreateInput,
+      data: where,
     });
     res.status(201).json(familia);
   } catch (error: unknown) {
