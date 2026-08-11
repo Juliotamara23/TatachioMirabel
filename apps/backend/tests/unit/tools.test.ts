@@ -57,14 +57,14 @@ describe("AI Tool Definitions", () => {
     ];
 
     for (const { name, tool } of tools) {
-      it(`${name} is defined with description and parameters`, () => {
+      it(`${name} is defined with description and inputSchema`, () => {
         expect(tool).toBeDefined();
         expect(tool.description).toBeTypeOf("string");
         expect(tool.description!.length).toBeGreaterThan(0);
         expect(tool.inputSchema).toBeDefined();
       });
 
-      it(`${name} parameters is a Zod schema`, () => {
+      it(`${name} inputSchema is a Zod schema`, () => {
         // Zod v4 schemas have a safeParse method
         expect(typeof tool.inputSchema.safeParse).toBe("function");
       });
@@ -73,7 +73,7 @@ describe("AI Tool Definitions", () => {
 
   // ── Parameter validation ──────────────────────────────────────
 
-  describe("searchMiembrosTool parameters", () => {
+  describe("searchMiembrosTool inputSchema", () => {
     it("accepts valid input with required query", () => {
       const result = searchMiembrosTool.inputSchema.safeParse({
         query: "Garcia",
@@ -105,7 +105,7 @@ describe("AI Tool Definitions", () => {
     });
   });
 
-  describe("getMiembroByIdTool parameters", () => {
+  describe("getMiembroByIdTool inputSchema", () => {
     it("accepts valid uuid id", () => {
       const result = getMiembroByIdTool.inputSchema.safeParse({
         id: "550e8400-e29b-41d4-a716-446655440000",
@@ -119,7 +119,7 @@ describe("AI Tool Definitions", () => {
     });
   });
 
-  describe("getFamiliaMembersTool parameters", () => {
+  describe("getFamiliaMembersTool inputSchema", () => {
     it("accepts valid familiaId", () => {
       const result = getFamiliaMembersTool.inputSchema.safeParse({
         familiaId: "550e8400-e29b-41d4-a716-446655440000",
@@ -128,7 +128,7 @@ describe("AI Tool Definitions", () => {
     });
   });
 
-  describe("getCabildoStatsTool parameters", () => {
+  describe("getCabildoStatsTool inputSchema", () => {
     it("accepts empty params (cabildoId is optional)", () => {
       const result = getCabildoStatsTool.inputSchema.safeParse({});
       expect(result.success).toBe(true);
@@ -142,7 +142,7 @@ describe("AI Tool Definitions", () => {
     });
   });
 
-  describe("getReporteDataTool parameters", () => {
+  describe("getReporteDataTool inputSchema", () => {
     it("accepts valid reporteId", () => {
       const result = getReporteDataTool.inputSchema.safeParse({
         reporteId: "550e8400-e29b-41d4-a716-446655440000",
