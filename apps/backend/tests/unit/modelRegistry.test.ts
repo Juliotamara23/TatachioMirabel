@@ -2,17 +2,25 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 
 // Snapshot env vars that provider-availability tests mutate so they never leak
 // between tests (a leaked OLLAMA_BASE_URL breaks the empty-availability and
-// resolveModel-throw assertions in later tests).
+// resolveModel-throw assertions in later tests). Extended in the PR-3 review
+// fix to also cover the gateway env vars the gateway-branch tests mutate
+// (AI_GATEWAY_API_KEY, OPENROUTER_API_KEY) — review finding 2.
 const ENV_SNAPSHOT: Record<string, string | undefined> = {};
 beforeEach(() => {
   ENV_SNAPSHOT.OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL;
   ENV_SNAPSHOT.GOOGLE_GENERATIVE_AI_API_KEY = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
+  ENV_SNAPSHOT.AI_GATEWAY_API_KEY = process.env.AI_GATEWAY_API_KEY;
+  ENV_SNAPSHOT.OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
 });
 afterEach(() => {
   if (ENV_SNAPSHOT.OLLAMA_BASE_URL === undefined) delete process.env.OLLAMA_BASE_URL;
   else process.env.OLLAMA_BASE_URL = ENV_SNAPSHOT.OLLAMA_BASE_URL;
   if (ENV_SNAPSHOT.GOOGLE_GENERATIVE_AI_API_KEY === undefined) delete process.env.GOOGLE_GENERATIVE_AI_API_KEY;
   else process.env.GOOGLE_GENERATIVE_AI_API_KEY = ENV_SNAPSHOT.GOOGLE_GENERATIVE_AI_API_KEY;
+  if (ENV_SNAPSHOT.AI_GATEWAY_API_KEY === undefined) delete process.env.AI_GATEWAY_API_KEY;
+  else process.env.AI_GATEWAY_API_KEY = ENV_SNAPSHOT.AI_GATEWAY_API_KEY;
+  if (ENV_SNAPSHOT.OPENROUTER_API_KEY === undefined) delete process.env.OPENROUTER_API_KEY;
+  else process.env.OPENROUTER_API_KEY = ENV_SNAPSHOT.OPENROUTER_API_KEY;
 });
 
 // Mock AI providers BEFORE importing the module under test
@@ -541,6 +549,13 @@ describe("Model Registry", () => {
       );
       expect((model as Record<string, string>).provider).toBe("google");
       expect(createGateway).not.toHaveBeenCalled();
+    });
+
+    it("leaves AI_GATEWAY_API_KEY and OPENROUTER_API_KEY unset after the gateway tests above (env isolation, review finding 2)", () => {
+      // The gateway tests set both keys; the ENV_SNAPSHOT / originalEnv
+      // restore must have cleaned them up so no test leaks env state.
+      expect(process.env.AI_GATEWAY_API_KEY).toBeUndefined();
+      expect(process.env.OPENROUTER_API_KEY).toBeUndefined();
     });
   });
 });

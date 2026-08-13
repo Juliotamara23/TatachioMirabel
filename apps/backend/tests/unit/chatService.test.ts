@@ -28,11 +28,15 @@ vi.mock("../../src/services/tools/index.js", () => ({
 }));
 
 vi.mock("../../src/services/failoverChain.js", () => ({
-  buildGatewayProviderOptions: vi.fn((rol: string) => ({
+  // No-arg builder (review finding 3): the chain is role-independent (R3.4).
+  buildGatewayProviderOptions: vi.fn(() => ({
     gateway: {
-      order: ["google", "openrouter"],
-      models: ["google/gemini-2.0-flash", "openrouter/anthropic/claude-sonnet-4.5"],
-      _forRole: rol, // lets the test assert the rol was forwarded
+      order: ["google", "deepseek", "meta"],
+      models: [
+        "google/gemini-3.1-flash-lite-preview",
+        "deepseek/deepseek-r1",
+        "meta/llama-3.3-70b",
+      ],
     },
   })),
 }));
@@ -51,9 +55,10 @@ describe("runChat gateway providerOptions (PR-3, R3.7/R3.5)", () => {
     process.env.AI_GATEWAY_API_KEY = "gw-key";
     runChat([{ role: "user", content: "hola" }], "CAPTAIN");
     const args = streamText.mock.calls[0][0];
-    expect(args.providerOptions).toEqual(buildGatewayProviderOptions("CAPTAIN"));
-    // rol is forwarded to the chain builder
-    expect(buildGatewayProviderOptions).toHaveBeenCalledWith("CAPTAIN");
+    expect(args.providerOptions).toEqual(buildGatewayProviderOptions());
+    // the chain builder is called without arguments (no per-role chain, R3.4);
+    // mock.calls[0] discriminates zero-arg calls (toHaveBeenCalledWith() does not)
+    expect(buildGatewayProviderOptions.mock.calls[0]).toEqual([]);
   });
 
   it("omits providerOptions entirely when AI_GATEWAY_API_KEY is absent (R3.5)", () => {
