@@ -37,11 +37,12 @@ export function runChat(
 
   // PR-3 (R3.7): when the gateway key is set, thread the failover chain
   // ("Automático", R3.4) into streamText so the Vercel AI Gateway can fall
-  // back google → openrouter on 5xx/429. Computed once per request. When the
-  // key is absent the providerOptions key is omitted entirely (R3.5 — direct
-  // provider path sends no gateway options).
+  // back google → deepseek → meta on 5xx/429 (curated gateway ids, review
+  // finding 1). Computed once per request. When the key is absent the
+  // providerOptions key is omitted entirely (R3.5 — direct provider path
+  // sends no gateway options).
   const providerOptions = process.env.AI_GATEWAY_API_KEY
-    ? buildGatewayProviderOptions(rol)
+    ? buildGatewayProviderOptions()
     : undefined;
 
   const result = streamText({
