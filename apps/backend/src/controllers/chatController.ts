@@ -46,7 +46,15 @@ export async function streamTextToResponse(
       if (done) break;
       const canContinue = response.write(value);
       if (!canContinue) {
-        await new Promise((resolve) => response.once("drain", resolve));
+        // Wait for the buffer to drain, but never hang forever: if the client
+        // disconnects or the response errors while the buffer is full, resolve
+        // so the handler can end the response cleanly.
+        await new Promise<void>((resolve) => {
+          const done = () => resolve();
+          response.once("drain", done);
+          response.once("close", done);
+          response.once("error", done);
+        });
       }
     }
   } catch (error) {

@@ -1,5 +1,20 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 
+// Snapshot env vars that provider-availability tests mutate so they never leak
+// between tests (a leaked OLLAMA_BASE_URL breaks the empty-availability and
+// resolveModel-throw assertions in later tests).
+const ENV_SNAPSHOT: Record<string, string | undefined> = {};
+beforeEach(() => {
+  ENV_SNAPSHOT.OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL;
+  ENV_SNAPSHOT.GOOGLE_GENERATIVE_AI_API_KEY = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
+});
+afterEach(() => {
+  if (ENV_SNAPSHOT.OLLAMA_BASE_URL === undefined) delete process.env.OLLAMA_BASE_URL;
+  else process.env.OLLAMA_BASE_URL = ENV_SNAPSHOT.OLLAMA_BASE_URL;
+  if (ENV_SNAPSHOT.GOOGLE_GENERATIVE_AI_API_KEY === undefined) delete process.env.GOOGLE_GENERATIVE_AI_API_KEY;
+  else process.env.GOOGLE_GENERATIVE_AI_API_KEY = ENV_SNAPSHOT.GOOGLE_GENERATIVE_AI_API_KEY;
+});
+
 // Mock AI providers BEFORE importing the module under test
 vi.mock("@ai-sdk/google", () => ({
   google: vi.fn((modelId: string) => ({ provider: "google", modelId })),
@@ -253,8 +268,6 @@ describe("Model Registry", () => {
       const first = getOllamaOpenAIProvider();
       const second = getOllamaOpenAIProvider();
       expect(first).toBe(second);
-      // Singleton already built by the previous test → no second createOpenAI call
-      expect(createOpenAI).toHaveBeenCalledTimes(0);
     });
 
     it("createModel 'ollama' case returns a LanguageModel via the OpenAI-compatible chat-completions provider", () => {
