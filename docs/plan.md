@@ -42,7 +42,7 @@ Backend para gestionar los datos censales del Cabildo Tatachio Mirabel, con una 
 
 | Cliente | Usuario | Prioridad | Descripción |
 |---|---|---|---|---|
-| **CLI** | ADMINISTRATOR | Fase 1 ✅ | Terminal: login + chat con el LLM + comandos CRUD. Interfaz principal del admin. |
+| **CLI** | ADMINISTRATOR | Fase 1 ✅ | Terminal: login + comandos CRUD (sin chat). Interfaz principal del admin, usable desde OpenCode. |
 | **Web** | Admin | Fase 2 | Paneles, dashboards, CRUD visual. Opcional. |
 | **PWA Mobile** | Capitana | Fase 3 | Interfaz tipo chat, mobile-first, offline-first (caché IndexedDB). |
 
@@ -60,7 +60,7 @@ El LLM es la interfaz principal para operar los datos. El REST tradicional queda
 - **Dos roles (en inglés):**
   - **ADMINISTRATOR**: acceso total (CRUD completo), CLI + web.
   - **CAPTAIN**: lectura + creación + edición de miembros. Scoped a un solo cabildo vía JWT. No puede eliminar registros ni ver otros cabildos.
-- **CLI como cliente completo.** El CLI no es solo un wrapper del chat — es un cliente de la API REST que expone todos los comandos disponibles (tipo `gh` o `gcloud`). Autenticación vía JWT (login o variable de entorno). Usable desde OpenCode o cualquier terminal.
+- **CLI como cliente de servidor.** El CLI expone solo comandos de servidor — `login`, `logout`, `miembros`, `familias`, `cabildos` — tipo `gh` o `gcloud`. La conversación con el LLM ocurre en OpenCode (que invoca las tools del CLI) y en la web. Autenticación vía JWT (login o variable de entorno).
 - **LLM provider-agnóstico.** El stack de IA (Vercel AI SDK) permite usar cualquier proveedor sin cambiar el código: OpenAI, Google Gemini, Anthropic, Ollama, etc.
 - **PWA offline-first para Capitana.** La capitana accede vía PWA con caché local (IndexedDB). En modo conectado sincroniza con el backend. En modo offline consulta los datos cacheados. Sin dependencia de internet permanente.
 
@@ -118,7 +118,6 @@ Prioridad: **alta** — interfaz principal del admin. **COMPLETO.**
 - [x] Cliente de terminal como paquete independiente (`packages/cli/`)
 - [x] Autenticación: `login` (cachea token) o leer `TATACHIO_TOKEN` de env
 - [x] Comandos CRUD directos (sin LLM): `miembros list`, `miembros get`, `miembros create`, `miembros update`, `familias list`, `cabildos list`
-- [x] Comando `chat` — sesión interactiva con el LLM vía tool calling + SSE streaming
 - [x] Modo pipe: entradas y salidas en JSON para scripts y agentes
 - [x] 42 tests, ESLint limpio, build limpio
 - [x] Stack: Commander.js + @inquirer/prompts + native fetch

@@ -20,13 +20,3 @@ export interface ApiError extends Error {
 export type Envelope<T = unknown> =
   | { ok: true; data: T }
   | { ok: false; error: string };
-
-export interface SseChunk {
-  delta: string;
-}
-
-export interface ChatEntry {
-  timestamp: string;
-  role: "user" | "assistant";
-  content: string;
-}
