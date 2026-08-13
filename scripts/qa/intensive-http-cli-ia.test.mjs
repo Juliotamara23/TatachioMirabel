@@ -562,11 +562,44 @@ async function main() {
         assert(parsed.data?.nombres === "QA CLI UPDATED", `nombres not updated: ${parsed.data?.nombres}`);
       });
 
-      await record("C", "cli miembros delete — command does not exist (non-zero exit)", async () => {
-        const res = runCli(["miembros", "delete", "some-id"], { base, token: adminToken });
-        assert(res.code !== 0, "expected non-zero exit for unknown subcommand");
-        const out = `${res.stderr} ${res.stdout}`.toLowerCase();
-        assert(/unknown command|too many arguments|error/.test(out), `unexpected output: ${out.slice(0, 200)}`);
+      await record("C", "cli miembros delete <id> --json (admin) → exit 0 + member gone", async () => {
+        // Create a throwaway member via the API (CLI create has the known Commander bug)
+        const { status: createStatus, data: created } = await httpJson(base, "POST", "/api/miembros", {
+          token: adminToken,
+          body: {
+            tipoIdentificacion: "CC",
+            numeroDocumento: "88998877",
+            nombres: "QA DELETE",
+            apellidos: "TARGET",
+            fechaNacimiento: "06/06/1995",
+            parentesco: "PA",
+            sexo: "M",
+            integrantes: 1,
+            familiaId: FAMILIA_FIXTURE,
+            cabildoId: CABILDO_TATACHIO,
+          },
+        });
+        assert(createStatus === 201 && created.id, `create failed: ${createStatus} ${JSON.stringify(created).slice(0, 200)}`);
+        const res = runCli(["miembros", "delete", created.id, "--json"], { base, token: adminToken });
+        assert(res.code === 0, `expected exit 0, got ${res.code}: ${res.stderr}`);
+        const parsed = parseCliJson(res.stdout);
+        assert(parsed.ok === true, `expected ok envelope, got: ${res.stdout.slice(0, 200)}`);
+        const gone = await httpJson(base, "GET", `/api/miembros/${created.id}`, { token: adminToken });
+        assert(gone.status === 404, `expected 404 after delete, got ${gone.status}`);
+      });
+
+      await record("C", "cli miembros delete <id> --json (capitana) → non-zero exit (admin-only)", async () => {
+        assert(captainCreatedMemberId, "no member id available for capitana delete");
+        const res = runCli(["miembros", "delete", captainCreatedMemberId, "--json"], {
+          base,
+          token: capitanaToken,
+        });
+        // The backend's isAdmin middleware returns 403; the CLI's ApiError
+        // surfaces the generic message, so denial is proven by non-zero exit
+        // plus an error envelope. The strict 403 is asserted at API level (B).
+        assert(res.code !== 0, "expected non-zero exit for forbidden delete");
+        const out = `${res.stderr} ${res.stdout}`;
+        assert(/ok.?:\s?false|error|403|denegad/i.test(out), `expected error envelope, got: ${out.slice(0, 300)}`);
       });
 
       await record("C", "cli miembros list --json (capitana) → scoped to her cabildo", async () => {

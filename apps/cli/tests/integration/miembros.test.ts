@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { homedir } from "node:os";
 import { Command } from "commander";
 
-import { listMiembros, getMiembro, createMiembro, updateMiembro } from "../../src/api/miembros.js";
+import { listMiembros, getMiembro, createMiembro, updateMiembro, deleteMiembro } from "../../src/api/miembros.js";
 import { setupMiembrosCommand, validateDate } from "../../src/commands/miembros.js";
 
 const BASE_URL = "http://localhost:3000";
@@ -123,6 +123,18 @@ describe("Miembros CRUD API", () => {  const mockServer = setupServer(
       miembros[index] = updated;
       return HttpResponse.json(updated);
     }),
+
+    http.delete(`${BASE_URL}/api/miembros/:id`, async ({ params, request }) => {
+      const auth = request.headers.get("authorization");
+      if (auth !== "Bearer test-token") {
+        return HttpResponse.json({ error: "Unauthorized" }, { status: 401 });
+      }
+      const id = params.id as string;
+      if (id === "nonexistent") {
+        return HttpResponse.json({ error: "Miembro no encontrado" }, { status: 404 });
+      }
+      return new HttpResponse(null, { status: 204 });
+    }),
   );
 
   beforeEach(async () => {
@@ -182,6 +194,23 @@ describe("Miembros CRUD API", () => {  const mockServer = setupServer(
     expect((result as Record<string, unknown>).nombres).toBe("Juan Pérez Actualizado");
     expect((result as Record<string, unknown>).rol).toBe("SUPERUSER");
     expect((result as Record<string, unknown>).email).toBe("juan@test.com");
+  });
+
+  it("deleteMiembro deletes existing member (backend 204 no content)", async () => {
+    const result = await deleteMiembro(BASE_URL, "test-token", "m1");
+    expect(result).toBe("");
+  });
+
+  it("deleteMiembro rejects with 404 for non-existent member", async () => {
+    await expect(deleteMiembro(BASE_URL, "test-token", "nonexistent"))
+      .rejects
+      .toMatchObject({ status: 404 });
+  });
+
+  it("deleteMiembro rejects with 401 without valid token", async () => {
+    await expect(deleteMiembro(BASE_URL, "wrong-token", "m1"))
+      .rejects
+      .toMatchObject({ status: 401 });
   });
 
   describe("CLI miembros create --json", () => {
@@ -333,3 +362,70 @@ it("rejects malformed JSON without making HTTP request", async () => {
     });
   });
 });
+
+describe("CLI miembros delete", () => {
+    let program: Command;
+    let mockServer: ReturnType<typeof setupServer>;
+    let capturedRequests: { method: string; url: string; auth: string | null }[];
+
+    beforeEach(async () => {
+      await writeConfig();
+      capturedRequests = [];
+      mockServer = setupServer(
+        http.delete(`${BASE_URL}/api/miembros/:id`, async ({ params, request }) => {
+          const auth = request.headers.get("authorization");
+          capturedRequests.push({ method: request.method, url: request.url, auth });
+          if (auth !== "Bearer test-token") {
+            return HttpResponse.json({ error: "Unauthorized" }, { status: 401 });
+          }
+          const id = params.id as string;
+          if (id === "nonexistent") {
+            return HttpResponse.json({ error: "Miembro no encontrado" }, { status: 404 });
+          }
+          return new HttpResponse(null, { status: 204 });
+        }),
+      );
+      mockServer.listen();
+
+      program = new Command();
+      program.name("tatachio").allowExcessArguments(false);
+      const miembrosCmd = program.command("miembros").description("Manage members");
+      setupMiembrosCommand(miembrosCmd);
+    });
+
+    afterEach(async () => {
+      await clearConfig();
+      mockServer.resetHandlers();
+      mockServer.close();
+      process.exitCode = undefined;
+    });
+
+    it("deletes member via CLI with valid id (204 → exit 0)", async () => {
+      await program.parseAsync(["miembros", "delete", "m1"], { from: "user" });
+
+      expect(capturedRequests).toHaveLength(1);
+      const req = capturedRequests[0];
+      expect(req.method).toBe("DELETE");
+      expect(req.url).toBe(`${BASE_URL}/api/miembros/m1`);
+      expect(req.auth).toBe("Bearer test-token");
+      expect(process.exitCode).toBe(0);
+    });
+
+    it("exits 1 when member does not exist (404)", async () => {
+      await program.parseAsync(["miembros", "delete", "nonexistent"], { from: "user" });
+
+      expect(capturedRequests).toHaveLength(1);
+      expect(process.exitCode).toBe(1);
+    });
+
+    it("exits 1 on auth failure (401)", async () => {
+      const configPath = join(homedir(), ".tatachio", "config.json");
+      await fs.writeFile(configPath, JSON.stringify({ token: "bad-token", baseUrl: BASE_URL }), "utf-8");
+
+      await program.parseAsync(["miembros", "delete", "m1"], { from: "user" });
+
+      expect(capturedRequests).toHaveLength(1);
+      expect(capturedRequests[0].auth).toBe("Bearer bad-token");
+      expect(process.exitCode).toBe(1);
+    });
+  });

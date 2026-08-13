@@ -37,3 +37,11 @@ export async function updateMiembro(
 ): Promise<unknown> {
   return apiFetch(`/api/miembros/${id}`, { method: "PUT", baseUrl, token, body: data });
 }
+
+export async function deleteMiembro(
+  baseUrl: string,
+  token: string,
+  id: string,
+): Promise<unknown> {
+  return apiFetch(`/api/miembros/${id}`, { method: "DELETE", baseUrl, token });
+}

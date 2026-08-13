@@ -117,7 +117,7 @@ Prioridad: **alta** — interfaz principal del admin. **COMPLETO.**
 
 - [x] Cliente de terminal como paquete independiente (`packages/cli/`)
 - [x] Autenticación: `login` (cachea token) o leer `TATACHIO_TOKEN` de env
-- [x] Comandos CRUD directos (sin LLM): `miembros list`, `miembros get`, `miembros create`, `miembros update`, `familias list`, `cabildos list`
+- [x] Comandos CRUD directos (sin LLM): `miembros list`, `miembros get`, `miembros create`, `miembros update`, `miembros delete`, `familias list`, `cabildos list`
 - [x] Modo pipe: entradas y salidas en JSON para scripts y agentes
 - [x] 42 tests, ESLint limpio, build limpio
 - [x] Stack: Commander.js + @inquirer/prompts + native fetch
