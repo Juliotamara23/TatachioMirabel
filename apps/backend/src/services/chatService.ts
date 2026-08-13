@@ -1,5 +1,6 @@
 import { streamText, stepCountIs, type ModelMessage } from "ai";
 import { resolveModel } from "./modelRegistry.js";
+import { buildGatewayProviderOptions } from "./failoverChain.js";
 import { getToolsForRole } from "./tools/index.js";
 
 // ─── System Prompt ────────────────────────────────────────────────────
@@ -34,6 +35,15 @@ export function runChat(
   const { model, info } = resolveModel(options?.model, rol);
   const tools = getToolsForRole(rol);
 
+  // PR-3 (R3.7): when the gateway key is set, thread the failover chain
+  // ("Automático", R3.4) into streamText so the Vercel AI Gateway can fall
+  // back google → openrouter on 5xx/429. Computed once per request. When the
+  // key is absent the providerOptions key is omitted entirely (R3.5 — direct
+  // provider path sends no gateway options).
+  const providerOptions = process.env.AI_GATEWAY_API_KEY
+    ? buildGatewayProviderOptions(rol)
+    : undefined;
+
   const result = streamText({
     model,
     messages,
@@ -43,6 +53,7 @@ export function runChat(
     // preserves the previous maxSteps: 5 tool-loop limit.
     stopWhen: stepCountIs(5),
     toolChoice: "auto",
+    ...(providerOptions ? { providerOptions } : {}),
   });
 
   return { result, modelInfo: info };
