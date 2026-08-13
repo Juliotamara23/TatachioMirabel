@@ -41,6 +41,19 @@ vi.mock("@ai-sdk/anthropic", () => ({
   anthropic: vi.fn((modelId: string) => ({ provider: "anthropic", modelId })),
 }));
 
+// PR-3 gateway (R3.1/R3.2): mock the ai re-export of createGateway. LanguageModel
+// is type-only in modelRegistry.ts, so only createGateway is needed at runtime.
+vi.mock("ai", () => ({
+  createGateway: vi.fn((settings: { apiKey: string }) => ({
+    chat: vi.fn((modelId: string) => ({
+      provider: "gateway",
+      modelId,
+      settings,
+    })),
+  })),
+}));
+
+import { createGateway } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
 import { anthropic } from "@ai-sdk/anthropic";
 import {
@@ -480,6 +493,54 @@ describe("Model Registry", () => {
       expect(providers.has("anthropic")).toBe(false);
       expect(providers.has("openai")).toBe(false);
       expect(providers.has("ollama")).toBe(false);
+    });
+  });
+
+  // ─── Vercel AI Gateway branch (PR-3, R3.1/R3.2/R3.5) ────────────
+  //
+  // When AI_GATEWAY_API_KEY is set, createModel MUST route EVERY model
+  // through createGateway().chat(gatewayId) — the info.id string is used
+  // directly as GatewayModelId (the union is open, verified against
+  // @ai-sdk/gateway@3.0.155). Without the key, the provider switch is used.
+
+  describe("createModel gateway branch (PR-3)", () => {
+    it("routes through createGateway().chat(info.id) when AI_GATEWAY_API_KEY is set (R3.1/R3.2)", () => {
+      process.env.GOOGLE_GENERATIVE_AI_API_KEY = "g-key";
+      process.env.AI_GATEWAY_API_KEY = "gw-key";
+      const { model } = resolveModel(
+        "google/gemini-3.1-flash-lite-preview",
+        "CAPTAIN"
+      );
+      // info.id is passed straight through as the GatewayModelId string
+      expect((model as Record<string, string>).provider).toBe("gateway");
+      expect((model as Record<string, string>).modelId).toBe(
+        "google/gemini-3.1-flash-lite-preview"
+      );
+      expect(createGateway).toHaveBeenCalledWith({ apiKey: "gw-key" });
+    });
+
+    it("routes openrouter ids through the gateway with the full id preserved", () => {
+      process.env.OPENROUTER_API_KEY = "or-key";
+      process.env.AI_GATEWAY_API_KEY = "gw-key";
+      const { model } = resolveModel(
+        "openrouter/anthropic/claude-sonnet-4.5",
+        "ADMINISTRATOR"
+      );
+      expect((model as Record<string, string>).provider).toBe("gateway");
+      expect((model as Record<string, string>).modelId).toBe(
+        "openrouter/anthropic/claude-sonnet-4.5"
+      );
+    });
+
+    it("falls through to the direct provider switch when AI_GATEWAY_API_KEY is absent (R3.5)", () => {
+      process.env.GOOGLE_GENERATIVE_AI_API_KEY = "g-key";
+      delete process.env.AI_GATEWAY_API_KEY;
+      const { model } = resolveModel(
+        "google/gemini-3.1-flash-lite-preview",
+        "CAPTAIN"
+      );
+      expect((model as Record<string, string>).provider).toBe("google");
+      expect(createGateway).not.toHaveBeenCalled();
     });
   });
 });

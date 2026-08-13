@@ -1,4 +1,4 @@
-import { LanguageModel } from "ai";
+import { LanguageModel, createGateway } from "ai";
 import { google } from "@ai-sdk/google";
 import { createOpenAI } from "@ai-sdk/openai";
 import { anthropic } from "@ai-sdk/anthropic";
@@ -347,6 +347,19 @@ function modelIdPart(info: ModelInfo): string {
 }
 
 function createModel(info: ModelInfo): LanguageModel {
+  // PR-3 (R3.1/R3.2): when AI_GATEWAY_API_KEY is set, ALL traffic routes
+  // through the Vercel AI Gateway — HTTP-level failover (order + models)
+  // lives in providerOptions.gateway at streamText time (chatService.ts).
+  // Direct provider access is only used when no gateway key is configured
+  // (dev/QA fallback, R3.5). info.id is passed straight through: the
+  // GatewayModelId union is open (`| (string & {})`), verified against
+  // @ai-sdk/gateway@3.0.155 — every registry id is already provider/model.
+  if (process.env.AI_GATEWAY_API_KEY) {
+    return createGateway({
+      apiKey: process.env.AI_GATEWAY_API_KEY,
+    }).chat(info.id) as unknown as LanguageModel;
+  }
+
   switch (info.provider) {
     case "google":
       return google(modelIdPart(info)) as unknown as LanguageModel;
