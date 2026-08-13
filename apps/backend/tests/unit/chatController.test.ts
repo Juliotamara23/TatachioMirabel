@@ -218,6 +218,33 @@ describe("chatController", () => {
       );
     });
 
+    it("forces model undefined for CAPTAIN even when one is sent (always automatic, R2.7)", async () => {
+      vi.mocked(runChat).mockReturnValue({
+        result: { textStream: textStreamOf("respuesta automática") } as never,
+        modelInfo: {
+          id: "google/gemini-3.1-flash-lite-preview",
+          name: "Gemini 3.1 Flash Lite",
+        } as never,
+      });
+
+      const req = mockReq(
+        {
+          messages: [{ role: "user", content: "Hola" }],
+          model: "anthropic/claude-sonnet-4.5",
+        },
+        { id: "captain-1", rol: "CAPTAIN" }
+      );
+      const res = mockRes();
+
+      await chatHandler(req, res);
+
+      expect(runChat).toHaveBeenCalledWith(
+        expect.anything(),
+        "CAPTAIN",
+        { model: undefined, stream: true }
+      );
+    });
+
     it("returns JSON when stream is false", async () => {
       vi.mocked(runChat).mockReturnValue({
         result: {

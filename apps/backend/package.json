@@ -31,6 +31,7 @@
     "vitest": "^4.1.10"
   },
   "dependencies": {
+    "@ai-sdk/anthropic": "3.0.110",
     "@ai-sdk/google": "^3.0.55",
     "@ai-sdk/openai": "3.0.96",
     "@prisma/client": "^6.19.2",

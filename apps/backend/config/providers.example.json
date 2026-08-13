@@ -1,0 +1,38 @@
+{
+  "providers": [
+    {
+      "provider": "nvidia",
+      "baseURL": "https://integrate.api.nvidia.com/v1",
+      "apiKeyEnv": "NVIDIA_API_KEY",
+      "models": [
+        {
+          "id": "deepseek-ai/deepseek-r1",
+          "name": "DeepSeek R1 (NVIDIA NIM)",
+          "capabilities": { "tools": true, "streaming": true }
+        },
+        {
+          "id": "meta/llama-3.3-70b-instruct",
+          "name": "Llama 3.3 70B Instruct (NVIDIA NIM)",
+          "capabilities": { "tools": true, "streaming": true }
+        }
+      ]
+    },
+    {
+      "provider": "deepseek",
+      "baseURL": "https://api.deepseek.com",
+      "apiKeyEnv": "DEEPSEEK_API_KEY",
+      "models": [
+        {
+          "id": "deepseek-chat",
+          "name": "DeepSeek Chat",
+          "capabilities": { "tools": true, "streaming": true }
+        },
+        {
+          "id": "deepseek-reasoner",
+          "name": "DeepSeek Reasoner",
+          "capabilities": { "tools": false, "streaming": true }
+        }
+      ]
+    }
+  ]
+}

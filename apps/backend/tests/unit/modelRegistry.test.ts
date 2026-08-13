@@ -37,7 +37,12 @@ vi.mock("@ai-sdk/openai", () => ({
   }),
 }));
 
+vi.mock("@ai-sdk/anthropic", () => ({
+  anthropic: vi.fn((modelId: string) => ({ provider: "anthropic", modelId })),
+}));
+
 import { createOpenAI } from "@ai-sdk/openai";
+import { anthropic } from "@ai-sdk/anthropic";
 import {
   MODEL_REGISTRY,
   getAvailableModels,
@@ -63,14 +68,33 @@ describe("Model Registry", () => {
   // ─── MODEL_REGISTRY structure ───────────────────────────────────
 
   describe("MODEL_REGISTRY", () => {
-    it("contains five defined models (2 google + 3 ollama)", () => {
-      expect(MODEL_REGISTRY).toHaveLength(5);
+    it("contains eight defined models (2 google + 3 ollama + openai + anthropic + openrouter)", () => {
+      expect(MODEL_REGISTRY).toHaveLength(8);
       const ids = MODEL_REGISTRY.map((m) => m.id);
       expect(ids).toContain("google/gemini-3.1-flash-lite-preview");
       expect(ids).toContain("google/gemini-2.0-flash");
       expect(ids).toContain("ollama/qwen3.5:9b");
       expect(ids).toContain("ollama/llama3.2:3b");
       expect(ids).toContain("ollama/mistral:7b");
+      // PR-2 adapters (R2.2/R2.3/R2.4)
+      expect(ids).toContain("openai/gpt-4.1-mini");
+      expect(ids).toContain("anthropic/claude-sonnet-4.5");
+      expect(ids).toContain("openrouter/anthropic/claude-sonnet-4.5");
+    });
+
+    it("marks audited entries with a verifiedAt date (R2.3)", () => {
+      for (const m of MODEL_REGISTRY) {
+        expect(m.verifiedAt).toBe("2026-08-13");
+      }
+    });
+
+    it("openrouter entry carries baseURL + HTTP-Referer/X-Title headers (R2.4)", () => {
+      const or = MODEL_REGISTRY.find(
+        (m) => m.id === "openrouter/anthropic/claude-sonnet-4.5"
+      );
+      expect(or?.baseURL).toBe("https://openrouter.ai/api/v1");
+      expect(or?.headers?.["X-Title"]).toBe("Tatachio Mirabel");
+      expect(or?.headers?.["HTTP-Referer"]).toBeTruthy();
     });
 
     it("assigns correct role defaults", () => {
@@ -287,6 +311,175 @@ describe("Model Registry", () => {
         "ollama/llama3.2:3b",
         "ollama/mistral:7b",
       ]);
+    });
+  });
+
+  // ─── Config-declared providers (R2.0, data-driven registry) ─────
+  //
+  // Adding a provider = config only (EXTRA_PROVIDERS_JSON or providers.json),
+  // zero code. Availability is keyed on the declared apiKeyEnv var.
+
+  describe("config-declared providers (R2.0)", () => {
+    const nvidiaConfig = JSON.stringify({
+      providers: [
+        {
+          provider: "nvidia",
+          baseURL: "https://integrate.api.nvidia.com/v1",
+          apiKeyEnv: "NVIDIA_API_KEY",
+          models: [
+            {
+              id: "deepseek-ai/deepseek-r1",
+              name: "DeepSeek R1 (NVIDIA NIM)",
+              capabilities: { tools: true, streaming: true },
+            },
+            {
+              id: "meta/llama-3.3-70b-instruct",
+              name: "Llama 3.3 70B Instruct (NVIDIA NIM)",
+            },
+          ],
+        },
+      ],
+    });
+
+    it("excludes config-declared models when apiKeyEnv is not set", () => {
+      process.env.EXTRA_PROVIDERS_JSON = nvidiaConfig;
+      delete process.env.NVIDIA_API_KEY;
+      const available = getAvailableModels();
+      expect(available.filter((m) => m.id.startsWith("nvidia/"))).toHaveLength(0);
+    });
+
+    it("includes config-declared models when apiKeyEnv is set", () => {
+      process.env.EXTRA_PROVIDERS_JSON = nvidiaConfig;
+      process.env.NVIDIA_API_KEY = "nvkey-123";
+      const available = getAvailableModels();
+      const nvidia = available.filter((m) => m.id.startsWith("nvidia/"));
+      expect(nvidia).toHaveLength(2);
+      expect(nvidia[0].id).toBe("nvidia/deepseek-ai/deepseek-r1");
+      // OpenAI-compatible → routes through the shared @ai-sdk/openai adapter
+      expect(nvidia[0].provider).toBe("openai");
+      expect(nvidia[0].baseURL).toBe("https://integrate.api.nvidia.com/v1");
+      expect(nvidia[0].apiKeyEnv).toBe("NVIDIA_API_KEY");
+      expect(nvidia[0].capabilities.tools).toBe(true);
+      // capabilities omitted in config → registry defaults applied
+      expect(nvidia[1].capabilities.tools).toBe(true);
+    });
+
+    it("merges core + config-declared models (admin <select> source, R2.6)", () => {
+      process.env.GOOGLE_GENERATIVE_AI_API_KEY = "g-key";
+      process.env.EXTRA_PROVIDERS_JSON = nvidiaConfig;
+      process.env.NVIDIA_API_KEY = "nvkey-123";
+      const available = getAvailableModels();
+      const googleCount = available.filter((m) => m.provider === "google").length;
+      const nvidiaCount = available.filter((m) => m.id.startsWith("nvidia/")).length;
+      expect(googleCount).toBeGreaterThanOrEqual(2);
+      expect(nvidiaCount).toBe(2);
+    });
+
+    it("falls back to core providers when config is malformed (no crash)", () => {
+      process.env.GOOGLE_GENERATIVE_AI_API_KEY = "g-key";
+      process.env.EXTRA_PROVIDERS_JSON = "{ broken json";
+      const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const available = getAvailableModels();
+      expect(available.length).toBeGreaterThanOrEqual(2);
+      expect(available.some((m) => m.provider === "google")).toBe(true);
+      expect(warnSpy).toHaveBeenCalled();
+      warnSpy.mockRestore();
+    });
+
+    it("routes config-declared model via createOpenAI with the declared baseURL + key (baseURL discriminator)", () => {
+      process.env.EXTRA_PROVIDERS_JSON = nvidiaConfig;
+      process.env.NVIDIA_API_KEY = "nvkey-123";
+      const { model } = resolveModel(
+        "nvidia/deepseek-ai/deepseek-r1",
+        "ADMINISTRATOR"
+      );
+      expect((model as Record<string, string>).provider).toBe(
+        "openai-compat-chat"
+      );
+      // Model ids containing slashes survive the provider-model extraction
+      expect((model as Record<string, string>).modelId).toBe(
+        "deepseek-ai/deepseek-r1"
+      );
+      expect(createOpenAI).toHaveBeenCalledWith(
+        expect.objectContaining({
+          baseURL: "https://integrate.api.nvidia.com/v1",
+          apiKey: "nvkey-123",
+        })
+      );
+    });
+
+    it("rejects an explicit config-declared model whose key is unset (admin select correctness, R2.6)", () => {
+      process.env.EXTRA_PROVIDERS_JSON = nvidiaConfig;
+      delete process.env.NVIDIA_API_KEY;
+      expect(() =>
+        resolveModel("nvidia/deepseek-ai/deepseek-r1", "ADMINISTRATOR")
+      ).toThrow(ModelNotFoundError);
+    });
+  });
+
+  // ─── Provider adapters (R2.2/R2.4) ──────────────────────────────
+
+  describe("createModel provider adapters (PR-2)", () => {
+    it("anthropic case routes to @ai-sdk/anthropic with the model id", () => {
+      process.env.ANTHROPIC_API_KEY = "ant-key";
+      const { model } = resolveModel(
+        "anthropic/claude-sonnet-4.5",
+        "ADMINISTRATOR"
+      );
+      expect((model as Record<string, string>).provider).toBe("anthropic");
+      expect((model as Record<string, string>).modelId).toBe("claude-sonnet-4.5");
+      expect(anthropic).toHaveBeenCalledWith("claude-sonnet-4.5");
+    });
+
+    it("openai case routes through createOpenAI().chat with no baseURL (real OpenAI)", () => {
+      process.env.OPENAI_API_KEY = "oa-key";
+      const { model } = resolveModel("openai/gpt-4.1-mini", "ADMINISTRATOR");
+      expect((model as Record<string, string>).provider).toBe(
+        "openai-compat-chat"
+      );
+      expect((model as Record<string, string>).modelId).toBe("gpt-4.1-mini");
+      expect(createOpenAI).toHaveBeenCalledWith(
+        expect.objectContaining({ apiKey: "oa-key" })
+      );
+      // No baseURL → real OpenAI endpoint (no discriminator)
+      expect(createOpenAI.mock.calls.at(-1)?.[0]?.baseURL).toBeUndefined();
+    });
+
+    it("openrouter case routes through createOpenAI with OpenRouter baseURL + headers", () => {
+      process.env.OPENROUTER_API_KEY = "or-key";
+      const { model } = resolveModel(
+        "openrouter/anthropic/claude-sonnet-4.5",
+        "ADMINISTRATOR"
+      );
+      expect((model as Record<string, string>).modelId).toBe(
+        "anthropic/claude-sonnet-4.5"
+      );
+      expect(createOpenAI).toHaveBeenCalledWith(
+        expect.objectContaining({
+          baseURL: "https://openrouter.ai/api/v1",
+          apiKey: "or-key",
+          headers: expect.objectContaining({
+            "HTTP-Referer": expect.any(String),
+            "X-Title": "Tatachio Mirabel",
+          }),
+        })
+      );
+    });
+
+    it("returns only providers whose keys are set (admin select list, R2.6)", () => {
+      process.env.GOOGLE_GENERATIVE_AI_API_KEY = "g-key";
+      process.env.OPENROUTER_API_KEY = "or-key";
+      delete process.env.ANTHROPIC_API_KEY;
+      delete process.env.OPENAI_API_KEY;
+      delete process.env.OLLAMA_BASE_URL;
+      delete process.env.EXTRA_PROVIDERS_JSON;
+      const available = getAvailableModels();
+      const providers = new Set(available.map((m) => m.provider));
+      expect(providers.has("google")).toBe(true);
+      expect(providers.has("openrouter")).toBe(true);
+      expect(providers.has("anthropic")).toBe(false);
+      expect(providers.has("openai")).toBe(false);
+      expect(providers.has("ollama")).toBe(false);
     });
   });
 });
