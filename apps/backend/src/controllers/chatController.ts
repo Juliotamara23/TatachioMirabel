@@ -1,6 +1,5 @@
 import { Request, Response } from "express";
 import { z } from "zod";
-import { pipeTextStreamToResponse } from "ai";
 import { runChat } from "../services/chatService.js";
 import {
   ModelNotFoundError,
@@ -21,6 +20,42 @@ const chatBodySchema = z.object({
   model: z.string().optional(),
   stream: z.boolean().optional().default(true),
 });
+
+// ─── Streaming helper ────────────────────────────────────────────────
+
+/**
+ * Streams a text stream to the Express response, harded against mid-stream
+ * provider failures.
+ *
+ * ai@6.0.233's `pipeTextStreamToResponse` has no error hook: its internal
+ * read loop re-throws from a fire-and-forget async function, so a provider
+ * error mid-stream becomes an unhandled promise rejection that crashes the
+ * process (Express 4 does not auto-await async handler rejections). This
+ * helper inlines the same pipe loop with an explicit error path: it writes a
+ * final SSE-style error event, logs the cause, and always ends the response.
+ */
+export async function streamTextToResponse(
+  response: Response,
+  textStream: ReadableStream<string>
+): Promise<void> {
+  response.setHeader("Content-Type", "text/plain; charset=utf-8");
+  try {
+    const reader = textStream.getReader();
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      const canContinue = response.write(value);
+      if (!canContinue) {
+        await new Promise((resolve) => response.once("drain", resolve));
+      }
+    }
+  } catch (error) {
+    console.error("[chat] AI provider stream failed:", error);
+    response.write('event: error\ndata: {"error":"AI provider stream failed"}\n\n');
+  } finally {
+    response.end();
+  }
+}
 
 // ─── Handler ──────────────────────────────────────────────────────────
 
@@ -47,10 +82,7 @@ export const chatHandler = async (
     });
 
     if (stream) {
-      pipeTextStreamToResponse({
-        response: res,
-        textStream: result.textStream,
-      });
+      await streamTextToResponse(res, result.textStream);
       return;
     }
 

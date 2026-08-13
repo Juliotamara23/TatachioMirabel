@@ -7,3 +7,5 @@ allowBuilds:
   esbuild: true
   msw: true
   prisma: true
+minimumReleaseAgeExclude:
+  - '@ai-sdk/openai@3.0.96'
