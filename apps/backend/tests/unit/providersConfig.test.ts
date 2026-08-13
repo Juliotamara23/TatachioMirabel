@@ -1,7 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtempSync, rmSync, writeFileSync, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import {
   loadProvidersConfig,
   ProvidersConfigError,
@@ -100,19 +101,22 @@ describe("providersConfig", () => {
     }
   });
 
-  it("picks up the default config/providers.json when it exists", () => {
-    mkdirSync("config", { recursive: true });
-    writeFileSync(
-      "config/providers.json",
-      JSON.stringify({ providers: [NVIDIA_PROVIDER] })
-    );
+  it("picks up the default config/providers.json anchored to the backend dir (CWD-independent)", () => {
+    // The loader anchors config/providers.json to the backend package dir
+    // (3 levels up from src/services/), NOT to process.cwd(). From this test
+    // file (tests/unit/) the backend dir is 2 levels up — write there so the
+    // default-path resolution is exercised exactly as at runtime.
+    const backendDir = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
+    const configFile = join(backendDir, "config", "providers.json");
+    mkdirSync(dirname(configFile), { recursive: true });
+    writeFileSync(configFile, JSON.stringify({ providers: [NVIDIA_PROVIDER] }));
 
     try {
       const providers = loadProvidersConfig();
       expect(providers).toHaveLength(1);
       expect(providers[0].apiKeyEnv).toBe("NVIDIA_API_KEY");
     } finally {
-      rmSync("config/providers.json", { force: true });
+      rmSync(configFile, { force: true });
     }
   });
 

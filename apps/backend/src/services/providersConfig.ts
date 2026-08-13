@@ -1,5 +1,7 @@
 import { z } from "zod";
 import { existsSync, readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 /**
  * Data-driven provider registry config (R2.0, obs 709).
@@ -68,7 +70,12 @@ export class ProvidersConfigError extends Error {
 
 // ─── Loader ─────────────────────────────────────────────────────────
 
-const DEFAULT_CONFIG_PATH = "config/providers.json";
+// Anchor the default config path to the backend package directory (3 levels up
+// from src/services/), NOT to process.cwd(). This makes `config/providers.json`
+// resolve identically whether the server is started from apps/backend/ or from
+// the monorepo root (review WARNING, PR-2).
+const BACKEND_DIR = dirname(dirname(dirname(fileURLToPath(import.meta.url))));
+const DEFAULT_CONFIG_PATH = join(BACKEND_DIR, "config", "providers.json");
 
 /**
  * Parses + zod-validates a raw JSON string declaring providers.
