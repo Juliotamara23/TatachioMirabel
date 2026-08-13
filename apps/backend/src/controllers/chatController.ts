@@ -84,8 +84,14 @@ export const chatHandler = async (
     const { messages, model, stream } = parsed.data;
     const rol = req.usuario!.rol;
 
+    // R2.7 (obs 709): CAPTAIN requests are ALWAYS automatic — no per-request
+    // model selection is surfaced to captains. Only ADMINISTRATOR may pick an
+    // explicit model (or "Automático" when absent); the admin <select> is fed
+    // by getAvailableModels() via GET /api/models.
+    const resolvedModel = rol === "CAPTAIN" ? undefined : model;
+
     const { result, modelInfo } = runChat(messages, rol, {
-      model,
+      model: resolvedModel,
       stream,
     });
 

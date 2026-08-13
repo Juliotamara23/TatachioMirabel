@@ -7,7 +7,8 @@
  *   B. HTTP CRUD — CAPTAIN     (cabildo scoping, 403s on admin-only routes)
  *   C. CLI flows               (miembros list/get/create/update, captain scoping)
  *   D. AI chat — ADMINISTRATOR (mocked LLM, tool-driven answers, call-log proof)
- *   E. AI chat — CAPTAIN       (role-gating proof: getReporteData never requested)
+ *   E. AI chat — CAPTAIN       (role-gating proof: getReporteData never requested;
+ *                              R2.7: captain requests send NO model, backend auto-resolves)
  *   M. Mock protocol level     (direct /v1/chat/completions against the mock)
  *   CT. Chat error contract    (401 / 400 invalid model / 400 missing messages)
  *
@@ -190,6 +191,16 @@ async function main() {
       OLLAMA_BASE_URL: `http://localhost:${mockPort}/v1`,
       AI_PROVIDER: "ollama",
       JWT_SECRET: "qa-secret",
+      // Neutralize any provider keys present in the developer's .env so the
+      // QA is hermetic: with R2.7 (captains always automatic) the backend
+      // auto-resolves the model, and a local GOOGLE_GENERATIVE_AI_API_KEY
+      // would otherwise make it call the real Gemini API instead of the mock.
+      // dotenv.config() never overrides already-set vars, so these empty
+      // values win over .env (same pattern as suites/chaos/rate-limit).
+      GOOGLE_GENERATIVE_AI_API_KEY: "",
+      ANTHROPIC_API_KEY: "",
+      OPENAI_API_KEY: "",
+      OPENROUTER_API_KEY: "",
     },
   });
   const base = `http://localhost:${serverCtx.port}`;
@@ -813,12 +824,14 @@ async function main() {
       });
     });
 
-    // ══════════════ E. AI chat — CAPTAIN (role gating) ══════════════
+    // ══════════════ E. AI chat — CAPTAIN (role gating, R2.7) ══════════════
+    // R2.7 (obs 709): captains NEVER pick a model — the backend forces
+    // automatic resolution. So captain requests send NO model field.
     await runSection("E. AI chat — CAPTAIN (role gating)", async () => {
       const chat = (token, messages, opts = {}) =>
         httpJson(base, "POST", "/api/chat", {
           token,
-          body: { messages, model: "ollama/llama3.2:3b", ...opts },
+          body: { messages, ...opts },
           timeoutMs: 45000,
         });
 
