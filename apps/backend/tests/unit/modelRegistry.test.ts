@@ -1,19 +1,47 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 
+// Snapshot env vars that provider-availability tests mutate so they never leak
+// between tests (a leaked OLLAMA_BASE_URL breaks the empty-availability and
+// resolveModel-throw assertions in later tests).
+const ENV_SNAPSHOT: Record<string, string | undefined> = {};
+beforeEach(() => {
+  ENV_SNAPSHOT.OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL;
+  ENV_SNAPSHOT.GOOGLE_GENERATIVE_AI_API_KEY = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
+});
+afterEach(() => {
+  if (ENV_SNAPSHOT.OLLAMA_BASE_URL === undefined) delete process.env.OLLAMA_BASE_URL;
+  else process.env.OLLAMA_BASE_URL = ENV_SNAPSHOT.OLLAMA_BASE_URL;
+  if (ENV_SNAPSHOT.GOOGLE_GENERATIVE_AI_API_KEY === undefined) delete process.env.GOOGLE_GENERATIVE_AI_API_KEY;
+  else process.env.GOOGLE_GENERATIVE_AI_API_KEY = ENV_SNAPSHOT.GOOGLE_GENERATIVE_AI_API_KEY;
+});
+
 // Mock AI providers BEFORE importing the module under test
 vi.mock("@ai-sdk/google", () => ({
   google: vi.fn((modelId: string) => ({ provider: "google", modelId })),
 }));
 
-vi.mock("ollama-ai-provider", () => ({
-  createOllama: vi.fn(() =>
-    vi.fn((modelId: string) => ({ provider: "ollama", modelId }))
-  ),
+vi.mock("@ai-sdk/openai", () => ({
+  createOpenAI: vi.fn(() => {
+    const factory = vi.fn((modelId: string) => ({
+      provider: "openai-compat",
+      modelId,
+    }));
+    // @ai-sdk/openai v3 routes provider(modelId) to the Responses API and
+    // provider.chat(modelId) to the chat-completions API (the one Ollama
+    // exposes). The ollama case must go through .chat().
+    factory.chat = vi.fn((modelId: string) => ({
+      provider: "openai-compat-chat",
+      modelId,
+    }));
+    return factory;
+  }),
 }));
 
+import { createOpenAI } from "@ai-sdk/openai";
 import {
   MODEL_REGISTRY,
   getAvailableModels,
+  getOllamaOpenAIProvider,
   resolveModel,
   ModelNotFoundError,
   NoModelsAvailableError,
@@ -59,16 +87,22 @@ describe("Model Registry", () => {
       expect(adminModel!.id).toBe("google/gemini-2.0-flash");
     });
 
-    it("marks ollama model as NOT currently available (v1 incompatibility)", () => {
+    it("ollama model is available only when OLLAMA_BASE_URL is set", () => {
       const ollamaModel = MODEL_REGISTRY.find(
         (m) => m.provider === "ollama"
       );
       expect(ollamaModel).toBeDefined();
       expect(ollamaModel!.requiresApiKey).toBeUndefined();
-      // Due to v1/v2 incompatibility, it should not appear in getAvailableModels
+      // No OLLAMA_BASE_URL → ollama hidden from getAvailableModels
+      delete process.env.OLLAMA_BASE_URL;
       const available = getAvailableModels();
       const ollamaInAvailable = available.find((m) => m.provider === "ollama");
       expect(ollamaInAvailable).toBeUndefined();
+      // OLLAMA_BASE_URL set → ollama models become available (OpenAI-compatible route)
+      process.env.OLLAMA_BASE_URL = "http://localhost:11434/v1";
+      const available2 = getAvailableModels();
+      const ollamaInAvailable2 = available2.find((m) => m.provider === "ollama");
+      expect(ollamaInAvailable2).toBeDefined();
     });
 
     it("google models require GOOGLE_GENERATIVE_AI_API_KEY to be available", () => {
@@ -97,8 +131,7 @@ describe("Model Registry", () => {
   describe("getAvailableModels", () => {
     it("returns empty array when no API keys set and no local models available", () => {
       const available = getAvailableModels();
-      // Without API keys, zero models should be available
-      // (ollama is v1-incompatible, google requires key)
+      // Without API keys and without OLLAMA_BASE_URL, zero models should be available
       expect(available.length).toBe(0);
     });
 
@@ -188,9 +221,8 @@ describe("Model Registry", () => {
       expect((model as Record<string, string>).provider).toBe("google");
     });
 
-    it("does not create ollama models (v1 incompatible)", () => {
-      // Ollama is marked available: false, so resolveModel should
-      // throw NoModelsAvailableError when no other models are available
+    it("does not resolve ollama models without OLLAMA_BASE_URL", () => {
+      // No keys and no OLLAMA_BASE_URL → nothing is available, resolveModel throws
       expect(() => resolveModel(undefined, "CAPTAIN")).toThrow(
         NoModelsAvailableError
       );
@@ -207,6 +239,54 @@ describe("Model Registry", () => {
       const availableIds = getAvailableModels().map((m) => m.id);
       expect(availableIds.length).toBeGreaterThan(0);
       expect(availableIds[0]).toBe(info.id);
+    });
+  });
+
+  // ─── Ollama via OpenAI-compatible provider (PR-1) ───────────────
+  //
+  // NOTE: these tests are order-sensitive with respect to the lazy singleton:
+  // the FIRST test that calls getOllamaOpenAIProvider()/resolveModel(ollama)
+  // builds the cached provider with whatever OLLAMA_BASE_URL is set at that
+  // moment. Vitest runs tests in declaration order within a file, so the
+  // default-baseURL test is declared first.
+
+  describe("ollama via @ai-sdk/openai (PR-1)", () => {
+    it("defaults baseURL to http://localhost:11434/v1 when OLLAMA_BASE_URL is unset", () => {
+      delete process.env.OLLAMA_BASE_URL;
+      const provider = getOllamaOpenAIProvider();
+      expect(provider).toBeTypeOf("function");
+      expect(createOpenAI).toHaveBeenCalledWith({
+        baseURL: "http://localhost:11434/v1",
+        // Local Ollama needs no API key; @ai-sdk/openai requires a string (even
+        // empty) or it throws AI_LoadAPIKeyError at request time.
+        apiKey: "",
+      });
+    });
+
+    it("is a lazy singleton: repeated calls reuse the cached provider", () => {
+      delete process.env.OLLAMA_BASE_URL;
+      const first = getOllamaOpenAIProvider();
+      const second = getOllamaOpenAIProvider();
+      expect(first).toBe(second);
+    });
+
+    it("createModel 'ollama' case returns a LanguageModel via the OpenAI-compatible chat-completions provider", () => {
+      process.env.OLLAMA_BASE_URL = "http://localhost:11434/v1";
+      const { model } = resolveModel("ollama/llama3.2:3b", "CAPTAIN");
+      // Our mock: provider.chat(id) returns { provider: "openai-compat-chat", modelId }
+      expect((model as Record<string, string>).provider).toBe("openai-compat-chat");
+      expect((model as Record<string, string>).modelId).toBe("llama3.2:3b");
+    });
+
+    it("keeps the ollama ModelInfo provider name and registry entries unchanged", () => {
+      const ids = MODEL_REGISTRY.filter((m) => m.provider === "ollama").map(
+        (m) => m.id
+      );
+      expect(ids).toEqual([
+        "ollama/qwen3.5:9b",
+        "ollama/llama3.2:3b",
+        "ollama/mistral:7b",
+      ]);
     });
   });
 });

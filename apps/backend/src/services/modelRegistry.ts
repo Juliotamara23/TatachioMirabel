@@ -1,6 +1,6 @@
 import { LanguageModel } from "ai";
 import { google } from "@ai-sdk/google";
-import { createOllama } from "ollama-ai-provider";
+import { createOpenAI } from "@ai-sdk/openai";
 
 // ─── Types ────────────────────────────────────────────────────────────
 
@@ -64,17 +64,27 @@ function activeProvider(): ProviderName | undefined {
   return undefined;
 }
 
-// ─── Ollama Provider (lazy init) ──────────────────────────────────────
+// ─── Ollama provider (lazy singleton via OpenAI-compatible endpoint) ────
 
-let _ollama: ReturnType<typeof createOllama> | null = null;
+let _ollamaOpenAI: ReturnType<typeof createOpenAI> | null = null;
 
-function getOllamaProvider() {
-  if (!_ollama) {
-    _ollama = createOllama({
-      baseURL: process.env.OLLAMA_BASE_URL || "http://localhost:11434/api",
+/**
+ * OpenAI-compatible provider pointed at Ollama's `/v1` endpoint.
+ * Ollama exposes an OpenAI-compatible API since v0.1.34, so the same
+ * `@ai-sdk/openai` adapter serves both real OpenAI and local Ollama.
+ * Lazy singleton: the provider is built once and reused on every call.
+ */
+export function getOllamaOpenAIProvider() {
+  if (!_ollamaOpenAI) {
+    _ollamaOpenAI = createOpenAI({
+      baseURL: process.env.OLLAMA_BASE_URL ?? "http://localhost:11434/v1",
+      // Local Ollama requires no API key. @ai-sdk/openai throws AI_LoadAPIKeyError
+      // at request time when apiKey is undefined and OPENAI_API_KEY is unset, so
+      // pass an explicit empty string (loadApiKey returns any string as-is).
+      apiKey: "",
     });
   }
-  return _ollama;
+  return _ollamaOpenAI;
 }
 
 // ─── Registry ─────────────────────────────────────────────────────────
@@ -206,7 +216,10 @@ function createModel(info: ModelInfo): LanguageModel {
     case "google":
       return google(info.id.split("/")[1]) as unknown as LanguageModel;
     case "ollama":
-      return getOllamaProvider()(info.id.split("/")[1]) as unknown as LanguageModel;
+      // @ai-sdk/openai v3 routes provider(modelId) to the Responses API
+      // (/responses); Ollama only exposes the chat-completions API, so go
+      // through provider.chat() → POST {baseURL}/chat/completions.
+      return getOllamaOpenAIProvider().chat(info.id.split("/")[1]) as unknown as LanguageModel;
     default:
       throw new Error(`Proveedor no implementado: ${info.provider}`);
   }

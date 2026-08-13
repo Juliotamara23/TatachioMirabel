@@ -6,15 +6,6 @@ vi.mock("../../src/services/chatService.js", () => ({
   runChat: vi.fn(),
 }));
 
-// ── Mock the streaming helpers from ai ────────────────────────────
-vi.mock("ai", async () => {
-  const actual = await vi.importActual<typeof import("ai")>("ai");
-  return {
-    ...actual,
-    pipeTextStreamToResponse: vi.fn(),
-  };
-});
-
 // ── Mock modelRegistry errors ─────────────────────────────────────
 vi.mock("../../src/services/modelRegistry.js", async () => {
   const actual = await vi.importActual<
@@ -29,7 +20,6 @@ vi.mock("../../src/services/modelRegistry.js", async () => {
 
 import { chatHandler } from "../../src/controllers/chatController.js";
 import { runChat } from "../../src/services/chatService.js";
-import { pipeTextStreamToResponse } from "ai";
 import {
   ModelNotFoundError,
   NoModelsAvailableError,
@@ -49,8 +39,30 @@ function mockRes(): Response {
     status: vi.fn().mockReturnThis(),
     json: vi.fn().mockReturnThis(),
     setHeader: vi.fn().mockReturnThis(),
+    write: vi.fn(() => true),
+    once: vi.fn(),
+    end: vi.fn(),
   };
   return res as Response;
+}
+
+/** A text stream that yields the given chunks, then closes. */
+function textStreamOf(...chunks: string[]): ReadableStream<string> {
+  return new ReadableStream<string>({
+    start(controller) {
+      for (const chunk of chunks) controller.enqueue(chunk);
+      controller.close();
+    },
+  });
+}
+
+/** A text stream that throws a provider error on the first read. */
+function throwingTextStream(message: string): ReadableStream<string> {
+  return new ReadableStream<string>({
+    pull() {
+      throw new Error(message);
+    },
+  });
 }
 
 // ── Tests ──────────────────────────────────────────────────────────
@@ -136,9 +148,9 @@ describe("chatController", () => {
       );
     });
 
-    it("pipes stream to response when stream defaults to true", async () => {
+    it("streams text chunks to the response when stream defaults to true", async () => {
       vi.mocked(runChat).mockReturnValue({
-        result: { textStream: {} } as never,
+        result: { textStream: textStreamOf("hola ", "mundo") } as never,
         modelInfo: { id: "google/gemini-2.0-flash", name: "Gemini 2.0 Flash" } as never,
       });
 
@@ -149,7 +161,37 @@ describe("chatController", () => {
 
       await chatHandler(req, res);
 
-      expect(pipeTextStreamToResponse).toHaveBeenCalled();
+      expect(res.write).toHaveBeenCalledWith("hola ");
+      expect(res.write).toHaveBeenCalledWith("mundo");
+      expect(res.end).toHaveBeenCalled();
+    });
+
+    it("writes an SSE error event and ends the response when the provider stream fails mid-way", async () => {
+      vi.mocked(runChat).mockReturnValue({
+        result: { textStream: throwingTextStream("provider exploded mid-stream") } as never,
+        modelInfo: { id: "ollama/llama3.2:3b", name: "Llama 3.2 3B (Ollama)" } as never,
+      });
+      const consoleError = vi
+        .spyOn(console, "error")
+        .mockImplementation(() => {});
+
+      const req = mockReq({
+        messages: [{ role: "user", content: "cuantos miembros hay" }],
+      });
+      const res = mockRes();
+
+      // Must NOT throw (previously an unhandled rejection crashed the process)
+      await expect(chatHandler(req, res)).resolves.toBeUndefined();
+
+      expect(res.write).toHaveBeenCalledWith(
+        'event: error\ndata: {"error":"AI provider stream failed"}\n\n'
+      );
+      expect(res.end).toHaveBeenCalled();
+      expect(consoleError).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.any(Error)
+      );
+      consoleError.mockRestore();
     });
 
     it("passes explicit model to runChat", async () => {
