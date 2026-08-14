@@ -7,6 +7,7 @@ import { logout as logoutCmd } from "./commands/logout.js";
 import { setupMiembrosCommand } from "./commands/miembros.js";
 import { setupFamiliasCommand } from "./commands/familias.js";
 import { setupCabildosCommand } from "./commands/cabildos.js";
+import { setupReportesCommand } from "./commands/reportes.js";
 
 const program = new Command();
 
@@ -48,5 +49,10 @@ const cabildosCmd = program
   .command("cabildos")
   .description("Manage cabildos");
 setupCabildosCommand(cabildosCmd);
+
+const reportesCmd = program
+  .command("reportes")
+  .description("Manage reports");
+setupReportesCommand(reportesCmd);
 
 program.parse();

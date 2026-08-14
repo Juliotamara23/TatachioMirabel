@@ -1,5 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { cabildoSchema, familiaSchema, memberSchema, ageFromFechaNacimiento, MAX_PLAUSIBLE_AGE_YEARS } from "@tatachio/shared";
+import { homedir } from "node:os";
+import { join } from "node:path";
+import { cabildoSchema, familiaSchema, memberSchema, ageFromFechaNacimiento, MAX_PLAUSIBLE_AGE_YEARS, resolveReportesDir, REPORTES_DIR_ENV } from "@tatachio/shared";
 
 describe("cabildoSchema", () => {
   it("should accept valid cabildo data", () => {
@@ -172,5 +174,21 @@ describe("ageFromFechaNacimiento", () => {
   it("flags >99 as warning-level age", () => {
     expect(ageFromFechaNacimiento("01/01/1900")).toBeGreaterThan(MAX_PLAUSIBLE_AGE_YEARS);
     expect(ageFromFechaNacimiento("01/01/1935")).toBeLessThanOrEqual(MAX_PLAUSIBLE_AGE_YEARS);
+  });
+});
+
+describe("resolveReportesDir", () => {
+  it("defaults to ~/.tatachio/reportes when TATACHIO_REPORTES_DIR is not set", () => {
+    expect(resolveReportesDir({})).toBe(join(homedir(), ".tatachio", "reportes"));
+    expect(resolveReportesDir()).toBe(join(homedir(), ".tatachio", "reportes"));
+  });
+
+  it("uses TATACHIO_REPORTES_DIR when set", () => {
+    expect(resolveReportesDir({ [REPORTES_DIR_ENV]: "/custom/reportes" })).toBe("/custom/reportes");
+  });
+
+  it("falls back to the default when TATACHIO_REPORTES_DIR is empty or whitespace", () => {
+    expect(resolveReportesDir({ [REPORTES_DIR_ENV]: "" })).toBe(join(homedir(), ".tatachio", "reportes"));
+    expect(resolveReportesDir({ [REPORTES_DIR_ENV]: "   " })).toBe(join(homedir(), ".tatachio", "reportes"));
   });
 });

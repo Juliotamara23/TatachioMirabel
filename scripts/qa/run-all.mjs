@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * run-all.mjs — Main QA orchestrator.
- * Runs all 11 test suites sequentially and generates unified report.
+ * Runs all 17 test suites sequentially and generates unified report.
  */
 
 import { execSync } from "node:child_process";
@@ -19,7 +19,7 @@ async function runAllSuites() {
 
   const reporter = createReporter();
 
-  // Suite list - 16 test suites in order
+  // Suite list - 17 test suites in order
   const suites = [
     "suites/api/health",
     "suites/api/auth",
@@ -37,6 +37,7 @@ async function runAllSuites() {
     "suites/cli/cabildos",
     "suites/cli/familias",
     "suites/cli/miembros",
+    "suites/cli/reportes",
   ];
 
   let anyFailed = false;

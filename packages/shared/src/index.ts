@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { homedir } from "node:os";
+import { join } from "node:path";
 
 export const TipoIdentificacionEnum = z.enum(["CC", "TI", "RC", "NUIP"]);
 export const ParentescoEnum = z.enum([
@@ -75,3 +77,14 @@ export const familiaSchema = z.object({
 });
 
 export type FamiliaInput = z.infer<typeof familiaSchema>;
+
+// ── Carpeta compartida de reportes (decisión 2026-08-14, issue #60) ──────
+// Una sola fuente de verdad para backend y CLI: TATACHIO_REPORTES_DIR si está
+// seteada, si no ~/.tatachio/reportes/. Fuera del repo (nunca en git); quien
+// la consume hace mkdir(dir, { recursive: true }) en runtime.
+export const REPORTES_DIR_ENV = "TATACHIO_REPORTES_DIR";
+
+export function resolveReportesDir(env: Record<string, string | undefined> = process.env): string {
+  const fromEnv = env[REPORTES_DIR_ENV]?.trim();
+  return fromEnv || join(homedir(), ".tatachio", "reportes");
+}
