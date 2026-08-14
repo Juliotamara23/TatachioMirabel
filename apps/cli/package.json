@@ -11,7 +11,7 @@
     "test:ui": "vitest --ui",
     "build": "tsc",
     "dev": "tsx src/index.ts",
-    "start": "node build/index.js"
+    "start": "node build/apps/cli/src/index.js"
   },
   "dependencies": {
     "@inquirer/prompts": "^7.0.0",
