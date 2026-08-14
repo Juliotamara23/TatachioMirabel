@@ -216,8 +216,10 @@ El agente QA recibe el rol vía skill `qa-flow`, ejecuta `node scripts/qa/run-al
 - [x] Sub-agente simula usuario CLI contra QA (flujo completo)
 
 **Bugs del CLI detectados por el QA** (documentados como findings, no regresiones)
-- `miembros create --json <body>` → Commander "too many arguments" (flag parsing roto)
-- `miembros list --cabildo-id X` → el backend no filtra (flag existe pero API lo ignora)
+- `miembros create --json <body>` → Commander "too many arguments" (flag parsing roto) — **FIXED** en `92b9f9b`
+- `miembros list --cabildo-id X` → el backend no filtra (flag existe pero API lo ignora) — **FIXED** en `08a418f`
+
+Ambos hallazgos ya están corregidos en producción; `suites/cli/miembros.test.mjs` ahora los verifica de forma estricta (sin rutas tolerantes).
 
 ---
 

@@ -130,26 +130,16 @@ await runSuite({ name: "cli/miembros", seed: true, start: true }, async ({ base 
     const filteredMembers = parseJsonOutput(res.stdout);
     if (!Array.isArray(filteredMembers)) throw new Error("Expected JSON array output for filtered members");
 
-    // Check if filter is actually applied: filtered should be subset of all
+    // The --cabildo-id backend filter is FIXED (08a418f): the controller applies
+    // where.cabildoId for ADMINISTRATOR. The seed has 438 members from other
+    // cabildos, so the filtered list MUST be a proper subset of the full list
+    // AND every returned member MUST belong to CABILDO_ID — fail loudly if not.
     const hasOtherCabildos = allMembers.some(m => m.cabildoId !== CABILDO_ID);
-    const filterActuallyApplied = filteredMembers.length < allMembers.length || 
-                                   filteredMembers.every(m => m.cabildoId === CABILDO_ID);
-
-    // Known CLI/API BUG: --cabildo-id flag exists but backend ignores it
-    // Bug pattern: filtered results == all results AND there are members from other cabildos
-    const isKnownBug = hasOtherCabildos && filteredMembers.length === allMembers.length &&
-                       filteredMembers.some(m => m.cabildoId !== CABILDO_ID);
-
-    if (isKnownBug) {
-      // Known CLI/API bug detected — document it and pass the test
-      console.log(`  ⚠ KNOWN CLI/API BUG: --cabildo-id filter not applied by backend`);
-      console.log(`     Bug pattern: CLI sends cabildoId but API ignores it (scopes via JWT)`);
-      console.log(`     All ${allMembers.length} members returned regardless of filter.`);
-      console.log(`     This is a REAL CLI/API contract mismatch, NOT a regression. Suite passes.`);
-      return;
+    if (hasOtherCabildos && filteredMembers.length >= allMembers.length) {
+      throw new Error(
+        `Cabildo filter not applied: expected fewer than ${allMembers.length} members, got ${filteredMembers.length}`
+      );
     }
-
-    // Normal validation when bug not detected
     for (const m of filteredMembers) {
       if (m.cabildoId !== CABILDO_ID) {
         throw new Error(`Cabildo filter leak: member ${m.id} has cabildoId ${m.cabildoId}`);
@@ -189,92 +179,61 @@ await runSuite({ name: "cli/miembros", seed: true, start: true }, async ({ base 
   });
 
   // ── miembros create --json ───────────────────────────────────────────────
-  // KNOWN CLI BUG: "miembros create --json <value>" fails with
-  // "error: too many arguments for 'create'. Expected 0 arguments but got 1."
-  // This is a Commander flag parsing bug in the CLI, NOT a QA test bug.
-  // Tests below document this known bug — they PASS when the bug is detected
-  // so the suite verdict stays PASS overall, with the bug clearly surfaced.
-  let createdId = null;
+  // The Commander flag-parsing bug for --json <body> is FIXED (92b9f9b):
+  // create/update declare .option("--json <jsonString>") and parse the body
+  // correctly. These tests now assert the strict contract — a regression
+  // fails the suite loudly instead of being tolerated with a warning.
 
-  async function runCreateTest(name, args, expectSuccess, helper) {
-    const res = runCli(base, adminToken, args);
-    const stderr = res.stderr || "";
-    const isKnownBug = stderr.includes("too many arguments for 'create'") ||
-                       stderr.includes("Expected 0 arguments but got 1");
-    
-    if (isKnownBug) {
-      // Known CLI bug detected — document it and pass the test
-      console.log(`  ⚠ ${name} — KNOWN CLI BUG: Commander flag parsing fails on --json value`);
-      console.log(`     Bug pattern: "too many arguments for 'create'. Expected 0 arguments but got 1."`);
-      console.log(`     This is a REAL CLI bug (Commander), NOT a regression. Suite passes.`);
-      return null; // No createdId since create failed due to known bug
-    }
-    
-    if (expectSuccess) {
-      if (res.status !== 0) throw new Error(`Expected exit 0, got ${res.status}: ${stderr}`);
-      const data = parseJsonOutput(res.stdout);
-      if (!data.id) throw new Error("Response missing id");
-      return data.id;
-    } else {
-      if (res.status === 0) throw new Error("Expected non-zero exit for invalid body");
-      return null;
-    }
+  async function createMemberViaCli(body) {
+    const res = runCli(base, adminToken, ["miembros", "create", "--json", body]);
+    if (res.status !== 0) throw new Error(`Expected exit 0, got ${res.status}: ${res.stderr}`);
+    const data = parseJsonOutput(res.stdout);
+    if (!data.id) throw new Error("Response missing id");
+    return data.id;
+  }
+
+  async function deleteMemberViaCli(id) {
+    const res = runCli(base, adminToken, ["miembros", "delete", id, "--json"]);
+    if (res.status !== 0) throw new Error(`Cleanup delete failed: ${res.status}: ${res.stderr}`);
   }
 
   await helper.test("miembros create --json <body> creates member as admin", async () => {
     const body = JSON.stringify(VALID_MEMBER);
-    createdId = await runCreateTest(
-      "miembros create --json <body> creates member as admin",
-      ["miembros", "create", "--json", body],
-      true,
-      helper
-    );
+    const createdId = await createMemberViaCli(body);
+    // Clean up after itself so the suite stays deterministic.
+    await deleteMemberViaCli(createdId);
   });
 
   await helper.test("miembros create --json with missing required fields returns error", async () => {
     const body = JSON.stringify({ nombres: "INCOMPLETE" });
-    await runCreateTest(
-      "miembros create --json with missing required fields returns error",
-      ["miembros", "create", "--json", body],
-      false,
-      helper
-    );
+    const res = runCli(base, adminToken, ["miembros", "create", "--json", body]);
+    if (res.status === 0) throw new Error("Expected non-zero exit for invalid body");
   });
 
   await helper.test("miembros create --json without token returns auth error", async () => {
     const body = JSON.stringify(VALID_MEMBER);
     const res = runCliNoToken(base, ["miembros", "create", "--json", body]);
-    const stderr = (res.stderr || "").toLowerCase();
-    const isKnownBug = stderr.includes("too many arguments for 'create'") ||
-                       stderr.includes("expected 0 arguments but got 1");
-    
-    if (isKnownBug) {
-      console.log(`  ⚠ miembros create --json without token — KNOWN CLI BUG: Commander flag parsing fails on --json value`);
-      console.log(`     Bug pattern: "too many arguments for 'create'. Expected 0 arguments but got 1."`);
-      console.log(`     This is a REAL CLI bug (Commander), NOT a regression. Suite passes.`);
-      return;
-    }
-    
     if (res.status === 0) throw new Error("Expected non-zero exit without token");
+    const stderr = (res.stderr || "").toLowerCase();
     if (!stderr.includes("token") && !stderr.includes("auth") && !stderr.includes("login")) {
       throw new Error(`Expected auth error in stderr, got: ${res.stderr}`);
     }
   });
 
   // ── miembros update <id> --json ──────────────────────────────────────────
-  // Note: These tests depend on a successful create. Since create has a known
-  // CLI bug, they will be skipped with a clear note when createdId is unavailable.
+  // Update tests create their own throwaway member via the CLI (create --json
+  // is fixed) so they no longer depend on — or skip for — a create failure.
   await helper.test("miembros update <id> --json updates member as admin", async () => {
-    if (!createdId) {
-      console.log(`  ⚠ miembros update <id> --json — SKIPPED: createdId unavailable due to KNOWN CLI BUG in create`);
-      console.log(`     Cannot test update without a valid member ID from create.`);
-      return;
+    const id = await createMemberViaCli(JSON.stringify(VALID_MEMBER));
+    try {
+      const body = JSON.stringify({ nombres: "UPDATED", direccion: "NEW ADDRESS" });
+      const res = runCli(base, adminToken, ["miembros", "update", id, "--json", body]);
+      if (res.status !== 0) throw new Error(`Expected exit 0, got ${res.status}: ${res.stderr}`);
+      const data = parseJsonOutput(res.stdout);
+      if (data.nombres !== "UPDATED") throw new Error(`nombres not updated: ${data.nombres}`);
+    } finally {
+      await deleteMemberViaCli(id);
     }
-    const body = JSON.stringify({ nombres: "UPDATED", direccion: "NEW ADDRESS" });
-    const res = runCli(base, adminToken, ["miembros", "update", createdId, "--json", body]);
-    if (res.status !== 0) throw new Error(`Expected exit 0, got ${res.status}: ${res.stderr}`);
-    const data = parseJsonOutput(res.stdout);
-    if (data.nombres !== "UPDATED") throw new Error(`nombres not updated: ${data.nombres}`);
   });
 
   await helper.test("miembros update <fake-uuid> --json returns error", async () => {
@@ -284,13 +243,10 @@ await runSuite({ name: "cli/miembros", seed: true, start: true }, async ({ base 
   });
 
   await helper.test("miembros update <id> --json without token returns auth error", async () => {
-    if (!createdId) {
-      console.log(`  ⚠ miembros update <id> --json without token — SKIPPED: createdId unavailable due to KNOWN CLI BUG in create`);
-      console.log(`     Cannot test update auth without a valid member ID from create.`);
-      return;
-    }
+    // A real member id works fine: without a token the CLI fails auth
+    // client-side before any API call, so the id never reaches the backend.
     const body = JSON.stringify({ nombres: "NOAUTH" });
-    const res = runCliNoToken(base, ["miembros", "update", createdId, "--json", body]);
+    const res = runCliNoToken(base, ["miembros", "update", existingMiembroId, "--json", body]);
     if (res.status === 0) throw new Error("Expected non-zero exit without token");
     const stderr = res.stderr.toLowerCase();
     if (!stderr.includes("token") && !stderr.includes("auth") && !stderr.includes("login")) {
@@ -299,8 +255,8 @@ await runSuite({ name: "cli/miembros", seed: true, start: true }, async ({ base 
   });
 
   // ── miembros delete <id> --json ──────────────────────────────────────
-  // Create a throwaway member via the API (the CLI create command has the
-  // known Commander bug above) so the delete command has a real record.
+  // Create a throwaway member via the API so the delete command has a real
+  // record to remove (the CLI create path is covered by the create tests).
   let deleteTargetId = null;
   {
     const res = await fetch(`${base}/api/miembros`, {
