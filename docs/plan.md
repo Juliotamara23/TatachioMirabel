@@ -46,11 +46,13 @@ Backend para gestionar los datos censales del Cabildo Tatachio Mirabel, con una 
 | **Web** | Admin | Fase 2 | Paneles, dashboards, CRUD visual. Opcional. |
 | **PWA Mobile** | Capitana | Fase 3 | Interfaz tipo chat, mobile-first, offline-first (caché IndexedDB). |
 
-El LLM es la interfaz principal para operar los datos. El REST tradicional queda solo para:
+El chat IA (tool calling) es el centro de operaciones para la conversación natural; el REST es la superficie de datos que sirve al CLI, al web admin y al toolkit de QA:
 
 - `POST /api/auth/login` — autenticación (JWT)
-- `POST /api/chat` — el core del negocio
-- `GET /api/reportes/:id.xlsx` — descarga de Excel
+- REST CRUD completo: `miembros`, `familias`, `cabildos` + endpoints admin de asignación de capitanas
+- `POST /api/chat` — el core del negocio (chat IA con tool calling)
+- `GET /api/models` — listado de modelos disponibles
+- `GET /api/reportes/censo.xlsx` — descarga del Excel censal
 
 ## Decisiones Arquitectónicas
 
@@ -66,25 +68,27 @@ El LLM es la interfaz principal para operar los datos. El REST tradicional queda
 
 ## Estado Real del Proyecto
 
+Estado: **backend + CLI estables y verificados** (Fases 0.1, 0.2, 0.3, 1A, 1B, 1C, 1D ✅). Pendiente: Fases 2 y 3 (frontend — próxima discusión de diseño) y parte de la Fase 4 (comando CLI de reportes).
+
 ### ✅ Fase 0.1 — Fundamentos (Completo)
 - [x] Configuración del monorepo (pnpm workspace)
 - [x] Prisma + SQLite con todos los modelos
 - [x] Express + TypeScript corriendo
 - [x] Base de datos funcional con datos de prueba
 
-### ✅ Fase 0.2 — Auth + CRUD (Funcional, con huecos)
+### ✅ Fase 0.2 — Auth + CRUD (Completo)
 - [x] Auth JWT (register/login) probado y funcionando
 - [x] CRUD de Miembros completo con Zod
-- [x] Middleware de autenticación y roles
-- [ ] ❌ Faltan CRUDs de Cabildo y Familia (modelos existen, sin API)
-- [ ] ❌ Rol Capitana definido en schema pero sin implementar en middleware
-- [ ] ❌ Error handler global (hoy si algo crashea, no responde JSON)
+- [x] CRUD de Cabildo y Familia (completado en Fase 1A)
+- [x] Middleware de autenticación y roles (`isAdmin` + `isCapitana`)
+- [x] Rol Capitana implementado con scope de cabildo (Fase 1D)
+- [x] Error handler global (middleware centralizado con respuestas JSON)
 
-### ✅ Fase 0.3 — Motor IA (Código escrito, sin probar)
+### ✅ Fase 0.3 — Motor IA (Completo, probado con providers reales)
 - [x] Vercel AI SDK con Gemini + Ollama
-- [x] Sistema de fallback automático
+- [x] Sistema de fallback automático (Vercel AI Gateway, ver Fase 1B)
 - [x] Esquema Zod para salida estructurada
-- [ ] ❌ No probado con API keys reales
+- [x] Probado end-to-end con providers reales: Ollama local vía endpoint compatible OpenAI; Gemini/DeepSeek/Llama vía cadena de failover del Vercel AI Gateway
 
 ## Roadmap
 
@@ -110,18 +114,23 @@ Prioridad: **alta** — el core del producto.
   - Respuesta en texto natural + SSE streaming
 - [x] Rate limiting por rol (Admin: 60/min, Capitana: 20/min)
 - [x] GET `/api/models` — listado de modelos disponibles
-- [x] Model registry provider-agnóstico (Google Gemini, Ollama)
+- [x] Model registry data-driven: `EXTRA_PROVIDERS_JSON` (JSON inline) > `PROVIDERS_CONFIG_PATH` (archivo) > `config/providers.json` por defecto — agregar un proveedor OpenAI-compatible nuevo requiere **cero código** (solo API key + baseURL + modelos en config)
+- [x] Failover con Vercel AI Gateway (`AI_GATEWAY_API_KEY`): cuando la key está seteada, todo el tráfico pasa por `createGateway`; cadena curada google → deepseek → meta con `gemini-3.1-flash-lite-preview` / `deepseek-r1` / `llama-3.3-70b` (`apps/backend/src/services/failoverChain.ts`)
+- [x] Ollama vía endpoint compatible OpenAI (`@ai-sdk/openai`) — el antiguo `ollama-ai-provider` era incompatible con `ai@6` y fue reemplazado
 
 ### ✅ Fase 1C — CLI Admin
 Prioridad: **alta** — interfaz principal del admin. **COMPLETO.**
 
-- [x] Cliente de terminal como paquete independiente (`packages/cli/`)
+- [x] Cliente de terminal como paquete independiente (`apps/cli/`)
 - [x] Autenticación: `login` (cachea token) o leer `TATACHIO_TOKEN` de env
 - [x] Comandos CRUD directos (sin LLM): `miembros list`, `miembros get`, `miembros create`, `miembros update`, `miembros delete`, `familias list`, `cabildos list`
 - [x] Modo pipe: entradas y salidas en JSON para scripts y agentes
-- [x] 42 tests, ESLint limpio, build limpio
+- [x] 68 tests vitest (unit + integración) + suites QA CLI (42 tests black-box) — ESLint limpio, build limpio
 - [x] Stack: Commander.js + @inquirer/prompts + native fetch
-- [x] PR #12 merged
+- [x] Subcomando `chat` eliminado (PR #53) — la conversación IA vive en la web y en OpenCode
+- [x] `miembros delete` añadido (PR #54)
+- [x] Cobertura de exit codes 5xx (PR #56)
+- [x] PRs #12, #53, #54, #56 merged
 
 ### ✅ Fase 1D — Backend: Scope de Cabildo para Capitanas
 Prioridad: **alta** — data isolation. **COMPLETO.**
@@ -132,11 +141,12 @@ Prioridad: **alta** — data isolation. **COMPLETO.**
 - [x] Admin endpoints: `POST/DELETE /api/admin/cabildos/:id/captains/:uid`
 - [x] Register requiere `cabildoId` para CAPTAIN
 - [x] Roles renombrados a inglés: `CAPTAIN` + `ADMINISTRATOR`
-- [x] 152/155 tests, ESLint limpio
+- [x] 255 tests backend (253 pasados, 2 skipped), ESLint limpio
 - [x] PR #13 merged
 
 ### Fase 2 — Frontend Admin (Web)
 Prioridad: **media** — interfaz web complementaria al CLI.
+**Estado: pendiente de diseño — próxima discusión.**
 
 - [ ] Login
 - [ ] Panel de chat IA
@@ -146,6 +156,7 @@ Prioridad: **media** — interfaz web complementaria al CLI.
 
 ### Fase 3 — Frontend Capitana (Mobile)
 Prioridad: **media** — PWA offline-first, tipo chat.
+**Estado: pendiente de diseño — próxima discusión.**
 
 - [ ] PWA con Service Worker + caché IndexedDB
 - [ ] Modo conectado: sincronización bidireccional con el backend
@@ -161,12 +172,12 @@ Prioridad: **baja** — se necesita al final del ciclo censal.
 **Arquitectura (decisión 2026-08, actualizada): un solo archivo con 3 pestañas, sin servicio externo.**
 - **Template oficial**: `scripts/excel-formateador/templates/Formato Censal.xlsx` (descargado del Drive, 3 pestañas: FORMATO_CENSOS, REPORTE ALTAS, REPORTE BAJAS). El template NO se modifica — siempre se trabaja sobre una copia.
 - **Script mínimo** (`scripts/excel-formateador/`): openpyxl puro (SIN pandas — la fuente es la DB, no un Excel externo). Abre el template, llena las 3 pestañas (FORMATO_CENSOS desde F7, ALTAS/BAJAS desde F2), guarda UNA copia con las 3 pestañas siempre. Preserva celdas combinadas/estilos del título institucional.
-- **Backend** (Node): consulta la DB (Prisma, fuente de verdad), pasa los datos al script, devuelve el .xlsx. El admin genera desde la API o el CLI; por debajo hace exactamente esto.
+- **Backend** (Node): consulta la DB (Prisma, fuente de verdad), pasa los datos al script, devuelve el .xlsx. El admin genera desde la API (`GET /api/reportes/censo.xlsx`); el comando CLI `tatachio reportes generar` queda pendiente.
 - **Decisión de stack verificada con evidencia**: openpyxl preserva imagen/merged/estilos; exceljs CRASHA al leer templates con imágenes (descartado). pandas no aporta (datos vienen normalizados de la DB).
 
 - [x] Template ministerial descargado al monorepo (`scripts/excel-formateador/templates/`)
 - [x] Script formateador mínimo portado (`scripts/excel-formateador/`) — verificado con 1000 miembros reales de la DB QA
-- [ ] Backend: consulta DB y genera el Excel (3 pestañas)
+- [x] Backend: consulta DB y genera el Excel (3 pestañas) — `reporteController.generarCenso` expuesto en `GET /api/reportes/censo.xlsx` (authMiddleware + isAdmin)
 - [ ] CLI: comando `tatachio reportes generar` que invoca el flujo
 - [ ] Flujo completo: DB → script openpyxl → Formato Censal.xlsx copia con 3 pestañas → descarga
 
@@ -185,6 +196,15 @@ Prioridad: **baja** — se necesita al final del ciclo censal.
 - **Tests**: unit del controller (mock Prisma + mock spawn) + integración del flujo real
 
 **Nota**: el análisis de inconsistencias (repetidos, edades, muertos presuntos) NO vive en Python — el backend valida en escritura (duplicados → 409, edad >99 → `warnings[]`). El formateador solo cubre la entrega ministerial.
+
+## QA Toolkit (`scripts/qa/`)
+
+Suite de QA **black-box determinista** que valida el backend y el CLI contra la realidad desplegada, sin acoplarse a su implementación. Referencia: `docs/QA_plan.md`.
+
+- **16 suites**: 8 API (`api/auth`, `api/miembros`, `api/familias`, `api/cabildos`, `api/chat`, `api/admin`, `api/reportes`, `api/health`) + 4 chaos (`chaos/auth-bypass`, `chaos/injection`, `chaos/rate-limit`, `chaos/boundary`) + 4 CLI (`cli/auth`, `cli/cabildos`, `cli/familias`, `cli/miembros` — 42 tests)
+- **Orquestador**: `run-all.mjs` — ejecuta todas las suites y produce veredicto PASS / WARN / BLOCKED con reporte `qa-report.json` + JUnit XML (`qa-report.xml`)
+- **Aislamiento**: cada suite levanta su propio backend en un puerto dinámico y usa una base `qa.db` propia — nunca toca `mirabel.db`
+- **Detalle CLI**: `fileParallelism: false` en el vitest config de `apps/cli` (las suites comparten `~/.tatachio/config.json`; en paralelo, `clearConfig()` de un archivo haría race con la lectura `resolveToken()` de otro). Desde PR #58 las suites CLI asertan estrictamente — sin paths tolerantes "KNOWN BUG".
 
 ## Normas de Desarrollo
 
