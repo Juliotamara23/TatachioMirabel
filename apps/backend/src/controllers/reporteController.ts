@@ -1,10 +1,11 @@
 import { Request, Response, NextFunction } from "express";
 import { spawn } from "node:child_process";
-import { existsSync, unlinkSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, unlinkSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { Prisma } from "@prisma/client";
+import { resolveReportesDir } from "@tatachio/shared";
 import prisma from "../database.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -137,8 +138,14 @@ export async function generarCenso(
   next: NextFunction,
 ): Promise<void> {
   const unique = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  // El JSON intermedio es efímero → sigue en os.tmpdir(); el xlsx final vive en
+  // la carpeta compartida TATACHIO_REPORTES_DIR (~/.tatachio/reportes), que se
+  // crea en runtime y persiste el reporte exitoso (decisión 2026-08-14, #60).
   const tmpJson = path.join(os.tmpdir(), `reporte-${unique}.json`);
-  const tmpXlsx = path.join(os.tmpdir(), `reporte-${unique}.xlsx`);
+  const reportesDir = resolveReportesDir();
+  mkdirSync(reportesDir, { recursive: true });
+  const nombreXlsx = `censo-${new Date().getFullYear()}.xlsx`;
+  const xlsxPath = path.join(reportesDir, nombreXlsx);
 
   try {
     const [censo, altas, bajas] = await Promise.all([
@@ -164,16 +171,19 @@ export async function generarCenso(
 
     writeFileSync(tmpJson, JSON.stringify(data), "utf-8");
 
-    await ejecutarFormateador(FORMATEADOR_PATH, tmpJson, tmpXlsx);
+    await ejecutarFormateador(FORMATEADOR_PATH, tmpJson, xlsxPath);
 
-    res.download(tmpXlsx, `censo-${new Date().getFullYear()}.xlsx`, (err) => {
-      limpiarTemporales([tmpJson, tmpXlsx]);
+    res.download(xlsxPath, nombreXlsx, (err) => {
+      // Éxito: el reporte PERSISTE en la carpeta compartida; solo se limpia el
+      // JSON intermedio del tmpdir.
+      limpiarTemporales([tmpJson]);
       if (err) {
         next(err);
       }
     });
   } catch (error) {
-    limpiarTemporales([tmpJson, tmpXlsx]);
+    // Falla: limpieza total, incluido un xlsx parcial que haya quedado.
+    limpiarTemporales([tmpJson, xlsxPath]);
     next(error);
   }
 }

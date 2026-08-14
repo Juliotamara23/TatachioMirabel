@@ -1,7 +1,8 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { Request, Response, NextFunction } from "express";
 import { EventEmitter } from "node:events";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import os from "node:os";
 import path from "node:path";
 
 // Mock Prisma before importing the controller
@@ -99,9 +100,20 @@ function getTmpPaths() {
 }
 
 describe("reporteController.generarCenso", () => {
+  let reportesDir: string;
+
   beforeEach(() => {
     vi.clearAllMocks();
     spawnMock.mockReturnValue(fakeChildProcess(0));
+    // Aísla el test en un dir temporal: el helper compartido resuelve
+    // TATACHIO_REPORTES_DIR en runtime (decisión 2026-08-14, issue #60).
+    reportesDir = mkdtempSync(path.join(os.tmpdir(), "tatachio-reportes-"));
+    process.env.TATACHIO_REPORTES_DIR = reportesDir;
+  });
+
+  afterEach(() => {
+    delete process.env.TATACHIO_REPORTES_DIR;
+    rmSync(reportesDir, { recursive: true, force: true });
   });
 
   it("consulta DB, genera el JSON correcto y llama al script formateador", async () => {
@@ -162,10 +174,11 @@ describe("reporteController.generarCenso", () => {
       ),
     );
 
-    // 3. El JSON temporal contiene las 3 secciones con las claves exactas del template
+    // 3. El JSON temporal contiene las 3 secciones con las claves exactas del template.
+    //    El JSON intermedio sigue en os.tmpdir(); el xlsx va a la carpeta compartida.
     const { tmpJson, tmpXlsx } = getTmpPaths();
     expect(tmpJson).toMatch(/reporte-\d+-[a-z0-9]+\.json$/);
-    expect(tmpXlsx).toMatch(/reporte-\d+-[a-z0-9]+\.xlsx$/);
+    expect(tmpXlsx).toBe(path.join(reportesDir, `censo-${new Date().getFullYear()}.xlsx`));
 
     const data = JSON.parse(readFileSync(tmpJson, "utf-8")) as {
       censo: Record<string, unknown>[];
@@ -219,10 +232,10 @@ describe("reporteController.generarCenso", () => {
       }),
     );
 
-    // 4. Se descarga el xlsx con el nombre censo-{año}.xlsx
+    // 4. Se descarga el xlsx desde la carpeta compartida con el nombre censo-{año}.xlsx
     expect(res.download).toHaveBeenCalledTimes(1);
     expect(res.download).toHaveBeenCalledWith(
-      tmpXlsx,
+      path.join(reportesDir, `censo-${new Date().getFullYear()}.xlsx`),
       `censo-${new Date().getFullYear()}.xlsx`,
       expect.any(Function),
     );
@@ -303,7 +316,7 @@ describe("reporteController.generarCenso", () => {
     );
   });
 
-  it("limpia los temporales después de descargar el xlsx", async () => {
+  it("persiste el xlsx en la carpeta compartida y limpia solo el temporal tras la descarga", async () => {
     vi.mocked(prisma.miembro.findMany)
       .mockResolvedValueOnce([] as never)
       .mockResolvedValueOnce([] as never)
@@ -316,7 +329,9 @@ describe("reporteController.generarCenso", () => {
     await generarCenso(req, res, next);
 
     const { tmpJson, tmpXlsx } = getTmpPaths();
-    // El script (mockeado) no produce el xlsx; simular su salida para verificar el cleanup
+    expect(tmpXlsx).toBe(path.join(reportesDir, `censo-${new Date().getFullYear()}.xlsx`));
+    // El script (mockeado) no produce el xlsx; simular su salida para verificar
+    // que el archivo exitoso PERSISTE en la carpeta compartida.
     writeFileSync(tmpXlsx, "mock-xlsx");
     expect(existsSync(tmpJson)).toBe(true);
     expect(existsSync(tmpXlsx)).toBe(true);
@@ -326,16 +341,22 @@ describe("reporteController.generarCenso", () => {
     callback();
 
     expect(existsSync(tmpJson)).toBe(false);
-    expect(existsSync(tmpXlsx)).toBe(false);
+    // Éxito → el reporte NO se limpia (decisión 2026-08-14, issue #60)
+    expect(existsSync(tmpXlsx)).toBe(true);
   });
 
-  it("propaga el error y limpia cuando el script falla", async () => {
+  it("propaga el error y limpia (json temporal + xlsx parcial) cuando el script falla", async () => {
     vi.mocked(prisma.miembro.findMany)
       .mockResolvedValueOnce([] as never)
       .mockResolvedValueOnce([] as never)
       .mockResolvedValueOnce([] as never);
 
     spawnMock.mockReturnValue(fakeChildProcess(1));
+
+    // Simula una salida parcial del formateador: si falla, la limpieza en el
+    // catch debe remover también el xlsx de la carpeta compartida.
+    const partialXlsx = path.join(reportesDir, `censo-${new Date().getFullYear()}.xlsx`);
+    writeFileSync(partialXlsx, "parcial");
 
     const req = {} as Request;
     const res = mockRes();
@@ -348,6 +369,7 @@ describe("reporteController.generarCenso", () => {
     expect(res.download).not.toHaveBeenCalled();
 
     const { tmpJson, tmpXlsx } = getTmpPaths();
+    expect(tmpXlsx).toBe(partialXlsx);
     expect(existsSync(tmpJson)).toBe(false);
     expect(existsSync(tmpXlsx)).toBe(false);
   });
