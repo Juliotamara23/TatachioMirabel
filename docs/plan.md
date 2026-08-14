@@ -68,7 +68,7 @@ El chat IA (tool calling) es el centro de operaciones para la conversación natu
 
 ## Estado Real del Proyecto
 
-Estado: **backend + CLI estables y verificados** (Fases 0.1, 0.2, 0.3, 1A, 1B, 1C, 1D ✅). Pendiente: Fases 2 y 3 (frontend — próxima discusión de diseño) y parte de la Fase 4 (comando CLI de reportes).
+Estado: **backend + CLI estables y verificados** (Fases 0.1, 0.2, 0.3, 1A, 1B, 1C, 1D ✅). Pendiente: Fases 2 y 3 (frontend — próxima discusión de diseño).
 
 ### ✅ Fase 0.1 — Fundamentos (Completo)
 - [x] Configuración del monorepo (pnpm workspace)
@@ -172,14 +172,15 @@ Prioridad: **baja** — se necesita al final del ciclo censal.
 **Arquitectura (decisión 2026-08, actualizada): un solo archivo con 3 pestañas, sin servicio externo.**
 - **Template oficial**: `scripts/excel-formateador/templates/Formato Censal.xlsx` (descargado del Drive, 3 pestañas: FORMATO_CENSOS, REPORTE ALTAS, REPORTE BAJAS). El template NO se modifica — siempre se trabaja sobre una copia.
 - **Script mínimo** (`scripts/excel-formateador/`): openpyxl puro (SIN pandas — la fuente es la DB, no un Excel externo). Abre el template, llena las 3 pestañas (FORMATO_CENSOS desde F7, ALTAS/BAJAS desde F2), guarda UNA copia con las 3 pestañas siempre. Preserva celdas combinadas/estilos del título institucional.
-- **Backend** (Node): consulta la DB (Prisma, fuente de verdad), pasa los datos al script, devuelve el .xlsx. El admin genera desde la API (`GET /api/reportes/censo.xlsx`); el comando CLI `tatachio reportes generar` queda pendiente.
+- **Backend** (Node): consulta la DB (Prisma, fuente de verdad), pasa los datos al script, devuelve el .xlsx. El admin genera desde la API (`GET /api/reportes/censo.xlsx`) o desde el CLI (`tatachio reportes generar`); ambos persisten el archivo en la carpeta compartida (ver abajo).
 - **Decisión de stack verificada con evidencia**: openpyxl preserva imagen/merged/estilos; exceljs CRASHA al leer templates con imágenes (descartado). pandas no aporta (datos vienen normalizados de la DB).
+- **Carpeta compartida (decisión 2026-08-14)**: `TATACHIO_REPORTES_DIR` (env) con default `~/.tatachio/reportes/`. Fuera del repo (nunca en git), se crea sola con `mkdir recursive` en runtime — cero setup para quien clone. Helper único de resolución en `@tatachio/shared` (`resolveReportesDir`), usado por backend y CLI. El reporte exitoso PERSISTE en la carpeta; la limpieza solo ocurre en fallo.
 
 - [x] Template ministerial descargado al monorepo (`scripts/excel-formateador/templates/`)
 - [x] Script formateador mínimo portado (`scripts/excel-formateador/`) — verificado con 1000 miembros reales de la DB QA
 - [x] Backend: consulta DB y genera el Excel (3 pestañas) — `reporteController.generarCenso` expuesto en `GET /api/reportes/censo.xlsx` (authMiddleware + isAdmin)
-- [ ] CLI: comando `tatachio reportes generar` que invoca el flujo
-- [ ] Flujo completo: DB → script openpyxl → Formato Censal.xlsx copia con 3 pestañas → descarga
+- [x] CLI: comando `tatachio reportes generar` que invoca el flujo (exit 0/1/2, `--output` y `--json`)
+- [x] Flujo completo validado end-to-end (suite QA api/reportes 5/5 PASS, 2026-08-14; suite cli/reportes 5/5 PASS)
 
 ### Detalle del endpoint (decisión 2026-08)
 
@@ -188,9 +189,9 @@ Prioridad: **baja** — se necesita al final del ciclo censal.
   1. Consulta DB (Prisma): censo = miembros `ACTIVO`; altas/bajas = según `novedad`/`estado`/`fechaAlta`/`fechaBaja`
   2. Mapea a estructura del template (18 col censo / 15 col altas-bajas, campos ya normalizados en schema)
   3. Escribe JSON temporal en `os.tmpdir()`
-  4. Invoca el script: `spawn("python3", [formateador.py, --data tmp.json, --output tmp.xlsx])` (spawn, no execFile — evita shell injection)
-  5. Lee el `.xlsx` temporal → `res.download()`
-  6. Limpia temporales (finally)
+  4. Invoca el script: `spawn("python3", [formateador.py, --data tmp.json, --output tmp.xlsx])` (spawn, no execFile — evita shell injection); el `--output` apunta a la carpeta compartida
+  5. `res.download()` desde la carpeta compartida (`censo-{año}.xlsx`)
+  6. Éxito → el xlsx PERSISTE (solo se limpia el JSON temporal); fallo → limpieza total
 - **Archivos**: `apps/backend/src/controllers/reporteController.ts` (nuevo), `apps/backend/src/routes/reportes.ts` (nuevo), `apps/backend/src/index.ts` (montar `app.use("/api/reportes", reportesRouter)`)
 - **Salida**: `censo-{año}.xlsx` (nombre del archivo devuelto), 3 pestañas siempre
 - **Tests**: unit del controller (mock Prisma + mock spawn) + integración del flujo real
@@ -201,7 +202,7 @@ Prioridad: **baja** — se necesita al final del ciclo censal.
 
 Suite de QA **black-box determinista** que valida el backend y el CLI contra la realidad desplegada, sin acoplarse a su implementación. Referencia: `docs/QA_plan.md`.
 
-- **16 suites**: 8 API (`api/auth`, `api/miembros`, `api/familias`, `api/cabildos`, `api/chat`, `api/admin`, `api/reportes`, `api/health`) + 4 chaos (`chaos/auth-bypass`, `chaos/injection`, `chaos/rate-limit`, `chaos/boundary`) + 4 CLI (`cli/auth`, `cli/cabildos`, `cli/familias`, `cli/miembros` — 42 tests)
+- **17 suites**: 8 API (`api/auth`, `api/miembros`, `api/familias`, `api/cabildos`, `api/chat`, `api/admin`, `api/reportes`, `api/health`) + 4 chaos (`chaos/auth-bypass`, `chaos/injection`, `chaos/rate-limit`, `chaos/boundary`) + 5 CLI (`cli/auth`, `cli/cabildos`, `cli/familias`, `cli/miembros`, `cli/reportes` — 47 tests)
 - **Orquestador**: `run-all.mjs` — ejecuta todas las suites y produce veredicto PASS / WARN / BLOCKED con reporte `qa-report.json` + JUnit XML (`qa-report.xml`)
 - **Aislamiento**: cada suite levanta su propio backend en un puerto dinámico y usa una base `qa.db` propia — nunca toca `mirabel.db`
 - **Detalle CLI**: `fileParallelism: false` en el vitest config de `apps/cli` (las suites comparten `~/.tatachio/config.json`; en paralelo, `clearConfig()` de un archivo haría race con la lectura `resolveToken()` de otro). Desde PR #58 las suites CLI asertan estrictamente — sin paths tolerantes "KNOWN BUG".
