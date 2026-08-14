@@ -16,9 +16,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 const HOME_PREFIX = "tatachio-test-home-";
+let originalHome: string | undefined;
 
 /** Creates and activates a fake HOME; returns its path. */
 export function aislarHome(): string {
+  originalHome = process.env.HOME;
   const fakeHome = mkdtempSync(join(tmpdir(), HOME_PREFIX));
   process.env.HOME = fakeHome;
   return fakeHome;
@@ -27,12 +29,19 @@ export function aislarHome(): string {
 /** Restores the original HOME and destroys the fake one (if still active). */
 export function restaurarHome(): void {
   const current = process.env.HOME;
-  if (current && current.includes(HOME_PREFIX)) {
+  // Guard like isolation.mjs: only delete a path we actually created
+  // (startsWith tmpdir + prefix), never anything else (fix R4-002).
+  if (current && current.startsWith(join(tmpdir(), HOME_PREFIX))) {
     try {
       rmSync(current, { recursive: true, force: true });
     } catch {
       // best-effort cleanup; never breaks the test
     }
   }
-  delete process.env.HOME;
+  if (originalHome === undefined) {
+    delete process.env.HOME;
+  } else {
+    process.env.HOME = originalHome;
+  }
+  originalHome = undefined;
 }

@@ -1,8 +1,11 @@
 import { spawnSync } from "node:child_process";
-import { resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { obtenerQaEnv } from "./isolation.mjs";
 
-const CLI_ROOT = resolve("/home/z/dev/Proyects/TatachioMirabel/apps/cli");
+// Derive the CLI root from this file location (scripts/qa/lib → repo/apps/cli),
+// so the QA works from any checkout path (fix R1-003).
+const CLI_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..", "..", "apps", "cli");
 
 /**
  * Spawns the CLI and returns { code, stdout, stderr }.

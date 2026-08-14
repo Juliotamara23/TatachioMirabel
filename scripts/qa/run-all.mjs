@@ -163,9 +163,10 @@ async function runAllSuites() {
     console.log(`\nReport written to ${qaDir}/qa-report.json`);
     console.log(`Report written to ${qaDir}/qa-report.xml`);
 
-    // Test → report → destroy: no residue when done
+    // Test → report → destroy: keep the just-written reports (fix R4-001),
+    // destroy only homes/db/temp artifacts
     console.log("\n========== CLEANUP (end) ==========");
-    cleanupQa();
+    cleanupQa({ preservarReportes: true });
 
     process.exit(anyFailed ? 1 : 0);
 

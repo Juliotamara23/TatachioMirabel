@@ -10,6 +10,9 @@
 if [ -f scripts/qa/cleanup.mjs ]; then
   echo "[pre-push] QA cleanup (disposable artifacts)..."
   node scripts/qa/cleanup.mjs
+  if [ $? -ne 0 ]; then
+    echo "[pre-push] WARNING: QA cleanup failed — disposable artifacts may remain" >&2
+  fi
 fi
 
 exit 0

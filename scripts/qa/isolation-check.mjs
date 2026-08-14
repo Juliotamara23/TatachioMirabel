@@ -11,13 +11,12 @@
  *   node scripts/qa/isolation-check.mjs --all
  */
 import { execSync } from "node:child_process";
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readdirSync, statSync } from "node:fs";
 import { homedir } from "node:os";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const __dirname = resolve(join(dirname(fileURLToPath(import.meta.url))));
-import { dirname } from "node:path";
+const __dirname = resolve(dirname(fileURLToPath(import.meta.url)));
 
 const ROOT = resolve(__dirname, "..", "..");
 const QA_DIR = join(ROOT, "scripts", "qa");

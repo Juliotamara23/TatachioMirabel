@@ -10,11 +10,12 @@ import { existsSync, readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { QA_HOME_PREFIX } from "./lib/isolation.mjs";
 
 const __dirname = resolve(dirname(fileURLToPath(import.meta.url)));
 
 const QA_DIR = __dirname;
-const QA_HOME_PREFIX = "tatachio-qa-home-";
+const TEST_HOME_PREFIX = "tatachio-test-home-";
 
 function qaDirPath(name) {
   return join(QA_DIR, name);
@@ -27,11 +28,19 @@ function eliminar(path) {
   }
 }
 
-export function cleanupQa() {
-  console.log("[cleanup] QA artifacts...");
+/**
+ * Destroys disposable QA artifacts.
+ * @param {Object} [opts]
+ * @param {boolean} [opts.preservarReportes=false] - when true, keeps the QA
+ *   reports (qa-report.json/xml, logs) — used by the end-of-run cleanup so a
+ *   run does not destroy its own deliverable (fix R4-001, issue #62).
+ */
+export function cleanupQa(opts = {}) {
+  const { preservarReportes = false } = opts;
+  console.log(`[cleanup] QA artifacts (preservarReportes=${preservarReportes})...`);
   let count = 0;
 
-  // 1. Temporary QA homes (in os.tmpdir)
+  // 1. Temporary QA homes (in os.tmpdir) — both QA suites and vitest helpers
   const tmp = tmpdir();
   let tmpEntries = [];
   try {
@@ -40,21 +49,18 @@ export function cleanupQa() {
     /* tmpdir unreadable — skip */
   }
   for (const entry of tmpEntries) {
-    if (entry.startsWith(QA_HOME_PREFIX)) {
+    if (entry.startsWith(QA_HOME_PREFIX) || entry.startsWith(TEST_HOME_PREFIX)) {
       eliminar(join(tmp, entry));
       count++;
     }
   }
 
   // 2. QA artifacts inside scripts/qa/
-  for (const name of [
-    "qa.db",
-    "qa-report.json",
-    "qa-report.xml",
-    "backend-startup.log",
-    "backend-error.log",
-    "report.md",
-  ]) {
+  const artifactNames = ["qa.db", "report.md"];
+  if (!preservarReportes) {
+    artifactNames.push("qa-report.json", "qa-report.xml", "backend-startup.log", "backend-error.log");
+  }
+  for (const name of artifactNames) {
     const p = qaDirPath(name);
     if (existsSync(p)) {
       eliminar(p);
