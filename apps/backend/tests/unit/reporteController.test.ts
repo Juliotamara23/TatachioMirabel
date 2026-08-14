@@ -65,9 +65,9 @@ function makeMiembro(overrides: Record<string, unknown> = {}) {
   };
 }
 
-/** Simula un proceso hijo que emite 'close' con el código indicado.
- *  Si `writeOnClose` es un path, el archivo se escribe JUSTO ANTES de cerrar —
- *  simula el efecto del formateador (crear el xlsx) antes de fallar. */
+/** Simulates a child process that emits 'close' with the given exit code.
+ *  If `writeOnClose` is a path, the file is written RIGHT BEFORE closing —
+ *  simulates the formatter effect (creating the xlsx) before failing. */
 function fakeChildProcess(exitCode: number, writeOnClose?: string) {
   const child = new EventEmitter() as EventEmitter & {
     stderr: EventEmitter;
@@ -96,7 +96,7 @@ function mockNext() {
   return vi.fn() as NextFunction;
 }
 
-/** Lee los paths temporales pasados al script a partir de los args de spawn */
+/** Reads the temp paths passed to the script from the spawn args */
 function getTmpPaths() {
   const args = spawnMock.mock.calls[0][1] as string[];
   const tmpJson = args[args.indexOf("--data") + 1];
@@ -110,8 +110,8 @@ describe("reporteController.generarCenso", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     spawnMock.mockReturnValue(fakeChildProcess(0));
-    // Aísla el test en un dir temporal: el helper compartido resuelve
-    // TATACHIO_REPORTES_DIR en runtime (decisión 2026-08-14, issue #60).
+    // Isolates the test in a temp dir: the shared helper resolves
+    // TATACHIO_REPORTES_DIR at runtime (decision 2026-08-14, issue #60).
     reportesDir = mkdtempSync(path.join(os.tmpdir(), "tatachio-reportes-"));
     process.env.TATACHIO_REPORTES_DIR = reportesDir;
   });
@@ -156,7 +156,7 @@ describe("reporteController.generarCenso", () => {
 
     await generarCenso(req, res, next);
 
-    // 1. Se consultan las 3 poblaciones con los filtros del diseño
+    // 1. The 3 populations are queried with the design filters
     expect(prisma.miembro.findMany).toHaveBeenCalledTimes(3);
     expect(vi.mocked(prisma.miembro.findMany).mock.calls[0][0]).toEqual(
       expect.objectContaining({ where: { estado: "ACTIVO" } }),
@@ -168,7 +168,7 @@ describe("reporteController.generarCenso", () => {
       expect.objectContaining({ where: { estado: "BAJA" } }),
     );
 
-    // 2. Se invoca el script con python3, la ruta del formateador y los temporales
+    // 2. The script is invoked with python3, the formatter path and the temp files
     expect(spawnMock).toHaveBeenCalledTimes(1);
     const [cmd, args] = spawnMock.mock.calls[0] as [string, string[]];
     expect(cmd).toBe("python3");
@@ -179,8 +179,8 @@ describe("reporteController.generarCenso", () => {
       ),
     );
 
-    // 3. El JSON temporal contiene las 3 secciones con las claves exactas del template.
-    //    El JSON intermedio sigue en os.tmpdir(); el xlsx va a la carpeta compartida.
+    // 3. The temp JSON holds the 3 sections with the exact template keys.
+    //    The intermediate JSON stays in os.tmpdir(); the xlsx goes to the shared dir.
     const { tmpJson, tmpXlsx } = getTmpPaths();
     expect(tmpJson).toMatch(/reporte-\d+-[a-z0-9]+\.json$/);
     expect(tmpXlsx).toBe(path.join(reportesDir, `censo-${new Date().getFullYear()}.xlsx`));
@@ -191,7 +191,7 @@ describe("reporteController.generarCenso", () => {
       bajas: Record<string, unknown>[];
     };
 
-    // Sección censo: 18 claves del template (VIGENCIA real del template: "1. VIGENCIA")
+    // Census section: 18 template keys (real template VIGENCIA: "1. VIGENCIA")
     expect(data.censo).toHaveLength(1);
     expect(Object.keys(data.censo[0])).toHaveLength(18);
     expect(data.censo[0]).toEqual({
@@ -215,7 +215,7 @@ describe("reporteController.generarCenso", () => {
       USUARIO: "SISTEMA",
     });
 
-    // Sección altas: 15 claves, NOVEDAD explícita del miembro
+    // Altas section: 15 keys, explicit member NOVEDAD
     expect(data.altas).toHaveLength(1);
     expect(Object.keys(data.altas[0])).toHaveLength(15);
     expect(data.altas[0]).toEqual(
@@ -226,7 +226,7 @@ describe("reporteController.generarCenso", () => {
       }),
     );
 
-    // Sección bajas: 15 claves, NOVEDAD conserva la del miembro
+    // Bajas section: 15 keys, NOVEDAD keeps the member's value
     expect(data.bajas).toHaveLength(1);
     expect(Object.keys(data.bajas[0])).toHaveLength(15);
     expect(data.bajas[0]).toEqual(
@@ -237,7 +237,7 @@ describe("reporteController.generarCenso", () => {
       }),
     );
 
-    // 4. Se descarga el xlsx desde la carpeta compartida con el nombre censo-{año}.xlsx
+    // 4. The xlsx is downloaded from the shared dir as censo-{year}.xlsx
     expect(res.download).toHaveBeenCalledTimes(1);
     expect(res.download).toHaveBeenCalledWith(
       path.join(reportesDir, `censo-${new Date().getFullYear()}.xlsx`),
@@ -287,7 +287,7 @@ describe("reporteController.generarCenso", () => {
         NOVEDAD: "ALTA NUEVA",
       }),
     );
-    // Las filas de altas NO llevan DIRECCION/TELEFONO/USUARIO (solo 15 claves)
+    // Altas rows have NO DIRECCION/TELEFONO/USUARIO (15 keys only)
     expect(data.altas[0]).not.toHaveProperty("DIRECCION");
     expect(data.altas[0]).not.toHaveProperty("USUARIO");
   });
@@ -335,18 +335,18 @@ describe("reporteController.generarCenso", () => {
 
     const { tmpJson, tmpXlsx } = getTmpPaths();
     expect(tmpXlsx).toBe(path.join(reportesDir, `censo-${new Date().getFullYear()}.xlsx`));
-    // El script (mockeado) no produce el xlsx; simular su salida para verificar
-    // que el archivo exitoso PERSISTE en la carpeta compartida.
+    // The (mocked) script does not produce the xlsx; simulate its output to verify
+    // the successful file PERSISTS in the shared dir.
     writeFileSync(tmpXlsx, "mock-xlsx");
     expect(existsSync(tmpJson)).toBe(true);
     expect(existsSync(tmpXlsx)).toBe(true);
 
-    // Invocar el callback de res.download simula la transferencia completada
+    // Invoking the res.download callback simulates the completed transfer
     const callback = (res.download as ReturnType<typeof vi.fn>).mock.calls[0][2] as () => void;
     callback();
 
     expect(existsSync(tmpJson)).toBe(false);
-    // Éxito → el reporte NO se limpia (decisión 2026-08-14, issue #60)
+    // Success → the report is NOT cleaned (decision 2026-08-14, issue #60)
     expect(existsSync(tmpXlsx)).toBe(true);
   });
 
@@ -356,8 +356,8 @@ describe("reporteController.generarCenso", () => {
       .mockResolvedValueOnce([] as never)
       .mockResolvedValueOnce([] as never);
 
-    // El formateador falla DESPUÉS de crear un xlsx parcial (writeOnClose):
-    // el parcial es de ESTA request, así que la limpieza debe removerlo.
+    // The formatter fails AFTER creating a partial xlsx (writeOnClose):
+    // the partial belongs to THIS request, so cleanup must remove it.
     const partialXlsx = path.join(reportesDir, `censo-${new Date().getFullYear()}.xlsx`);
     spawnMock.mockReturnValue(fakeChildProcess(1, partialXlsx));
 
@@ -378,7 +378,7 @@ describe("reporteController.generarCenso", () => {
   });
 
   it("preserva un reporte previo válido cuando esta request falla (R4-001)", async () => {
-    // Reporte válido ya persistido por una generación anterior del mismo año.
+    // Valid report already persisted by a previous generation this year.
     const previo = path.join(reportesDir, `censo-${new Date().getFullYear()}.xlsx`);
     writeFileSync(previo, "reporte-previo-valido");
 
@@ -387,7 +387,7 @@ describe("reporteController.generarCenso", () => {
       .mockResolvedValueOnce([] as never)
       .mockResolvedValueOnce([] as never);
 
-    // Esta request falla sin escribir nada: el catch NO debe tocar el previo.
+    // This request fails without writing anything: the catch must not touch the previous report.
     spawnMock.mockReturnValue(fakeChildProcess(1));
 
     const req = {} as Request;
@@ -400,7 +400,7 @@ describe("reporteController.generarCenso", () => {
     expect(existsSync(previo)).toBe(true);
     expect(readFileSync(previo, "utf-8")).toBe("reporte-previo-valido");
 
-    // El JSON temporal de la request fallida sí se limpia.
+    // The temp JSON of the failed request is still cleaned up.
     const { tmpJson } = getTmpPaths();
     expect(existsSync(tmpJson)).toBe(false);
   });
