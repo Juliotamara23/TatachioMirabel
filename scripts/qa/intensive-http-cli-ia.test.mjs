@@ -146,9 +146,6 @@ function parseCliJson(stdout) {
   }
 }
 
-const isKnownCliCreateBug = (res) =>
-  /too many arguments for 'create'|Expected 0 arguments but got 1/.test(res.stderr || "");
-
 function assert(cond, msg) {
   if (!cond) throw new Error(msg);
 }
@@ -524,10 +521,6 @@ async function main() {
           cabildoId: CABILDO_TATACHIO,
         });
         const res = runCli(["miembros", "create", "--json", body], { base, token: adminToken });
-        if (isKnownCliCreateBug(res)) {
-          console.log("  ⚠ KNOWN CLI BUG: Commander 'too many arguments for create' — create via CLI documented, pass");
-          return;
-        }
         assert(res.code === 0, `expected exit 0, got ${res.code}: ${res.stderr.slice(0, 300)}`);
         const parsed = parseCliJson(res.stdout);
         assert(parsed.data?.id, `response missing id: ${res.stdout.slice(0, 300)}`);
@@ -549,10 +542,7 @@ async function main() {
       });
 
       await record("C", "cli miembros update <id> --json (admin) → exit 0 + updated", async () => {
-        if (!cliCreated.id) {
-          console.log("  ⚠ SKIPPED body: createdId unavailable (known CLI create bug)");
-          return;
-        }
+        assert(cliCreated.id, "no member id available for update (CLI create must succeed)");
         const res = runCli(["miembros", "update", cliCreated.id, "--json", JSON.stringify({ nombres: "QA CLI UPDATED" })], {
           base,
           token: adminToken,
@@ -563,7 +553,8 @@ async function main() {
       });
 
       await record("C", "cli miembros delete <id> --json (admin) → exit 0 + member gone", async () => {
-        // Create a throwaway member via the API (CLI create has the known Commander bug)
+        // Create a throwaway member via the API for the delete flow (the CLI
+        // create path is already covered by the create test above).
         const { status: createStatus, data: created } = await httpJson(base, "POST", "/api/miembros", {
           token: adminToken,
           body: {
@@ -625,13 +616,10 @@ async function main() {
           cabildoId: CABILDO_SAN_JUAN,
         });
         const res = runCli(["miembros", "create", "--json", body], { base, token: capitanaToken });
-        if (isKnownCliCreateBug(res)) {
-          console.log("  ⚠ KNOWN CLI BUG: Commander create parsing — denial covered at API level (B)");
-          return;
-        }
-        // The backend returns 403; the CLI's ApiError surfaces only the generic
-        // message ("API request failed"), so denial is proven by non-zero exit
-        // plus an error envelope. The strict 403 is asserted at API level (B).
+        // The backend returns 403 (cabildoId mismatch); the CLI's ApiError
+        // surfaces only the generic message ("API request failed"), so denial
+        // is proven by non-zero exit plus an error envelope. The strict 403 is
+        // asserted at API level (B).
         assert(res.code !== 0, "expected non-zero exit for forbidden create");
         const out = `${res.stderr} ${res.stdout}`;
         assert(/ok.?:\s?false|error|403|denegad/i.test(out), `expected error envelope, got: ${out.slice(0, 300)}`);
