@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { spawnSync } from "node:child_process";
 import { runSuite, createTestHelper } from "../../lib/suite-runner.mjs";
-import { loginAdmin } from "../../lib/test-utils.mjs";
+import { loginAdmin, loginCapitana } from "../../lib/test-utils.mjs";
 
 const FAKE_UUID = "00000000-0000-0000-0000-000000000000";
 const CABILDO_ID = "5dee2149-4442-486a-9ec5-3c20479d8261";
@@ -298,8 +298,60 @@ await runSuite({ name: "cli/miembros", seed: true, start: true }, async ({ base 
     }
   });
 
-  // Note: CLI does not expose a delete subcommand (only list, get, create, update)
-  // Delete is tested at API level only.
+  // ── miembros delete <id> --json ──────────────────────────────────────
+  // Create a throwaway member via the API (the CLI create command has the
+  // known Commander bug above) so the delete command has a real record.
+  let deleteTargetId = null;
+  {
+    const res = await fetch(`${base}/api/miembros`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${adminToken}` },
+      body: JSON.stringify({ ...VALID_MEMBER, numeroDocumento: "88774455" }),
+    });
+    const data = await res.json();
+    if (res.status !== 201 || !data.id) {
+      throw new Error(`Failed to create member for delete test: ${res.status} ${JSON.stringify(data)}`);
+    }
+    deleteTargetId = data.id;
+  }
+
+  await helper.test("miembros delete <id> --json deletes member as admin (exit 0)", async () => {
+    const res = runCli(base, adminToken, ["miembros", "delete", deleteTargetId, "--json"]);
+    if (res.status !== 0) throw new Error(`Expected exit 0, got ${res.status}: ${res.stderr}`);
+    const data = parseJsonOutput(res.stdout);
+    if (typeof data !== "string" || !data.toLowerCase().includes("deleted")) {
+      throw new Error(`Expected success message, got: ${JSON.stringify(data)}`);
+    }
+
+    const check = await fetch(`${base}/api/miembros/${deleteTargetId}`, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+    });
+    if (check.status !== 404) throw new Error(`Expected 404 after delete, got ${check.status}`);
+  });
+
+  await helper.test("miembros delete <fake-uuid> --json returns error (404)", async () => {
+    const res = runCli(base, adminToken, ["miembros", "delete", FAKE_UUID, "--json"]);
+    if (res.status === 0) throw new Error("Expected non-zero exit for fake UUID");
+  });
+
+  await helper.test("miembros delete <id> --json as capitana returns error (admin-only)", async () => {
+    const capitanaToken = await loginCapitana(base);
+    const res = runCli(base, capitanaToken, ["miembros", "delete", existingMiembroId, "--json"]);
+    if (res.status === 0) throw new Error("Expected non-zero exit for capitana delete");
+    const out = `${res.stderr} ${res.stdout}`.toLowerCase();
+    if (!out.includes("error") && !out.includes("403") && !out.includes("denegad")) {
+      throw new Error(`Expected error output, got: ${res.stderr} ${res.stdout}`);
+    }
+  });
+
+  await helper.test("miembros delete <id> --json without token returns auth error", async () => {
+    const res = runCliNoToken(base, ["miembros", "delete", existingMiembroId, "--json"]);
+    if (res.status === 0) throw new Error("Expected non-zero exit without token");
+    const stderr = res.stderr.toLowerCase();
+    if (!stderr.includes("token") && !stderr.includes("auth") && !stderr.includes("login")) {
+      throw new Error(`Expected auth error in stderr, got: ${res.stderr}`);
+    }
+  });
 
   return helper.finish();
 });

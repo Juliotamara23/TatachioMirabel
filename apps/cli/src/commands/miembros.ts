@@ -3,7 +3,7 @@ import { resolveToken, getBaseUrl } from "../config.js";
 import { display, displayError, setExitCode } from "../display.js";
 import { isPipeMode } from "../display.js";
 import type { OutputMode } from "../types.js";
-import { listMiembros, getMiembro, createMiembro, updateMiembro } from "../api/miembros.js";
+import { listMiembros, getMiembro, createMiembro, updateMiembro, deleteMiembro } from "../api/miembros.js";
 
 const outputMode = (isPipeMode() ? "json" : "pretty") as OutputMode;
 
@@ -248,6 +248,30 @@ export async function updateMiembroCmd(
   }
 }
 
+export async function deleteMiembroCmd(
+  id: string,
+): Promise<{ success: boolean; data?: unknown; error?: string }> {
+  try {
+    const token = await resolveToken();
+    if (!token) throw new Error("No authentication token found. Please login first.");
+    const baseUrl = await getBaseUrl();
+
+    // The backend answers DELETE /api/miembros/:id with 204 No Content,
+    // so there is no response body to display — emit a confirmation instead.
+    await deleteMiembro(baseUrl, token, id);
+    const confirmation = "Member deleted successfully";
+    display(confirmation, outputMode);
+    setExitCode(0);
+    return { success: true, data: confirmation };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Unknown error";
+    displayError(err, outputMode);
+    const status = (err as { status?: number }).status;
+    setExitCode(status && status >= 500 ? 2 : 1);
+    return { success: false, error: message };
+  }
+}
+
 export function setupMiembrosCommand(program: Command): void {
   program
     .command("list")
@@ -314,5 +338,13 @@ export function setupMiembrosCommand(program: Command): void {
       } else {
         await updateMiembroCmd(id);
       }
+    });
+
+  program
+    .command("delete <id>")
+    .description("Delete a member")
+    .option("--json", "Output in JSON format")
+    .action(async (id) => {
+      await deleteMiembroCmd(id);
     });
 }
