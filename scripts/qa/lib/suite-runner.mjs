@@ -2,6 +2,7 @@
 import { execSync } from "node:child_process";
 import { resolve, join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { obtenerQaEnv, limpiarQaGlobal } from "./isolation.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const projectRoot = resolve(__dirname, "..", "..", "..");
@@ -41,10 +42,13 @@ export async function runSuite({ name, seed = true, start = true, env = {} }, te
     if (start) {
       console.log(`[${name}] Starting server...`);
       const { startServer } = await import("./server.mjs");
+      // The QA server ALWAYS runs with the isolated QA_HOME (issue #62):
+      // fake HOME + TATACHIO_REPORTES_DIR — never touches the real ~/.tatachio.
+      const serverEnv = { ...(await obtenerQaEnv()), ...env };
       // Each suite gets a unique port base to avoid TIME_WAIT collisions from
       // the previous suite's server (ports linger ~60s after SIGTERM).
       const portBase = 3500 + (nextSuitePort++ * 5);
-      serverCtx = await startServer({ env, port: portBase });
+      serverCtx = await startServer({ env: serverEnv, port: portBase });
       base = `http://localhost:${serverCtx.port}`;
       global.__QA_BASE_URL__ = base;
       console.log(`[${name}] Server ready at ${base}`);
@@ -89,6 +93,12 @@ export async function runSuite({ name, seed = true, start = true, env = {} }, te
       } catch (stopError) {
         console.error(`[${name}] Failed to stop server:`, stopError.message);
       }
+    }
+    // Step 4b: Destroy the process QA_HOME (test → report → destroy)
+    try {
+      await limpiarQaGlobal();
+    } catch (cleanupError) {
+      console.error(`[${name}] QA cleanup failed:`, cleanupError.message);
     }
   }
 

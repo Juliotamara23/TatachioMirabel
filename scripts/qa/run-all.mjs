@@ -16,6 +16,7 @@ const qaDir = join(projectRoot, "scripts", "qa");
 async function runAllSuites() {
   // Import shared utilities
   const { createReporter, addSuite, writeReport } = await import("./lib/reporter.mjs");
+  const { cleanupQa } = await import("./cleanup.mjs");
 
   const reporter = createReporter();
 
@@ -45,6 +46,10 @@ async function runAllSuites() {
   let anyWarn = false;
 
   try {
+    // Test → report → destroy: clean residue from previous runs
+    console.log("\n========== CLEANUP (start) ==========");
+    cleanupQa();
+
     // Seed ONCE for all suites (suites skip their own seed via QA_SKIP_SEED)
     console.log("\n========== SEED DATABASE (once) ==========");
     execSync("node lib/seed-db.mjs", { cwd: qaDir, stdio: "inherit" });
@@ -54,7 +59,9 @@ async function runAllSuites() {
     // The orchestrator runs them sequentially and aggregates the per-suite reports.
     for (let i = 0; i < suites.length; i++) {
       const suite = suites[i];
-      const suiteName = suite.split("/").pop(); // e.g., "health", "auth", "auth-bypass"
+      // Suites write their report using the name passed to runSuite, e.g.
+      // "api/health" (no "suites/" prefix) — use that as the accumulation key.
+      const suiteName = suite.replace("suites/", "");
       const suitePath = `${suite}.test.mjs`;
 
       console.log(`\n========== [${i + 1}/${suites.length}] ${suiteName.toUpperCase()} =========="`);
@@ -155,6 +162,10 @@ async function runAllSuites() {
 
     console.log(`\nReport written to ${qaDir}/qa-report.json`);
     console.log(`Report written to ${qaDir}/qa-report.xml`);
+
+    // Test → report → destroy: no residue when done
+    console.log("\n========== CLEANUP (end) ==========");
+    cleanupQa();
 
     process.exit(anyFailed ? 1 : 0);
 
