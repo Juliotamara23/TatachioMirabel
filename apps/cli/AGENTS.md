@@ -51,7 +51,6 @@ When performing these actions, ALWAYS invoke the corresponding skill FIRST:
 - **Interactive prompts:** Use `@inquirer/prompts` only outside pipe mode. Do not prompt when stdin is piped.
 - **Output mode:** `OutputMode = "pretty" | "json"`. Default is `json` when piped, `pretty` otherwise. Respect a `--json` flag on each command.
 - **Config:** Stored in `~/.tatachio/config.json` with mode `0o600`. Never print the token to logs. Env overrides: `TATACHIO_TOKEN`, `TATACHIO_BASE_URL`.
-- **Chat history:** Append-only JSONL at `~/.tatachio/history.jsonl`.
 - **Structure:** `src/api/` (HTTP layer), `src/commands/` (command handlers), `src/display.ts` (output helpers + exit codes), `src/config.ts` (config file access).
 - **Tests:** Vitest. Unit tests cover pure helpers (client, display, config); integration tests use MSW to mock the backend API. Do not hit a live server in tests.
 
@@ -59,7 +58,7 @@ When performing these actions, ALWAYS invoke the corresponding skill FIRST:
 
 ## Project Overview
 
-Tatachio Mirabel CLI is an admin interface for the Tatachio backend (cabildo member management, chat, and reports).
+Tatachio Mirabel CLI is an admin interface for the Tatachio backend (cabildo member management and reports). The CLI exposes server tools only (`login`, `logout`, `miembros`, `familias`, `cabildos`); chat happens in OpenCode (which invokes these CLI tools) and in the web.
 
 | Component | Location | Tech Stack |
 |-----------|----------|------------|
