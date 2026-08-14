@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
 import { promises as fs } from "node:fs";
@@ -426,6 +426,155 @@ describe("CLI miembros delete", () => {
 
       expect(capturedRequests).toHaveLength(1);
       expect(capturedRequests[0].auth).toBe("Bearer bad-token");
+      expect(process.exitCode).toBe(1);
+    });
+  });
+
+describe("CLI miembros exit codes on server errors", () => {
+    let program: Command;
+    let mockServer: ReturnType<typeof setupServer>;
+    let errorSpy: ReturnType<typeof vi.spyOn>;
+    let listStatus = 500;
+    let getStatus = 500;
+    let createStatus = 500;
+    let updateStatus = 500;
+    let deleteStatus = 500;
+
+    beforeEach(async () => {
+      await writeConfig();
+      listStatus = 500;
+      getStatus = 500;
+      createStatus = 500;
+      updateStatus = 500;
+      deleteStatus = 500;
+      errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+      mockServer = setupServer(
+        http.get(`${BASE_URL}/api/miembros`, () =>
+          HttpResponse.json({ error: "Internal Server Error" }, { status: listStatus }),
+        ),
+        http.get(`${BASE_URL}/api/miembros/:id`, () =>
+          HttpResponse.json({ error: "Internal Server Error" }, { status: getStatus }),
+        ),
+        http.post(`${BASE_URL}/api/miembros`, () =>
+          HttpResponse.json({ error: "Internal Server Error" }, { status: createStatus }),
+        ),
+        http.put(`${BASE_URL}/api/miembros/:id`, () =>
+          HttpResponse.json({ error: "Internal Server Error" }, { status: updateStatus }),
+        ),
+        http.delete(`${BASE_URL}/api/miembros/:id`, () =>
+          HttpResponse.json({ error: "Internal Server Error" }, { status: deleteStatus }),
+        ),
+      );
+      mockServer.listen();
+
+      program = new Command();
+      program.name("tatachio").allowExcessArguments(false);
+      const miembrosCmd = program.command("miembros").description("Manage members");
+      setupMiembrosCommand(miembrosCmd);
+    });
+
+    afterEach(async () => {
+      await clearConfig();
+      mockServer.resetHandlers();
+      mockServer.close();
+      errorSpy.mockRestore();
+      process.exitCode = undefined;
+    });
+
+    function expectErrorOnStderr(): void {
+      const messages = errorSpy.mock.calls.map((call) => String(call[0])).join("\n");
+      expect(messages).toContain("API request failed");
+    }
+
+    it("list exits 2 and prints error to stderr when server returns 500", async () => {
+      await program.parseAsync(["miembros", "list"], { from: "user" });
+
+      expect(process.exitCode).toBe(2);
+      expectErrorOnStderr();
+    });
+
+    it("list exits 1 on 401 (4xx guard)", async () => {
+      listStatus = 401;
+
+      await program.parseAsync(["miembros", "list"], { from: "user" });
+
+      expect(process.exitCode).toBe(1);
+    });
+
+    it("get exits 2 and prints error to stderr when server returns 500", async () => {
+      await program.parseAsync(["miembros", "get", "m1"], { from: "user" });
+
+      expect(process.exitCode).toBe(2);
+      expectErrorOnStderr();
+    });
+
+    it("get exits 1 on 404 (4xx guard)", async () => {
+      getStatus = 404;
+
+      await program.parseAsync(["miembros", "get", "nonexistent"], { from: "user" });
+
+      expect(process.exitCode).toBe(1);
+    });
+
+    it("create exits 2 and prints error to stderr when server returns 500", async () => {
+      const validJson = JSON.stringify({
+        tipoIdentificacion: "CC",
+        numeroDocumento: "123456789",
+        nombres: "Test",
+        apellidos: "User",
+        fechaNacimiento: "01/01/1990",
+        parentesco: "PA",
+        sexo: "M",
+        integrantes: 1,
+        familiaId: "f1",
+      });
+
+      await program.parseAsync(["miembros", "create", "--json", validJson], { from: "user" });
+
+      expect(process.exitCode).toBe(2);
+      expectErrorOnStderr();
+    });
+
+    it("create exits 1 on 400 (4xx guard)", async () => {
+      createStatus = 400;
+      const validJson = JSON.stringify({ nombres: "Test" });
+
+      await program.parseAsync(["miembros", "create", "--json", validJson], { from: "user" });
+
+      expect(process.exitCode).toBe(1);
+    });
+
+    it("update exits 2 and prints error to stderr when server returns 500", async () => {
+      const updateJson = JSON.stringify({ nombres: "Updated" });
+
+      await program.parseAsync(["miembros", "update", "m1", "--json", updateJson], { from: "user" });
+
+      expect(process.exitCode).toBe(2);
+      expectErrorOnStderr();
+    });
+
+    it("update exits 1 on 404 (4xx guard)", async () => {
+      updateStatus = 404;
+      const updateJson = JSON.stringify({ nombres: "Updated" });
+
+      await program.parseAsync(["miembros", "update", "nonexistent", "--json", updateJson], { from: "user" });
+
+      expect(process.exitCode).toBe(1);
+    });
+
+    it("delete exits 2 and prints error to stderr when server returns 500", async () => {
+      await program.parseAsync(["miembros", "delete", "m1"], { from: "user" });
+
+      expect(process.exitCode).toBe(2);
+      expectErrorOnStderr();
+    });
+
+    it("delete exits 1 on 404 (4xx guard)", async () => {
+      deleteStatus = 404;
+
+      await program.parseAsync(["miembros", "delete", "nonexistent"], { from: "user" });
+
       expect(process.exitCode).toBe(1);
     });
   });

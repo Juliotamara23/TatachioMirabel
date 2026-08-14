@@ -1,11 +1,13 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
 import { promises as fs } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
+import { Command } from "commander";
 
 import { listFamilias, getFamilia } from "../../src/api/familias.js";
+import { setupFamiliasCommand } from "../../src/commands/familias.js";
 
 const BASE_URL = "http://localhost:3000";
 
@@ -116,3 +118,76 @@ describe("Familias API", () => {
       .toMatchObject({ status: 404 });
   });
 });
+
+describe("CLI familias exit codes on server errors", () => {
+    let program: Command;
+    let mockServer: ReturnType<typeof setupServer>;
+    let errorSpy: ReturnType<typeof vi.spyOn>;
+    let listStatus = 500;
+    let getStatus = 500;
+
+    beforeEach(async () => {
+      await writeConfig();
+      listStatus = 500;
+      getStatus = 500;
+      errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+      mockServer = setupServer(
+        http.get(`${BASE_URL}/api/familias`, () =>
+          HttpResponse.json({ error: "Internal Server Error" }, { status: listStatus }),
+        ),
+        http.get(`${BASE_URL}/api/familias/:id`, () =>
+          HttpResponse.json({ error: "Internal Server Error" }, { status: getStatus }),
+        ),
+      );
+      mockServer.listen();
+
+      program = new Command();
+      program.name("tatachio").allowExcessArguments(false);
+      const familiasCmd = program.command("familias").description("Manage families");
+      setupFamiliasCommand(familiasCmd);
+    });
+
+    afterEach(async () => {
+      await clearConfig();
+      mockServer.resetHandlers();
+      mockServer.close();
+      errorSpy.mockRestore();
+      process.exitCode = undefined;
+    });
+
+    function expectErrorOnStderr(): void {
+      const messages = errorSpy.mock.calls.map((call) => String(call[0])).join("\n");
+      expect(messages).toContain("API request failed");
+    }
+
+    it("list exits 2 and prints error to stderr when server returns 500", async () => {
+      await program.parseAsync(["familias", "list"], { from: "user" });
+
+      expect(process.exitCode).toBe(2);
+      expectErrorOnStderr();
+    });
+
+    it("list exits 1 on 401 (4xx guard)", async () => {
+      listStatus = 401;
+
+      await program.parseAsync(["familias", "list"], { from: "user" });
+
+      expect(process.exitCode).toBe(1);
+    });
+
+    it("get exits 2 and prints error to stderr when server returns 500", async () => {
+      await program.parseAsync(["familias", "get", "f1"], { from: "user" });
+
+      expect(process.exitCode).toBe(2);
+      expectErrorOnStderr();
+    });
+
+    it("get exits 1 on 404 (4xx guard)", async () => {
+      getStatus = 404;
+
+      await program.parseAsync(["familias", "get", "nonexistent"], { from: "user" });
+
+      expect(process.exitCode).toBe(1);
+    });
+  });
