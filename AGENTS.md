@@ -65,3 +65,11 @@ Follow conventional-commit style: `<type>[scope]: <description>`
 Before creating a PR:
 1. Complete checklist in `.github/pull_request_template.md`
 2. Run all relevant tests and linters
+
+## QA Disposable (issue #62)
+
+The QA (vitest CLI tests + `scripts/qa/` suites) exercises the REAL backend/CLI but ALWAYS against **fake, disposable data**: isolated `QA_HOME` (fake `$HOME` + `TATACHIO_REPORTES_DIR`), `qa.db`, never the user's real `~/.tatachio` or `mirabel.db`. Principle: **test → report → destroy**.
+
+- Never modify/delete the real `~/.tatachio/config.json`, `~/.tatachio/reportes/`, or any production artifact.
+- Before pushing, run `node scripts/qa/cleanup.mjs` (or rely on the pre-push hook: `git config core.hooksPath .githooks`).
+- Code comments are always in English.
