@@ -146,6 +146,10 @@ export async function generarCenso(
   mkdirSync(reportesDir, { recursive: true });
   const nombreXlsx = `censo-${new Date().getFullYear()}.xlsx`;
   const xlsxPath = path.join(reportesDir, nombreXlsx);
+  // Si el reporte ya existía (generación previa del mismo año), un fallo de
+  // ESTA request no debe borrarlo: se limpia solo el xlsx que esta request
+  // llegó a crear (fix R4-001 — el path es compartido entre requests).
+  const xlsxPreexistia = existsSync(xlsxPath);
 
   try {
     const [censo, altas, bajas] = await Promise.all([
@@ -182,8 +186,12 @@ export async function generarCenso(
       }
     });
   } catch (error) {
-    // Falla: limpieza total, incluido un xlsx parcial que haya quedado.
-    limpiarTemporales([tmpJson, xlsxPath]);
+    // Falla: se limpia el JSON temporal siempre; el xlsx compartido SOLO si
+    // esta request lo creó (si preexistía un reporte válido, se preserva).
+    limpiarTemporales([tmpJson]);
+    if (!xlsxPreexistia) {
+      limpiarTemporales([xlsxPath]);
+    }
     next(error);
   }
 }

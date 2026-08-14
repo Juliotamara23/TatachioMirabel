@@ -65,15 +65,20 @@ function makeMiembro(overrides: Record<string, unknown> = {}) {
   };
 }
 
-/** Simula un proceso hijo que emite 'close' con el código indicado */
-function fakeChildProcess(exitCode: number) {
+/** Simula un proceso hijo que emite 'close' con el código indicado.
+ *  Si `writeOnClose` es un path, el archivo se escribe JUSTO ANTES de cerrar —
+ *  simula el efecto del formateador (crear el xlsx) antes de fallar. */
+function fakeChildProcess(exitCode: number, writeOnClose?: string) {
   const child = new EventEmitter() as EventEmitter & {
     stderr: EventEmitter;
     stdout: EventEmitter;
   };
   child.stderr = new EventEmitter();
   child.stdout = new EventEmitter();
-  process.nextTick(() => child.emit("close", exitCode));
+  process.nextTick(() => {
+    if (writeOnClose) writeFileSync(writeOnClose, "parcial");
+    child.emit("close", exitCode);
+  });
   return child;
 }
 
@@ -345,18 +350,16 @@ describe("reporteController.generarCenso", () => {
     expect(existsSync(tmpXlsx)).toBe(true);
   });
 
-  it("propaga el error y limpia (json temporal + xlsx parcial) cuando el script falla", async () => {
+  it("propaga el error y limpia (json temporal + xlsx parcial propio) cuando el script falla", async () => {
     vi.mocked(prisma.miembro.findMany)
       .mockResolvedValueOnce([] as never)
       .mockResolvedValueOnce([] as never)
       .mockResolvedValueOnce([] as never);
 
-    spawnMock.mockReturnValue(fakeChildProcess(1));
-
-    // Simula una salida parcial del formateador: si falla, la limpieza en el
-    // catch debe remover también el xlsx de la carpeta compartida.
+    // El formateador falla DESPUÉS de crear un xlsx parcial (writeOnClose):
+    // el parcial es de ESTA request, así que la limpieza debe removerlo.
     const partialXlsx = path.join(reportesDir, `censo-${new Date().getFullYear()}.xlsx`);
-    writeFileSync(partialXlsx, "parcial");
+    spawnMock.mockReturnValue(fakeChildProcess(1, partialXlsx));
 
     const req = {} as Request;
     const res = mockRes();
@@ -372,5 +375,33 @@ describe("reporteController.generarCenso", () => {
     expect(tmpXlsx).toBe(partialXlsx);
     expect(existsSync(tmpJson)).toBe(false);
     expect(existsSync(tmpXlsx)).toBe(false);
+  });
+
+  it("preserva un reporte previo válido cuando esta request falla (R4-001)", async () => {
+    // Reporte válido ya persistido por una generación anterior del mismo año.
+    const previo = path.join(reportesDir, `censo-${new Date().getFullYear()}.xlsx`);
+    writeFileSync(previo, "reporte-previo-valido");
+
+    vi.mocked(prisma.miembro.findMany)
+      .mockResolvedValueOnce([] as never)
+      .mockResolvedValueOnce([] as never)
+      .mockResolvedValueOnce([] as never);
+
+    // Esta request falla sin escribir nada: el catch NO debe tocar el previo.
+    spawnMock.mockReturnValue(fakeChildProcess(1));
+
+    const req = {} as Request;
+    const res = mockRes();
+    const next = mockNext();
+
+    await generarCenso(req, res, next);
+
+    expect(res.download).not.toHaveBeenCalled();
+    expect(existsSync(previo)).toBe(true);
+    expect(readFileSync(previo, "utf-8")).toBe("reporte-previo-valido");
+
+    // El JSON temporal de la request fallida sí se limpia.
+    const { tmpJson } = getTmpPaths();
+    expect(existsSync(tmpJson)).toBe(false);
   });
 });
