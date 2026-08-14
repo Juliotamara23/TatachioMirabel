@@ -569,4 +569,12 @@ describe("CLI miembros exit codes on server errors", () => {
       expect(process.exitCode).toBe(2);
       expectErrorOnStderr();
     });
+
+    it("delete exits 1 on 404 (4xx guard)", async () => {
+      deleteStatus = 404;
+
+      await program.parseAsync(["miembros", "delete", "nonexistent"], { from: "user" });
+
+      expect(process.exitCode).toBe(1);
+    });
   });
