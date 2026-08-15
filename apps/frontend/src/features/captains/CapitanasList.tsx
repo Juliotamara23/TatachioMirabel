@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useCabildo } from "../../contexts/CabildoContext";
 import { listCaptains, removeCaptain } from "../../lib/api/admin";
 import { ApiError } from "../../lib/api/client";
+import { ConfirmDialog } from "../../components/ConfirmDialog";
 import type { Captain } from "../../types/api";
 
 export function CapitanasList() {
@@ -9,6 +10,7 @@ export function CapitanasList() {
   const [captains, setCaptains] = useState<Captain[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [dialogCaptain, setDialogCaptain] = useState<Captain | null>(null);
 
   const load = useCallback(async () => {
     if (!selectedId) return;
@@ -30,8 +32,6 @@ export function CapitanasList() {
   const handleUnassign = async (captain: Captain) => {
     if (!selectedId) return;
 
-    // Pre-check: disable when count ≤ 1 (handled in JSX below)
-    // Race-safe: on 409 show friendly message
     try {
       await removeCaptain(selectedId, captain.id);
       await load();
@@ -42,6 +42,7 @@ export function CapitanasList() {
         setError("Error al remover capitana.");
       }
     }
+    setDialogCaptain(null);
   };
 
   if (loading) {
@@ -81,7 +82,7 @@ export function CapitanasList() {
                 </td>
                 <td className="px-4 py-2">
                   <button
-                    onClick={() => handleUnassign(c)}
+                    onClick={() => setDialogCaptain(c)}
                     disabled={captains.length <= 1}
                     className="text-xs text-red-600 hover:underline disabled:cursor-not-allowed disabled:opacity-50"
                     data-testid={`unassign-btn-${c.id}`}
@@ -95,6 +96,15 @@ export function CapitanasList() {
           </tbody>
         </table>
       </div>
+
+      <ConfirmDialog
+        open={dialogCaptain !== null}
+        title="Desasignar capitana"
+        message={`¿Estás seguro de desasignar a ${dialogCaptain?.nombre ?? ""}?`}
+        confirmLabel="Desasignar"
+        onConfirm={() => dialogCaptain && handleUnassign(dialogCaptain)}
+        onCancel={() => setDialogCaptain(null)}
+      />
     </div>
   );
 }
