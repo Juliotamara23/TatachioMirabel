@@ -58,7 +58,11 @@ export const register = async (req: Request, res: Response) => {
     // Role-cabildo mutual exclusion (issue #72):
     // CAPTAIN requires exactly one cabildo assignment; ADMINISTRATOR must NOT
     // have one. Catching mismatches here prevents orphan captains and admin
-    // accounts that silently inherit a cabildo scope.
+    // accounts that silently inherit a cabildo scope. Unknown roles are
+    // rejected explicitly (R1-003) instead of falling through to the DB.
+    if (rol !== "CAPTAIN" && rol !== "ADMINISTRATOR") {
+      return res.status(400).json({ error: `Invalid rol: ${rol}. Expected CAPTAIN or ADMINISTRATOR` });
+    }
     if (rol === "CAPTAIN") {
       if (!cabildoId) {
         return res.status(400).json({ error: "cabildoId is required for CAPTAIN role" });

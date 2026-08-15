@@ -99,6 +99,29 @@ describe("adminController", () => {
       expect(res.status).toHaveBeenCalledWith(204);
       expect(prisma.$executeRaw).toHaveBeenCalledTimes(1);
     });
+
+    it("returns 409 when the target assignment's user is not CAPTAIN (R1-001, issue #72)", async () => {
+      const req = {
+        params: { cabildoId: "cab-1", usuarioId: "usr-1" },
+      } as unknown as Request;
+      const res = mockRes();
+
+      vi.mocked(prisma.usuarioCabildo.findUnique).mockResolvedValue({
+        usuarioId: "usr-1",
+        cabildoId: "cab-1",
+        rolEnCabildo: "CAPTAIN",
+      });
+      // The atomic DELETE affects 0 rows because the target user is not a
+      // CAPTAIN (the EXISTS guard rejects the row) → same 409 contract.
+      vi.mocked(prisma.$executeRaw).mockResolvedValue(0);
+
+      await removeCapitana(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(409);
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({ error: "El cabildo debe tener al menos una capitana" })
+      );
+    });
   });
 
   // ── listCaptains ────────────────────────────────────────────────────────
@@ -160,6 +183,19 @@ describe("adminController", () => {
         })
       );
       expect(res.status).toHaveBeenCalledWith(200);
+    });
+
+    it("bounds the enumeration with a take limit (R1-002, issue #72)", async () => {
+      const req = { query: {} } as unknown as Request;
+      const res = mockRes();
+
+      vi.mocked(prisma.usuario.findMany).mockResolvedValue([]);
+
+      await listCaptains(req, res);
+
+      expect(prisma.usuario.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ take: expect.any(Number) })
+      );
     });
 
     it("never includes passwordHash in the response (issue #72)", async () => {
