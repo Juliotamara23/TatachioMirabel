@@ -66,6 +66,20 @@ export const removeCapitana = async (req: Request, res: Response) => {
       return res.status(404).json({ error: "Asignación de captain no encontrada" });
     }
 
+    // Business rule (issue #72): a cabildo must always have at least one
+    // captain. Count the CAPTAIN assignments for this cabildo BEFORE deleting
+    // — if this is the last one, refuse.
+    const captainCount = await prisma.usuarioCabildo.count({
+      where: {
+        cabildoId,
+        usuario: { rol: "CAPTAIN" },
+      },
+    });
+
+    if (captainCount <= 1) {
+      return res.status(409).json({ error: "El cabildo debe tener al menos una capitana" });
+    }
+
     // Remove the UsuarioCabildo entry
     await prisma.usuarioCabildo.delete({
       where: {
@@ -79,5 +93,54 @@ export const removeCapitana = async (req: Request, res: Response) => {
     res.status(204).send();
   } catch {
     res.status(500).json({ error: "Error al remover captain" });
+  }
+};
+
+/**
+ * GET /api/admin/captains — list CAPTAIN users (admin-only).
+ *
+ * Optional query: `cabildoId=<uuid>` — filter to a single cabildo.
+ * Without cabildoId: returns ALL captains (including unassigned "zombies"
+ * with cabildoId: null, so the frontend can audit them).
+ *
+ * Response shape: flat `{ id, email, nombre, activo, cabildoId }` — never
+ * leaks passwordHash.
+ */
+export const listCaptains = async (req: Request, res: Response) => {
+  try {
+    const cabildoId = req.query.cabildoId
+      ? paramString(req.query.cabildoId as string | string[])
+      : undefined;
+
+    const where = cabildoId
+      ? { rol: "CAPTAIN" as const, cabildos: { some: { cabildoId } } }
+      : { rol: "CAPTAIN" as const };
+
+    const captains = await prisma.usuario.findMany({
+      where,
+      select: {
+        id: true,
+        email: true,
+        nombre: true,
+        activo: true,
+        cabildos: {
+          select: { cabildoId: true },
+        },
+      },
+    });
+
+    // Flatten: a captain has at most one cabildo assignment (enforced by
+    // assignCapitana 409). Map to the contract shape.
+    const result = captains.map((c) => ({
+      id: c.id,
+      email: c.email,
+      nombre: c.nombre,
+      activo: c.activo,
+      cabildoId: c.cabildos[0]?.cabildoId ?? null,
+    }));
+
+    res.status(200).json(result);
+  } catch {
+    res.status(500).json({ error: "Error al listar capitanas" });
   }
 };
