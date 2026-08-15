@@ -1,28 +1,45 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { Request, Response } from "express";
 
-// Mock Prisma before importing the controller
-vi.mock("../../src/database.js", () => ({
-  default: {
-    usuario: {
-      findUnique: vi.fn(),
-      findMany: vi.fn(),
+// Mock Prisma before importing the controller. $transaction receives a
+// callback and invokes it with the tx mock (count/delete must live on tx,
+// because removeCapitana runs the guard and delete inside one transaction).
+vi.mock("../../src/database.js", () => {
+  const txUsuarioCabildo = {
+    count: vi.fn(),
+    delete: vi.fn(),
+  };
+  return {
+    default: {
+      usuario: {
+        findUnique: vi.fn(),
+        findMany: vi.fn(),
+      },
+      usuarioCabildo: {
+        findFirst: vi.fn(),
+        findUnique: vi.fn(),
+        create: vi.fn(),
+        delete: vi.fn(),
+        count: vi.fn(),
+      },
+      $transaction: vi.fn(
+        async (fn: (tx: { usuarioCabildo: typeof txUsuarioCabildo }) => Promise<unknown>) =>
+          fn({ usuarioCabildo: txUsuarioCabildo }),
+      ),
+      __txUsuarioCabildo: txUsuarioCabildo,
     },
-    usuarioCabildo: {
-      findFirst: vi.fn(),
-      findUnique: vi.fn(),
-      create: vi.fn(),
-      delete: vi.fn(),
-      count: vi.fn(),
-    },
-  },
-}));
+  };
+});
 
 import prisma from "../../src/database.js";
 import {
   removeCapitana,
   listCaptains,
 } from "../../src/controllers/adminController.js";
+
+// Access the tx-scoped mocks (count/delete live on the $transaction client)
+const txUsuarioCabildo = (prisma as unknown as { __txUsuarioCabildo: typeof prisma.usuarioCabildo })
+  .__txUsuarioCabildo;
 
 function mockRes() {
   const res: Partial<Response> = {
@@ -67,7 +84,7 @@ describe("adminController", () => {
         rolEnCabildo: "CAPTAIN",
       });
       // Only this one captain assigned
-      vi.mocked(prisma.usuarioCabildo.count).mockResolvedValue(1);
+      vi.mocked(txUsuarioCabildo.count).mockResolvedValue(1);
 
       await removeCapitana(req, res);
 
@@ -75,7 +92,7 @@ describe("adminController", () => {
       expect(res.json).toHaveBeenCalledWith(
         expect.objectContaining({ error: "El cabildo debe tener al menos una capitana" })
       );
-      expect(prisma.usuarioCabildo.delete).not.toHaveBeenCalled();
+      expect(txUsuarioCabildo.delete).not.toHaveBeenCalled();
     });
 
     it("returns 204 when removing a non-last captain (issue #72)", async () => {
@@ -90,13 +107,13 @@ describe("adminController", () => {
         rolEnCabildo: "CAPTAIN",
       });
       // Two captains assigned — safe to remove one
-      vi.mocked(prisma.usuarioCabildo.count).mockResolvedValue(2);
-      vi.mocked(prisma.usuarioCabildo.delete).mockResolvedValue({});
+      vi.mocked(txUsuarioCabildo.count).mockResolvedValue(2);
+      vi.mocked(txUsuarioCabildo.delete).mockResolvedValue({});
 
       await removeCapitana(req, res);
 
       expect(res.status).toHaveBeenCalledWith(204);
-      expect(prisma.usuarioCabildo.delete).toHaveBeenCalledWith({
+      expect(txUsuarioCabildo.delete).toHaveBeenCalledWith({
         where: {
           usuarioId_cabildoId: { usuarioId: "usr-1", cabildoId: "cab-1" },
         },
