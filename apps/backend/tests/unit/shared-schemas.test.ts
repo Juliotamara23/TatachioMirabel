@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { cabildoSchema, familiaSchema, memberSchema, ageFromFechaNacimiento, MAX_PLAUSIBLE_AGE_YEARS } from "@tatachio/shared";
-import { resolveReportesDir, REPORTES_DIR_ENV } from "@tatachio/shared/node";
+import { resolveReportesDir, validateReportesDirPath, REPORTES_DIR_ENV } from "@tatachio/shared/node";
 
 describe("cabildoSchema", () => {
   it("should accept valid cabildo data", () => {
@@ -184,12 +184,49 @@ describe("resolveReportesDir", () => {
     expect(resolveReportesDir()).toBe(join(homedir(), ".tatachio", "reportes"));
   });
 
-  it("uses TATACHIO_REPORTES_DIR when set", () => {
+  it("uses TATACHIO_REPORTES_DIR when set to a valid absolute path", () => {
     expect(resolveReportesDir({ [REPORTES_DIR_ENV]: "/custom/reportes" })).toBe("/custom/reportes");
   });
 
-  it("falls back to the default when TATACHIO_REPORTES_DIR is empty or whitespace", () => {
-    expect(resolveReportesDir({ [REPORTES_DIR_ENV]: "" })).toBe(join(homedir(), ".tatachio", "reportes"));
-    expect(resolveReportesDir({ [REPORTES_DIR_ENV]: "   " })).toBe(join(homedir(), ".tatachio", "reportes"));
+  it("trims whitespace around a valid absolute path", () => {
+    expect(resolveReportesDir({ [REPORTES_DIR_ENV]: "  /custom/reportes  " })).toBe("/custom/reportes");
+  });
+
+  it("throws when TATACHIO_REPORTES_DIR is set to an empty string (issue #66)", () => {
+    expect(() => resolveReportesDir({ [REPORTES_DIR_ENV]: "" })).toThrow(/TATACHIO_REPORTES_DIR/);
+  });
+
+  it("throws when TATACHIO_REPORTES_DIR is whitespace-only (issue #66)", () => {
+    expect(() => resolveReportesDir({ [REPORTES_DIR_ENV]: "   " })).toThrow(/TATACHIO_REPORTES_DIR/);
+  });
+
+  it("throws when TATACHIO_REPORTES_DIR is a relative path (issue #66)", () => {
+    expect(() => resolveReportesDir({ [REPORTES_DIR_ENV]: "reportes" })).toThrow(/absolute path/);
+    expect(() => resolveReportesDir({ [REPORTES_DIR_ENV]: "./reportes" })).toThrow(/absolute path/);
+  });
+});
+
+describe("validateReportesDirPath", () => {
+  it("returns the trimmed path when valid", () => {
+    expect(validateReportesDirPath("/abs/path", "--output")).toBe("/abs/path");
+    expect(validateReportesDirPath("  /abs/path  ", "--output")).toBe("/abs/path");
+  });
+
+  it("throws on empty string naming the source", () => {
+    expect(() => validateReportesDirPath("", "--output")).toThrow(/--output cannot be empty/);
+    expect(() => validateReportesDirPath("", "TATACHIO_REPORTES_DIR")).toThrow(
+      /TATACHIO_REPORTES_DIR cannot be empty/,
+    );
+  });
+
+  it("throws on whitespace-only string", () => {
+    expect(() => validateReportesDirPath("   ", "--output")).toThrow(/--output cannot be empty/);
+  });
+
+  it("throws on relative path, including the offending value in the message", () => {
+    expect(() => validateReportesDirPath("relative/path", "--output")).toThrow(
+      /absolute path.*relative\/path/,
+    );
+    expect(() => validateReportesDirPath("./out.xlsx", "--output")).toThrow(/absolute path/);
   });
 });
