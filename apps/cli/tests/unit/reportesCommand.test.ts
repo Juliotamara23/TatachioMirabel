@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, beforeAll, afterAll, vi } from "vitest";
 import { promises as fs } from "node:fs";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir, homedir } from "node:os";
@@ -9,6 +9,16 @@ import { Command } from "commander";
 vi.mock("../../src/api/reportes.js", () => ({
   descargarCenso: vi.fn(),
 }));
+
+import { aislarHome, restaurarHome } from "../helpers/home-isolation.js";
+
+// Total isolation (issue #62): tests NEVER touch the real ~/.tatachio.
+beforeAll(() => {
+  aislarHome();
+});
+afterAll(() => {
+  restaurarHome();
+});
 
 import { descargarCenso } from "../../src/api/reportes.js";
 import { setupReportesCommand, generarReporteCmd } from "../../src/commands/reportes.js";

@@ -238,3 +238,17 @@ Ambos hallazgos ya están corregidos en producción; `suites/cli/miembros.test.m
 | **`spec-reader.mjs` diferido** | Complejidad innecesaria en Fase 1. Endpoints se hardcodean en cada suite. |
 | **Prompt-injection dentro de `chat.test.mjs`** | Solo afecta un endpoint. No justifica suite separada. |
 | **Veredicto: PASS (0 fallos) / WARN (>0, no criticos) / BLOCKED (server no arranca, auth roto)** | Umbrales explicitos. Sin numeros magicos. |
+
+---
+
+## Aislamiento total del QA (issue #62, decisión 2026-08-14)
+
+El QA prueba el **backend/CLI/frontend REALES** pero SIEMPRE sobre **datos, documentos, DB y configuraciones FALSOS**. Todo lo que el QA crea es **desechable**: prueba → reporta → **destruye**. Nada del QA toca jamás: `~/.tatachio/config.json` real, `~/.tatachio/reportes/` real, `mirabel.db`, ni ningún artefacto de producción.
+
+- **QA_HOME aislado**: `scripts/qa/lib/isolation.mjs` inyecta `HOME=<QA_HOME temporal>` (y `TATACHIO_REPORTES_DIR` dentro de él) al CLI y al server QA → todo lo que escriben cae en el home falso.
+- **Vitest del CLI**: `apps/cli/tests/helpers/home-isolation.ts` setea `process.env.HOME` a un `mkdtemp` por archivo de test (beforeAll/afterAll) — nunca toca el `~/.tatachio` real.
+- **Limpieza garantizada**: `scripts/qa/cleanup.mjs` borra QA homes, `qa.db`, reportes y logs; `run-all.mjs` lo ejecuta al inicio y al final.
+- **Regla pre-push**: `.githooks/pre-push` (activar con `git config core.hooksPath .githooks`) corre el cleanup antes de cada push.
+- **Verificación**: `scripts/qa/isolation-check.mjs` snapshot del home real antes/después y falla si hubo cambios.
+
+**Frontend (futuro)**: cuando exista, su QA aplica el mismo principio — datos/UI falsos, desechable, nunca producción.

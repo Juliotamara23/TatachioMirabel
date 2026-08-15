@@ -10,7 +10,7 @@ import prisma from "../database.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-// apps/backend/src/controllers -> raíz del repo
+// apps/backend/src/controllers -> repo root
 const FORMATEADOR_PATH = path.resolve(
   __dirname,
   "../../../../scripts/excel-formateador/formateador.py",
@@ -24,10 +24,10 @@ type MiembroConRelaciones = Prisma.MiembroGetPayload<{
 
 type FilaReporte = Record<string, string | number>;
 
-/** Fila de la pestaña FORMATO_CENSOS (18 columnas del template ministerial) */
+/** FORMATO_CENSOS sheet row (18 ministerial template columns) */
 function mapearCenso(m: MiembroConRelaciones): FilaReporte {
   return {
-    // La columna del template es literalmente "1. VIGENCIA"
+    // The template column is literally "1. VIGENCIA"
     "1. VIGENCIA": m.cabildo.vigencia,
     "RESGUARDO INDIGENA": m.cabildo.resguardo,
     "COMUNIDAD INDIGENA": m.cabildo.comunidad,
@@ -49,7 +49,7 @@ function mapearCenso(m: MiembroConRelaciones): FilaReporte {
   };
 }
 
-/** Fila de REPORTE ALTAS / REPORTE BAJAS (15 columnas del template) */
+/** REPORTE ALTAS / REPORTE BAJAS row (15 template columns) */
 function mapearAltasBajas(m: MiembroConRelaciones, novedadPorDefecto: string): FilaReporte {
   return {
     VIGENCIA: m.cabildo.vigencia,
@@ -77,14 +77,14 @@ function limpiarTemporales(paths: string[]): void {
         unlinkSync(p);
       }
     } catch {
-      // El cleanup nunca debe romper la respuesta
+      // Cleanup must never break the response
     }
   }
 }
 
 /**
- * Ejecuta formateador.py con spawn (no execFile) y resuelve cuando termina.
- * Captura stdout/stderr para diagnóstico.
+ * Runs formateador.py via spawn (not execFile) and resolves when it finishes.
+ * Captures stdout/stderr for diagnostics.
  */
 const FORMATEADOR_TIMEOUT_MS = 60_000;
 
@@ -138,17 +138,17 @@ export async function generarCenso(
   next: NextFunction,
 ): Promise<void> {
   const unique = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-  // El JSON intermedio es efímero → sigue en os.tmpdir(); el xlsx final vive en
-  // la carpeta compartida TATACHIO_REPORTES_DIR (~/.tatachio/reportes), que se
-  // crea en runtime y persiste el reporte exitoso (decisión 2026-08-14, #60).
+  // The intermediate JSON is ephemeral → stays in os.tmpdir(); the final xlsx lives
+  // in the shared TATACHIO_REPORTES_DIR (~/.tatachio/reportes), created at
+  // runtime; successful reports persist (decision 2026-08-14, #60).
   const tmpJson = path.join(os.tmpdir(), `reporte-${unique}.json`);
   const reportesDir = resolveReportesDir();
   mkdirSync(reportesDir, { recursive: true });
   const nombreXlsx = `censo-${new Date().getFullYear()}.xlsx`;
   const xlsxPath = path.join(reportesDir, nombreXlsx);
-  // Si el reporte ya existía (generación previa del mismo año), un fallo de
-  // ESTA request no debe borrarlo: se limpia solo el xlsx que esta request
-  // llegó a crear (fix R4-001 — el path es compartido entre requests).
+  // If the report already exists (a previous generation this year), a failure
+  // of THIS request must not delete it: only the xlsx this request created is
+  // cleaned up (fix R4-001 — the path is shared across requests).
   const xlsxPreexistia = existsSync(xlsxPath);
 
   try {
@@ -178,16 +178,15 @@ export async function generarCenso(
     await ejecutarFormateador(FORMATEADOR_PATH, tmpJson, xlsxPath);
 
     res.download(xlsxPath, nombreXlsx, (err) => {
-      // Éxito: el reporte PERSISTE en la carpeta compartida; solo se limpia el
-      // JSON intermedio del tmpdir.
+      // Success: the report PERSISTS in the shared dir; only the tmpdir JSON is cleaned.
       limpiarTemporales([tmpJson]);
       if (err) {
         next(err);
       }
     });
   } catch (error) {
-    // Falla: se limpia el JSON temporal siempre; el xlsx compartido SOLO si
-    // esta request lo creó (si preexistía un reporte válido, se preserva).
+    // On failure: the temp JSON is always cleaned; the shared xlsx ONLY if
+    // this request created it (a previously valid report is preserved).
     limpiarTemporales([tmpJson]);
     if (!xlsxPreexistia) {
       limpiarTemporales([xlsxPath]);

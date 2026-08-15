@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, beforeAll, afterAll, vi } from "vitest";
 import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
 import { promises as fs } from "node:fs";
@@ -9,6 +9,15 @@ import { Command } from "commander";
 
 // Integration: real descargarCenso against an MSW-mocked binary endpoint.
 import { setupReportesCommand } from "../../src/commands/reportes.js";
+import { aislarHome, restaurarHome } from "../helpers/home-isolation.js";
+
+// Total isolation (issue #62): tests NEVER touch the real ~/.tatachio.
+beforeAll(() => {
+  aislarHome();
+});
+afterAll(() => {
+  restaurarHome();
+});
 
 const BASE_URL = "http://localhost:3000";
 const XLSX_BYTES = new Uint8Array([0x50, 0x4b, 0x03, 0x04, 0x0a, 0x00, 0x00, 0x00, 0x01, 0x02]);

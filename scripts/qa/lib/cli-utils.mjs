@@ -1,18 +1,28 @@
 import { spawnSync } from "node:child_process";
-import { resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import { obtenerQaEnv } from "./isolation.mjs";
 
-const CLI_ROOT = resolve("/home/z/dev/Proyects/TatachioMirabel/apps/cli");
+// Derive the CLI root from this file location (scripts/qa/lib → repo/apps/cli),
+// so the QA works from any checkout path (fix R1-003).
+const CLI_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..", "..", "apps", "cli");
 
 /**
  * Spawns the CLI and returns { code, stdout, stderr }.
  * Uses `tsx` to run from source (no build step needed for QA).
+ * ALWAYS injects the isolated QA_HOME (fake HOME + TATACHIO_REPORTES_DIR,
+ * issue #62) — the CLI never sees the real production environment; caller env
+ * wins for per-call overrides.
  */
 export async function runCli(args, { base, token, env = {} } = {}) {
   const command = "npx";
   const cliArgs = ["tsx", "src/index.ts", ...args];
 
+  const aislamiento = await obtenerQaEnv();
+
   const fullEnv = {
     ...process.env,
+    ...aislamiento,
     TATACHIO_BASE_URL: base ?? process.env.TATACHIO_BASE_URL ?? "http://localhost:3000",
     ...(token ? { TATACHIO_TOKEN: token } : {}),
     ...env,
