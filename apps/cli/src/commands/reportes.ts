@@ -1,7 +1,7 @@
 import { Command } from "commander";
 import { mkdir, writeFile } from "node:fs/promises";
 import { basename, dirname, join, resolve } from "node:path";
-import { resolveReportesDir } from "@tatachio/shared";
+import { resolveReportesDir } from "@tatachio/shared/node";
 import { getBaseUrl, resolveToken } from "../config.js";
 import { display, displayError, isPipeMode, setExitCode } from "../display.js";
 import type { OutputMode } from "../types.js";
