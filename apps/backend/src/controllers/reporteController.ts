@@ -5,7 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { Prisma } from "@prisma/client";
-import { resolveReportesDir } from "@tatachio/shared";
+import { resolveReportesDir } from "@tatachio/shared/node";
 import prisma from "../database.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));

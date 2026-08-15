@@ -1,7 +1,8 @@
 import { describe, it, expect } from "vitest";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { cabildoSchema, familiaSchema, memberSchema, ageFromFechaNacimiento, MAX_PLAUSIBLE_AGE_YEARS, resolveReportesDir, REPORTES_DIR_ENV } from "@tatachio/shared";
+import { cabildoSchema, familiaSchema, memberSchema, ageFromFechaNacimiento, MAX_PLAUSIBLE_AGE_YEARS } from "@tatachio/shared";
+import { resolveReportesDir, REPORTES_DIR_ENV } from "@tatachio/shared/node";
 
 describe("cabildoSchema", () => {
   it("should accept valid cabildo data", () => {
