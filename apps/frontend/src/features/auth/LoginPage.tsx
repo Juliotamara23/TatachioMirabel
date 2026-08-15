@@ -54,6 +54,7 @@ export function LoginPage() {
               onChange={(e) => setEmail(e.target.value)}
               required
               autoComplete="email"
+              data-testid="login-email"
               className="w-full rounded border border-gray-300 px-3 py-2 text-sm dark:border-gray-600 dark:bg-surface-dark dark:text-gray-100"
             />
           </div>
@@ -68,6 +69,7 @@ export function LoginPage() {
               onChange={(e) => setPassword(e.target.value)}
               required
               autoComplete="current-password"
+              data-testid="login-password"
               className="w-full rounded border border-gray-300 px-3 py-2 text-sm dark:border-gray-600 dark:bg-surface-dark dark:text-gray-100"
             />
           </div>
@@ -79,6 +81,7 @@ export function LoginPage() {
           <button
             type="submit"
             disabled={loading}
+            data-testid="login-submit"
             className="w-full rounded bg-orange-brand px-4 py-2 text-sm font-medium text-white hover:bg-orange-brand-light disabled:opacity-50"
           >
             {loading ? "Ingresando..." : "Ingresar"}

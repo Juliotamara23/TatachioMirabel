@@ -181,4 +181,85 @@ describe("useChatStream", () => {
     expect(result.current.status).toBe("idle");
     expect(result.current.error).toBeNull();
   });
+
+  // AbortError handling
+  it("handles AbortError gracefully (status returns to idle)", async () => {
+    const abortError = new DOMException("The operation was aborted", "AbortError");
+    vi.spyOn(globalThis, "fetch").mockRejectedValue(abortError);
+
+    const { result } = renderHook(() =>
+      useChatStream({ token: "test-token" }),
+    );
+
+    await act(async () => {
+      result.current.send("test");
+      await vi.advanceTimersByTimeAsync(100);
+    });
+
+    expect(result.current.status).toBe("idle");
+  });
+
+  // Generic error (non-429, non-400, non-ok)
+  it("handles generic HTTP errors", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ error: "Internal server error" }), {
+        status: 500,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+
+    const { result } = renderHook(() =>
+      useChatStream({ token: "test-token" }),
+    );
+
+    await act(async () => {
+      result.current.send("test");
+      await vi.advanceTimersByTimeAsync(100);
+    });
+
+    expect(result.current.status).toBe("error");
+    expect(result.current.error).toContain("Internal server error");
+  });
+
+  // 429 exceeded max retries
+  it("exceeds max auto-retries and shows error", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ error: "Rate limited", retryAfter: 1 }), {
+        status: 429,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+
+    const { result } = renderHook(() =>
+      useChatStream({ token: "test-token" }),
+    );
+
+    await act(async () => {
+      result.current.send("test");
+      // First retry
+      await vi.advanceTimersByTimeAsync(2000);
+      // Second attempt also 429
+      await vi.advanceTimersByTimeAsync(2000);
+    });
+
+    expect(result.current.status).toBe("error");
+    expect(result.current.error).toContain("Límite");
+  });
+
+  // No token — send does nothing
+  it("does not send when token is null", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+
+    const { result } = renderHook(() =>
+      useChatStream({ token: null }),
+    );
+
+    await act(async () => {
+      result.current.send("test");
+      await vi.advanceTimersByTimeAsync(100);
+    });
+
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(result.current.status).toBe("idle");
+  });
 });
