@@ -142,16 +142,24 @@ export async function generarCenso(
   // in the shared TATACHIO_REPORTES_DIR (~/.tatachio/reportes), created at
   // runtime; successful reports persist (decision 2026-08-14, #60).
   const tmpJson = path.join(os.tmpdir(), `reporte-${unique}.json`);
-  const reportesDir = resolveReportesDir();
-  mkdirSync(reportesDir, { recursive: true });
-  const nombreXlsx = `censo-${new Date().getFullYear()}.xlsx`;
-  const xlsxPath = path.join(reportesDir, nombreXlsx);
-  // If the report already exists (a previous generation this year), a failure
-  // of THIS request must not delete it: only the xlsx this request created is
-  // cleaned up (fix R4-001 — the path is shared across requests).
-  const xlsxPreexistia = existsSync(xlsxPath);
+  // resolveReportesDir() may throw on a misconfigured TATACHIO_REPORTES_DIR
+  // (empty / whitespace / relative path — issue #66). Keep the call inside
+  // the try so the throw becomes a 500 via next(error) instead of crashing
+  // the request.
+  let reportesDir: string;
+  let xlsxPath = "";
+  let xlsxPreexistia = false;
 
   try {
+    reportesDir = resolveReportesDir();
+    mkdirSync(reportesDir, { recursive: true });
+    const nombreXlsx = `censo-${new Date().getFullYear()}.xlsx`;
+    xlsxPath = path.join(reportesDir, nombreXlsx);
+    // If the report already exists (a previous generation this year), a failure
+    // of THIS request must not delete it: only the xlsx this request created is
+    // cleaned up (fix R4-001 — the path is shared across requests).
+    xlsxPreexistia = existsSync(xlsxPath);
+
     const [censo, altas, bajas] = await Promise.all([
       prisma.miembro.findMany({
         where: { estado: "ACTIVO" },
@@ -187,8 +195,11 @@ export async function generarCenso(
   } catch (error) {
     // On failure: the temp JSON is always cleaned; the shared xlsx ONLY if
     // this request created it (a previously valid report is preserved).
+    // xlsxPath may be empty if resolveReportesDir() threw before it was set
+    // (issue #66) — limpiarTemporales already guards against missing files,
+    // but skip the call entirely when no path was computed yet.
     limpiarTemporales([tmpJson]);
-    if (!xlsxPreexistia) {
+    if (xlsxPath && !xlsxPreexistia) {
       limpiarTemporales([xlsxPath]);
     }
     next(error);
