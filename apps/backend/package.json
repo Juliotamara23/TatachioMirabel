@@ -8,6 +8,7 @@
   "scripts": {
     "tsc": "tsc",
     "dev": "tsx src/index.ts",
+    "dev:watch": "tsx watch src/index.ts",
     "lint": "eslint .",
     "start": "node build/index.js",
     "test": "vitest run",
