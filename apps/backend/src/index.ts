@@ -1,5 +1,6 @@
 import "dotenv/config";
 import express from "express";
+import cors from "cors";
 import authRouter from "./routes/auth.js";
 import memberRouter from "./routes/member.js";
 import cabildoRouter from "./routes/cabildo.js";
@@ -21,7 +22,12 @@ try {
   process.exit(1);
 }
 
+// CORS: allow-list of trusted origins. Vite dev server runs on :5173; the
+// tunnel origin (Fase 3) extends this list. Never use "*" in production.
+const CORS_ORIGINS = ["http://localhost:5173"];
+
 const app = express();
+app.use(cors({ origin: CORS_ORIGINS }));
 app.use(express.json());
 
 const PORT = process.env.PORT || 3000;
