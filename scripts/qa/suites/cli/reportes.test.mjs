@@ -48,7 +48,6 @@ await runSuite({ name: "cli/reportes", seed: true, start: true }, async ({ base 
     const res = await runCli(["reportes", "generar", "--json"], {
       base,
       token: adminToken,
-      env: { TATACHIO_REPORTES_DIR: "" },
     });
     if (res.code !== 0) throw new Error(`Expected exit 0, got ${res.code}: ${res.stderr}`);
 
@@ -73,7 +72,6 @@ await runSuite({ name: "cli/reportes", seed: true, start: true }, async ({ base 
     const res = await runCli(["reportes", "generar"], {
       base,
       token: adminToken,
-      env: { TATACHIO_REPORTES_DIR: "" },
     });
     if (res.code !== 0) throw new Error(`Expected exit 0, got ${res.code}: ${res.stderr}`);
 
@@ -107,7 +105,6 @@ await runSuite({ name: "cli/reportes", seed: true, start: true }, async ({ base 
   await t.test("reportes generar sin token → error de auth, exit ≠ 0", async () => {
     const res = await runCli(["reportes", "generar", "--json"], {
       base,
-      env: { TATACHIO_REPORTES_DIR: "" },
     });
     if (res.code === 0) throw new Error("Expected non-zero exit without token");
     const out = `${res.stderr} ${res.stdout}`.toLowerCase();
@@ -120,7 +117,6 @@ await runSuite({ name: "cli/reportes", seed: true, start: true }, async ({ base 
     const res = await runCli(["reportes", "generar", "--json"], {
       base,
       token: capitanaToken,
-      env: { TATACHIO_REPORTES_DIR: "" },
     });
     if (res.code === 0) throw new Error("Expected non-zero exit for capitana");
     const out = `${res.stderr} ${res.stdout}`.toLowerCase();
