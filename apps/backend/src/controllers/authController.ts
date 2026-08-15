@@ -149,7 +149,17 @@ export const login = async (req: Request, res: Response) => {
       { expiresIn: "1h" }
     );
 
-    res.json({ token });
+    // Shape the user payload explicitly — never leak passwordHash or the
+    // cabildos array (the CLI and frontend both expect this exact shape).
+    const user = {
+      id: usuario.id,
+      email: usuario.email,
+      nombre: usuario.nombre,
+      rol: usuario.rol,
+      cabildoId,
+    };
+
+    res.json({ token, user });
   } catch {
     res.status(500).json({ error: "Error en el login" });
   }

@@ -15,8 +15,26 @@ runSuite({ name: "api/auth" }, async ({ base }) => {
   const loginForbidden = loginCodes.includes("403") ? 403 : null;
 
   helper.test("login with valid admin credentials", async () => {
-    const token = await loginAdmin(base);
-    expectStatus(token ? 200 : 500, loginSuccess, "login admin");
+    const { status, data } = await request(base, "POST", "/api/auth/login", {
+      body: { email: "admin@tatachio.com", password: "admin123" },
+    });
+    expectStatus(status, loginSuccess, "login admin");
+    // Issue #70: login must return { token, user } so the CLI and frontend
+    // can hydrate the current user. Never leak passwordHash/cabildos.
+    if (status === 200) {
+      if (!data.token || typeof data.token !== "string") {
+        throw new Error("login response missing token");
+      }
+      if (!data.user || typeof data.user !== "object") {
+        throw new Error("login response missing user");
+      }
+      for (const key of ["id", "email", "nombre", "rol"]) {
+        if (!(key in data.user)) throw new Error(`user missing field: ${key}`);
+      }
+      if (!("cabildoId" in data.user)) throw new Error("user missing field: cabildoId");
+      if ("passwordHash" in data.user) throw new Error("user must not contain passwordHash");
+      if ("cabildos" in data.user) throw new Error("user must not contain cabildos array");
+    }
   });
 
   helper.test("login with valid capitana credentials", async () => {
