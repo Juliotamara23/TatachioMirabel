@@ -47,6 +47,12 @@ export const assignCapitana = async (req: Request, res: Response) => {
   }
 };
 
+// Signals "the cabildo would be left without a captain" — thrown INSIDE the
+// $transaction so the count+delete stays atomic (fix R4-001: two concurrent
+// DELETE requests could previously both pass a standalone count guard and
+// both delete, leaving zero captains).
+class LastCaptainError extends Error {}
+
 export const removeCapitana = async (req: Request, res: Response) => {
   try {
     const cabildoId = paramString(req.params.cabildoId);
@@ -67,31 +73,36 @@ export const removeCapitana = async (req: Request, res: Response) => {
     }
 
     // Business rule (issue #72): a cabildo must always have at least one
-    // captain. Count the CAPTAIN assignments for this cabildo BEFORE deleting
-    // — if this is the last one, refuse.
-    const captainCount = await prisma.usuarioCabildo.count({
-      where: {
-        cabildoId,
-        usuario: { rol: "CAPTAIN" },
-      },
-    });
-
-    if (captainCount <= 1) {
-      return res.status(409).json({ error: "El cabildo debe tener al menos una capitana" });
-    }
-
-    // Remove the UsuarioCabildo entry
-    await prisma.usuarioCabildo.delete({
-      where: {
-        usuarioId_cabildoId: {
-          usuarioId,
+    // captain. The count guard and the delete run inside ONE $transaction
+    // (SQLite serializes writes), so the check-then-act sequence is atomic
+    // and two concurrent removals cannot both pass the guard.
+    await prisma.$transaction(async (tx) => {
+      const captainCount = await tx.usuarioCabildo.count({
+        where: {
           cabildoId,
+          usuario: { rol: "CAPTAIN" },
         },
-      },
+      });
+
+      if (captainCount <= 1) {
+        throw new LastCaptainError();
+      }
+
+      await tx.usuarioCabildo.delete({
+        where: {
+          usuarioId_cabildoId: {
+            usuarioId,
+            cabildoId,
+          },
+        },
+      });
     });
 
     res.status(204).send();
-  } catch {
+  } catch (error) {
+    if (error instanceof LastCaptainError) {
+      return res.status(409).json({ error: "El cabildo debe tener al menos una capitana" });
+    }
     res.status(500).json({ error: "Error al remover captain" });
   }
 };
