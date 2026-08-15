@@ -122,6 +122,86 @@ describe("familiaController", () => {
 
       expect(res.json).toHaveBeenCalledWith(mockList);
     });
+
+    it("should add OR search filter when ?search is provided", async () => {
+      const req = { query: { search: "Calle" } } as unknown as Request;
+      vi.mocked(prisma.familia.findMany).mockResolvedValue([] as never);
+
+      const res = mockRes();
+      await getFamilias(req, res);
+
+      const callArg = vi.mocked(prisma.familia.findMany).mock.calls[0][0] as {
+        where: Record<string, unknown>;
+      };
+      expect(callArg.where).toHaveProperty("OR");
+      const orConditions = callArg.where.OR as Record<string, unknown>[];
+      expect(Array.isArray(orConditions)).toBe(true);
+      // direccion and telefono must both be searched
+      expect(orConditions).toEqual(
+        expect.arrayContaining([
+          { direccion: { contains: "Calle" } },
+          { telefono: { contains: "Calle" } },
+        ])
+      );
+      // String search must NOT add a numero condition
+      expect(orConditions).not.toEqual(
+        expect.arrayContaining([expect.objectContaining({ numero: expect.anything() })])
+      );
+    });
+
+    it("should include numero exact match when search parses as integer", async () => {
+      const req = { query: { search: "42" } } as unknown as Request;
+      vi.mocked(prisma.familia.findMany).mockResolvedValue([] as never);
+
+      const res = mockRes();
+      await getFamilias(req, res);
+
+      const callArg = vi.mocked(prisma.familia.findMany).mock.calls[0][0] as {
+        where: Record<string, unknown>;
+      };
+      const orConditions = callArg.where.OR as Record<string, unknown>[];
+      expect(orConditions).toEqual(
+        expect.arrayContaining([{ numero: { equals: 42 } }])
+      );
+      // String conditions must still be present
+      expect(orConditions).toEqual(
+        expect.arrayContaining([
+          { direccion: { contains: "42" } },
+          { telefono: { contains: "42" } },
+        ])
+      );
+    });
+
+    it("should NOT add search filter when ?search is empty", async () => {
+      const req = { query: { search: "" } } as unknown as Request;
+      vi.mocked(prisma.familia.findMany).mockResolvedValue([] as never);
+
+      const res = mockRes();
+      await getFamilias(req, res);
+
+      const callArg = vi.mocked(prisma.familia.findMany).mock.calls[0][0] as {
+        where: Record<string, unknown>;
+      };
+      expect(callArg.where).not.toHaveProperty("OR");
+    });
+
+    it("should keep captain scope when search is combined with JWT", async () => {
+      const req = {
+        query: { search: "Calle" },
+        usuario: { rol: "CAPTAIN", cabildoId: "cab-jwt" },
+      } as unknown as Request;
+      vi.mocked(prisma.familia.findMany).mockResolvedValue([] as never);
+
+      const res = mockRes();
+      await getFamilias(req, res);
+
+      const callArg = vi.mocked(prisma.familia.findMany).mock.calls[0][0] as {
+        where: Record<string, unknown>;
+      };
+      // JWT cabildoId wins (CAPTAIN scope)
+      expect(callArg.where).toHaveProperty("cabildoId", "cab-jwt");
+      expect(callArg.where).toHaveProperty("OR");
+    });
   });
 
   describe("getFamiliaById", () => {
