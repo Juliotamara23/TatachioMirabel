@@ -1,7 +1,7 @@
 import { Command } from "commander";
 import { mkdir, writeFile } from "node:fs/promises";
-import { basename, dirname, join, resolve } from "node:path";
-import { resolveReportesDir } from "@tatachio/shared/node";
+import { basename, dirname, join } from "node:path";
+import { resolveReportesDir, validateReportesDirPath } from "@tatachio/shared/node";
 import { getBaseUrl, resolveToken } from "../config.js";
 import { display, displayError, isPipeMode, setExitCode } from "../display.js";
 import type { OutputMode } from "../types.js";
@@ -27,11 +27,19 @@ export async function generarReporteCmd(
     if (!token) throw new Error("No authentication token found. Please login first.");
     const baseUrl = await getBaseUrl();
 
+    // Validate the output path BEFORE the network call: fail fast on bad
+    // input (issue #66). Empty / relative paths shouldn't waste a backend
+    // round-trip. Using `!== undefined` instead of a truthy check is
+    // intentional — `""` is falsy in JS but still an explicit (misconfigured)
+    // user input that must be rejected, not silently replaced by the default.
+    const validatedOutput =
+      options.output !== undefined
+        ? validateReportesDirPath(options.output, "--output")
+        : undefined;
+
     const { buffer, nombre } = await descargarCenso(baseUrl, token);
 
-    const filePath = options.output
-      ? resolve(options.output)
-      : join(resolveReportesDir(), nombre);
+    const filePath = validatedOutput ?? join(resolveReportesDir(), nombre);
     await mkdir(dirname(filePath), { recursive: true });
     await writeFile(filePath, buffer);
 

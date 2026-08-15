@@ -155,4 +155,39 @@ describe("CLI reportes generar (unit, API mocked)", () => {
     const messages = errorSpy.mock.calls.map((call) => String(call[0])).join("\n");
     expect(messages.toLowerCase()).toContain("token");
   });
+
+  it("--output '' → exit 1 with a clear error, nothing written (issue #66)", async () => {
+    mockDescargarCenso.mockResolvedValue({
+      buffer: Buffer.from("PK"),
+      nombre: "censo-2026.xlsx",
+    });
+
+    await buildProgram().parseAsync(
+      ["reportes", "generar", "--output", "", "--json"],
+      { from: "user" },
+    );
+
+    expect(process.exitCode).toBe(1);
+    expect(mockDescargarCenso).not.toHaveBeenCalled();
+    const messages = errorSpy.mock.calls.map((call) => String(call[0])).join("\n");
+    expect(messages).toMatch(/--output/i);
+    expect(messages).toMatch(/empty|whitespace/i);
+  });
+
+  it("--output <relative-path> → exit 1 with a clear error (issue #66)", async () => {
+    mockDescargarCenso.mockResolvedValue({
+      buffer: Buffer.from("PK"),
+      nombre: "censo-2026.xlsx",
+    });
+
+    await buildProgram().parseAsync(
+      ["reportes", "generar", "--output", "relativa/mi-censo.xlsx", "--json"],
+      { from: "user" },
+    );
+
+    expect(process.exitCode).toBe(1);
+    expect(mockDescargarCenso).not.toHaveBeenCalled();
+    const messages = errorSpy.mock.calls.map((call) => String(call[0])).join("\n");
+    expect(messages).toMatch(/absolute path/i);
+  });
 });
