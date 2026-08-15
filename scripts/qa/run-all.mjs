@@ -39,6 +39,9 @@ async function runAllSuites() {
     "suites/cli/familias",
     "suites/cli/miembros",
     "suites/cli/reportes",
+    // Web (Playwright) suites — run via `npx playwright test` from scripts/qa/suites/web/
+    // These are not Node-based suites; they're listed here for documentation.
+    // Run them separately with: pnpm --filter frontend test:e2e
   ];
 
   let anyFailed = false;

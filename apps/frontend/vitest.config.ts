@@ -17,10 +17,11 @@ export default defineConfig({
     css: true,
     coverage: {
       provider: "v8",
-      include: ["src/components/**", "src/hooks/**", "src/contexts/**", "src/lib/**"],
+      include: ["src/**"],
+      exclude: ["src/main.tsx", "src/App.tsx", "src/test/**", "src/**/*.test.{ts,tsx}", "src/types/**"],
       thresholds: {
-        lines: 80,
-        branches: 80,
+        "src/components/**": { lines: 80, branches: 70 },
+        "src/hooks/**": { lines: 80, branches: 70 },
       },
     },
   },

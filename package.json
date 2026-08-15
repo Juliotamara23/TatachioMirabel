@@ -4,5 +4,8 @@
   "workspaces": [
     "apps/*",
     "packages/*"
-  ]
+  ],
+  "scripts": {
+    "test:web": "pnpm --filter frontend build && playwright test --config=scripts/qa/suites/web/playwright.config.ts"
+  }
 }

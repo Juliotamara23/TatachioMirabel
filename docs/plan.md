@@ -144,15 +144,19 @@ Prioridad: **alta** — data isolation. **COMPLETO.**
 - [x] 255 tests backend (253 pasados, 2 skipped), ESLint limpio
 - [x] PR #13 merged
 
-### Fase 2 — Frontend Admin (Web)
-Prioridad: **media** — interfaz web complementaria al CLI.
-**Estado: pendiente de diseño — próxima discusión.**
+### ✅ Fase 2 — Frontend Admin (Web)
+Prioridad: **media** — interfaz web complementaria al CLI. **COMPLETO.**
 
-- [ ] Login
-- [ ] Panel de chat IA
-- [ ] Paneles de consulta (Miembros, Familias, Cabildos)
-- [ ] CRUD visual para administración
-- [ ] Descarga de reportes Excel
+- [x] Stack: React 19 + Vite 5 + TypeScript + Tailwind v4
+- [x] Login con persistencia JWT en localStorage (CC-3)
+- [x] App shell: sidebar + topbar con selector de cabildo + dark mode
+- [x] Panel de chat IA con streaming UTF-8 raw (fetch + getReader, NO SSE)
+- [x] Paneles CRUD: Miembros, Familias, Cabildos (scoped por cabildo)
+- [x] Capitanas: registro + lista + desasignar con pre-check de última capitana
+- [x] Dashboard con KPIs y alertas
+- [x] Descarga de reportes Excel (censo.xlsx)
+- [x] 105 tests unitarios (Vitest) con cobertura ≥80% en componentes y hooks
+- [x] 11 tests E2E (Playwright) skeleton bajo scripts/qa/suites/web/
 
 ### Fase 3 — Frontend Capitana (Mobile)
 Prioridad: **media** — PWA offline-first, tipo chat.

@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "test:e2e": "playwright test --config=../../scripts/qa/suites/web/playwright.config.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.8.0",
