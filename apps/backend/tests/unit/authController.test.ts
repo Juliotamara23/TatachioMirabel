@@ -90,6 +90,23 @@ describe("authController.register (issue #72)", () => {
     expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 
+  it("returns 400 when rol is not CAPTAIN or ADMINISTRATOR (R1-003, issue #72)", async () => {
+    const req = {
+      body: { email: "x@test.com", password: "pw", nombre: "X", rol: "SUPERUSER", cabildoId: "cab-1" },
+    } as unknown as Request;
+    const res = mockRes();
+
+    await register(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({ error: expect.stringContaining("Invalid rol") })
+    );
+    // No DB lookups or writes should happen for an unknown role
+    expect(prisma.cabildo.findUnique).not.toHaveBeenCalled();
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
   it("creates user + assignment atomically via $transaction for valid CAPTAIN (issue #72)", async () => {
     const req = {
       body: { email: "c@test.com", password: "pw", nombre: "Cap", rol: "CAPTAIN", cabildoId: "cab-1" },

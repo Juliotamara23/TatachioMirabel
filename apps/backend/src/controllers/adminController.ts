@@ -74,7 +74,8 @@ export const removeCapitana = async (req: Request, res: Response) => {
     }
 
     // Business rule (issue #72): a cabildo must always have at least one
-    // captain. ONE atomic statement: the DELETE only succeeds when the cabildo
+    // captain. ONE atomic statement: the DELETE only succeeds when (a) the
+    // target assignment belongs to a CAPTAIN-rol user and (b) the cabildo
     // keeps at least one CAPTAIN-rol assignment after removing this one.
     // SQLite executes a single statement atomically, closing the check-then-act
     // race for concurrent removals.
@@ -82,6 +83,11 @@ export const removeCapitana = async (req: Request, res: Response) => {
       DELETE FROM "UsuarioCabildo"
       WHERE "usuarioId" = ${usuarioId}
         AND "cabildoId" = ${cabildoId}
+        AND EXISTS (
+          SELECT 1 FROM "Usuario" target
+          WHERE target."id" = ${usuarioId}
+            AND target."rol" = 'CAPTAIN'
+        )
         AND (
           SELECT COUNT(*) FROM "UsuarioCabildo" uc
           JOIN "Usuario" u ON u."id" = uc."usuarioId"
@@ -134,6 +140,9 @@ export const listCaptains = async (req: Request, res: Response) => {
           select: { cabildoId: true },
         },
       },
+      // Bounded enumeration (R1-002): no unbounded roster dump. Volume today
+      // is tiny, but a limit keeps the endpoint safe as the system grows.
+      take: 500,
     });
 
     // Flatten: a captain has at most one cabildo assignment (enforced by
