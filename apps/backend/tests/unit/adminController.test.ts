@@ -1,14 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { Request, Response } from "express";
 
-// Mock Prisma before importing the controller. $transaction receives a
-// callback and invokes it with the tx mock (count/delete must live on tx,
-// because removeCapitana runs the guard and delete inside one transaction).
+// Mock Prisma before importing the controller. removeCapitana now uses a
+// single atomic $executeRaw DELETE (count guard inside the same statement),
+// so the mock only needs $executeRaw plus findUnique for the 404 path.
 vi.mock("../../src/database.js", () => {
-  const txUsuarioCabildo = {
-    count: vi.fn(),
-    delete: vi.fn(),
-  };
   return {
     default: {
       usuario: {
@@ -19,14 +15,8 @@ vi.mock("../../src/database.js", () => {
         findFirst: vi.fn(),
         findUnique: vi.fn(),
         create: vi.fn(),
-        delete: vi.fn(),
-        count: vi.fn(),
       },
-      $transaction: vi.fn(
-        async (fn: (tx: { usuarioCabildo: typeof txUsuarioCabildo }) => Promise<unknown>) =>
-          fn({ usuarioCabildo: txUsuarioCabildo }),
-      ),
-      __txUsuarioCabildo: txUsuarioCabildo,
+      $executeRaw: vi.fn(),
     },
   };
 });
@@ -36,10 +26,6 @@ import {
   removeCapitana,
   listCaptains,
 } from "../../src/controllers/adminController.js";
-
-// Access the tx-scoped mocks (count/delete live on the $transaction client)
-const txUsuarioCabildo = (prisma as unknown as { __txUsuarioCabildo: typeof prisma.usuarioCabildo })
-  .__txUsuarioCabildo;
 
 function mockRes() {
   const res: Partial<Response> = {
@@ -69,7 +55,7 @@ describe("adminController", () => {
       await removeCapitana(req, res);
 
       expect(res.status).toHaveBeenCalledWith(404);
-      expect(prisma.usuarioCabildo.delete).not.toHaveBeenCalled();
+      expect(prisma.$executeRaw).not.toHaveBeenCalled();
     });
 
     it("returns 409 when trying to remove the last captain of a cabildo (issue #72)", async () => {
@@ -83,8 +69,8 @@ describe("adminController", () => {
         cabildoId: "cab-1",
         rolEnCabildo: "CAPTAIN",
       });
-      // Only this one captain assigned
-      vi.mocked(txUsuarioCabildo.count).mockResolvedValue(1);
+      // The atomic DELETE affects 0 rows → cabildo would be left without captain
+      vi.mocked(prisma.$executeRaw).mockResolvedValue(0);
 
       await removeCapitana(req, res);
 
@@ -92,7 +78,6 @@ describe("adminController", () => {
       expect(res.json).toHaveBeenCalledWith(
         expect.objectContaining({ error: "El cabildo debe tener al menos una capitana" })
       );
-      expect(txUsuarioCabildo.delete).not.toHaveBeenCalled();
     });
 
     it("returns 204 when removing a non-last captain (issue #72)", async () => {
@@ -106,18 +91,13 @@ describe("adminController", () => {
         cabildoId: "cab-1",
         rolEnCabildo: "CAPTAIN",
       });
-      // Two captains assigned — safe to remove one
-      vi.mocked(txUsuarioCabildo.count).mockResolvedValue(2);
-      vi.mocked(txUsuarioCabildo.delete).mockResolvedValue({});
+      // Atomic DELETE affected 1 row — removal succeeded
+      vi.mocked(prisma.$executeRaw).mockResolvedValue(1);
 
       await removeCapitana(req, res);
 
       expect(res.status).toHaveBeenCalledWith(204);
-      expect(txUsuarioCabildo.delete).toHaveBeenCalledWith({
-        where: {
-          usuarioId_cabildoId: { usuarioId: "usr-1", cabildoId: "cab-1" },
-        },
-      });
+      expect(prisma.$executeRaw).toHaveBeenCalledTimes(1);
     });
   });
 
