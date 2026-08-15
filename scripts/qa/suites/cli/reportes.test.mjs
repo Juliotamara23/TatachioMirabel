@@ -15,7 +15,7 @@ import { join } from "node:path";
 import { runSuite, createTestHelper } from "../../lib/suite-runner.mjs";
 import { runCli, parseJsonOutput } from "../../lib/cli-utils.mjs";
 import { loginAdmin, loginCapitana } from "../../lib/test-utils.mjs";
-import { obtenerQaHome } from "../../lib/isolation.mjs";
+import { obtenerReportesDir } from "../../lib/isolation.mjs";
 
 const CURRENT_YEAR = new Date().getFullYear();
 const NOMBRE_ESPERADO = `censo-${CURRENT_YEAR}.xlsx`;
@@ -35,11 +35,10 @@ await runSuite({ name: "cli/reportes", seed: true, start: true }, async ({ base 
   const adminToken = await loginAdmin(base);
   const capitanaToken = await loginCapitana(base);
 
-  // The default dir resolves INSIDE the isolated QA_HOME (issue #62): the CLI
-  // runs with HOME=<qaHome>, so "~/.tatachio/reportes" is fake and
-  // disposable — never the user's real home.
-  const qaHome = await obtenerQaHome();
-  const defaultDir = join(qaHome, ".tatachio", "reportes");
+  // The default dir resolves INSIDE the repo (scripts/qa/reportes/, like
+  // qa.db — issue #62): generated xlsx are visible and disposable, never in
+  // the user's real ~/.tatachio/reportes.
+  const defaultDir = obtenerReportesDir();
   const generatedPaths = [];
   let tempOverrideDir = null;
 
@@ -49,7 +48,6 @@ await runSuite({ name: "cli/reportes", seed: true, start: true }, async ({ base 
     const res = await runCli(["reportes", "generar", "--json"], {
       base,
       token: adminToken,
-      env: { TATACHIO_REPORTES_DIR: "" },
     });
     if (res.code !== 0) throw new Error(`Expected exit 0, got ${res.code}: ${res.stderr}`);
 
@@ -74,7 +72,6 @@ await runSuite({ name: "cli/reportes", seed: true, start: true }, async ({ base 
     const res = await runCli(["reportes", "generar"], {
       base,
       token: adminToken,
-      env: { TATACHIO_REPORTES_DIR: "" },
     });
     if (res.code !== 0) throw new Error(`Expected exit 0, got ${res.code}: ${res.stderr}`);
 
@@ -108,7 +105,6 @@ await runSuite({ name: "cli/reportes", seed: true, start: true }, async ({ base 
   await t.test("reportes generar sin token → error de auth, exit ≠ 0", async () => {
     const res = await runCli(["reportes", "generar", "--json"], {
       base,
-      env: { TATACHIO_REPORTES_DIR: "" },
     });
     if (res.code === 0) throw new Error("Expected non-zero exit without token");
     const out = `${res.stderr} ${res.stdout}`.toLowerCase();
@@ -121,7 +117,6 @@ await runSuite({ name: "cli/reportes", seed: true, start: true }, async ({ base 
     const res = await runCli(["reportes", "generar", "--json"], {
       base,
       token: capitanaToken,
-      env: { TATACHIO_REPORTES_DIR: "" },
     });
     if (res.code === 0) throw new Error("Expected non-zero exit for capitana");
     const out = `${res.stderr} ${res.stdout}`.toLowerCase();

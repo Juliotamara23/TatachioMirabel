@@ -53,3 +53,6 @@ scripts/qa/qa-report.xml
 # Python
 __pycache__/
 *.pyc
+
+# QA generated reports (issue #62): disposable xlsx land here, like qa.db
+scripts/qa/reportes/

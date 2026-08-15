@@ -13,9 +13,22 @@
  */
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
 export const QA_HOME_PREFIX = "tatachio-qa-home-";
+
+// scripts/qa/ (this file lives in scripts/qa/lib/)
+const QA_DIR = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+
+/**
+ * Returns the QA reports dir INSIDE the repo: scripts/qa/reportes/ (gitignored,
+ * like qa.db) — the generated xlsx is visible to the developer, never in the
+ * real ~/.tatachio/reportes. Cleaned up by cleanup.mjs (issue #62).
+ */
+export function obtenerReportesDir() {
+  return join(QA_DIR, "reportes");
+}
 
 /**
  * Creates a disposable QA_HOME and returns its absolute path.
@@ -28,13 +41,15 @@ export async function crearQaHome() {
 /**
  * Returns the env object to inject into QA subprocesses (CLI / server):
  * - HOME points at the QA_HOME (total isolation from the real ~/.tatachio)
- * - TATACHIO_REPORTES_DIR lands inside the QA_HOME (fake reports)
+ * - TATACHIO_REPORTES_DIR points INSIDE the repo (scripts/qa/reportes/), so
+ *   generated xlsx are visible and disposable like qa.db — never the real
+ *   ~/.tatachio/reportes
  * - extra allows per-call overrides (token, baseUrl, etc.)
  */
 export function envQa(qaHome, extra = {}) {
   return {
     HOME: qaHome,
-    TATACHIO_REPORTES_DIR: join(qaHome, ".tatachio", "reportes"),
+    TATACHIO_REPORTES_DIR: obtenerReportesDir(),
     ...extra,
   };
 }
