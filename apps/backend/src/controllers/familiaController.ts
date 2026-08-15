@@ -45,6 +45,22 @@ export const getFamilias = async (req: Request, res: Response) => {
       where.cabildoId = req.query.cabildoId as string;
     }
 
+    // Search filter: mirror memberController — case-insensitive contains on
+    // string fields, plus exact match on `numero` when the whole query parses
+    // as an integer. The CLI already sends `?search=` for familias.
+    const search = req.query.search;
+    if (typeof search === "string" && search.length > 0) {
+      const orConditions: Record<string, unknown>[] = [
+        { direccion: { contains: search } },
+        { telefono: { contains: search } },
+      ];
+      const searchNum = Number.parseInt(search, 10);
+      if (!Number.isNaN(searchNum) && String(searchNum) === search) {
+        orConditions.push({ numero: { equals: searchNum } });
+      }
+      where.OR = orConditions;
+    }
+
     const familias = await prisma.familia.findMany({ where: where as { cabildoId?: string } });
     res.json(familias);
   } catch {
