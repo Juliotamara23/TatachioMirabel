@@ -7,7 +7,8 @@ import { MiembrosPage } from "./features/miembros/MiembrosPage";
 import { FamiliasPage } from "./features/familias/FamiliasPage";
 import { CabildosPage } from "./features/cabildos/CabildosPage";
 import { CapitanasPage } from "./features/captains/CapitanasPage";
-import { PlaceholderPage } from "./components/PlaceholderPage";
+import { ChatPage } from "./features/chat/ChatPage";
+import { ReportesPage } from "./features/reportes/ReportesPage";
 
 export function App() {
   return (
@@ -23,12 +24,12 @@ export function App() {
             <Route path="/miembros" element={<MiembrosPage />} />
             <Route path="/familias" element={<FamiliasPage />} />
             <Route path="/cabildos" element={<CabildosPage />} />
-            <Route path="/chat" element={<PlaceholderPage title="Chat" />} />
+            <Route path="/chat" element={<ChatPage />} />
 
             {/* Admin-only routes */}
             <Route element={<AdminRoute />}>
               <Route path="/capitanas" element={<CapitanasPage />} />
-              <Route path="/reportes" element={<PlaceholderPage title="Reportes" />} />
+              <Route path="/reportes" element={<ReportesPage />} />
             </Route>
           </Route>
         </Route>

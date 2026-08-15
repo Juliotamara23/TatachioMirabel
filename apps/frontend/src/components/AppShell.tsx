@@ -1,6 +1,6 @@
 import { Outlet, Link, useLocation } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
-import { useTheme } from "../contexts/ThemeContext";
+import { Topbar } from "./Topbar";
 
 const NAV_ITEMS = [
   { to: "/dashboard", label: "Dashboard" },
@@ -14,7 +14,6 @@ const NAV_ITEMS = [
 
 export function AppShell() {
   const { user, logout } = useAuth();
-  const { theme, toggle } = useTheme();
   const location = useLocation();
 
   return (
@@ -52,20 +51,7 @@ export function AppShell() {
 
       {/* Main content */}
       <div className="flex flex-1 flex-col">
-        {/* Topbar */}
-        <header className="flex items-center justify-between border-b border-gray-200 bg-white px-6 py-3 dark:border-gray-700 dark:bg-surface-muted-dark">
-          <div className="text-sm text-gray-500 dark:text-gray-400">
-            {/* Cabildo selector placeholder — PR 2 */}
-            <span className="italic">Selector de cabildo (próximamente)</span>
-          </div>
-          <button
-            onClick={toggle}
-            className="rounded p-2 text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700"
-            aria-label="Cambiar tema"
-          >
-            {theme === "dark" ? "☀️" : "🌙"}
-          </button>
-        </header>
+        <Topbar />
 
         {/* Page content */}
         <main className="flex-1 p-6">
