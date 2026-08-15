@@ -55,11 +55,21 @@ export const register = async (req: Request, res: Response) => {
       return res.status(400).json({ error: "Faltan campos requeridos: email, password, nombre, rol" });
     }
 
+    // Role-cabildo mutual exclusion (issue #72):
+    // CAPTAIN requires exactly one cabildo assignment; ADMINISTRATOR must NOT
+    // have one. Catching mismatches here prevents orphan captains and admin
+    // accounts that silently inherit a cabildo scope.
     if (rol === "CAPTAIN") {
       if (!cabildoId) {
         return res.status(400).json({ error: "cabildoId is required for CAPTAIN role" });
       }
+    } else if (rol === "ADMINISTRATOR") {
+      if (cabildoId) {
+        return res.status(400).json({ error: "ADMINISTRATOR cannot have a cabildo assignment" });
+      }
+    }
 
+    if (cabildoId) {
       const existsCabildo = await prisma.cabildo.findUnique({
         where: { id: cabildoId },
       });
@@ -74,28 +84,34 @@ export const register = async (req: Request, res: Response) => {
     });
 
     if (usuarioExistente) {
-      return res.status(400).json({ error: "El correo ya está registrado" });
+      return res.status(409).json({ error: "El correo ya está registrado" });
     }
 
     const passwordHash = await bcrypt.hash(password, 10);
 
-    const nuevoUsuario = await prisma.usuario.create({
-      data: {
-        email,
-        passwordHash,
-        nombre,
-        rol: (rol as "ADMINISTRATOR" | "CAPTAIN") || "CAPTAIN",
-      },
-    });
-
-    if (rol === "CAPTAIN" && cabildoId) {
-      await prisma.usuarioCabildo.create({
+    // Atomic user + cabildo assignment (issue #72): if the UsuarioCabildo
+    // insert fails, the Usuario row must not survive either.
+    const nuevoUsuario = await prisma.$transaction(async (tx) => {
+      const usuario = await tx.usuario.create({
         data: {
-          usuarioId: nuevoUsuario.id,
-          cabildoId,
+          email,
+          passwordHash,
+          nombre,
+          rol: (rol as "ADMINISTRATOR" | "CAPTAIN") || "CAPTAIN",
         },
       });
-    }
+
+      if (rol === "CAPTAIN" && cabildoId) {
+        await tx.usuarioCabildo.create({
+          data: {
+            usuarioId: usuario.id,
+            cabildoId,
+          },
+        });
+      }
+
+      return usuario;
+    });
 
     const { passwordHash: hash, ...usuarioSinPassword } = nuevoUsuario;
     void hash;

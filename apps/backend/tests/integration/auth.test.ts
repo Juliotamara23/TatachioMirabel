@@ -158,7 +158,7 @@ describe("Auth API", () => {
       expect(res.body).not.toHaveProperty("passwordHash");
     });
 
-    it("returns 400 when email already exists (admin token)", async () => {
+    it("returns 409 when email already exists (admin token)", async () => {
       const res = await request(app)
         .post("/api/auth/register")
         .set("Authorization", `Bearer ${adminToken}`)
@@ -167,6 +167,55 @@ describe("Auth API", () => {
           password: "password123",
           nombre: "Duplicate",
           rol: "ADMINISTRATOR",
+        });
+
+      expect(res.status).toBe(409);
+      expect(res.body).toHaveProperty("error");
+    });
+
+    // ── Captain business rules (issue #72) ────────────────────────────────
+
+    it("returns 400 when CAPTAIN is registered without cabildoId", async () => {
+      const res = await request(app)
+        .post("/api/auth/register")
+        .set("Authorization", `Bearer ${adminToken}`)
+        .send({
+          email: `captain-nocabildo-${Date.now()}@test.com`,
+          password: "password123",
+          nombre: "Captain No Cabildo",
+          rol: "CAPTAIN",
+        });
+
+      expect(res.status).toBe(400);
+      expect(res.body).toHaveProperty("error");
+    });
+
+    it("returns 400 when CAPTAIN is registered with a non-existent cabildoId", async () => {
+      const res = await request(app)
+        .post("/api/auth/register")
+        .set("Authorization", `Bearer ${adminToken}`)
+        .send({
+          email: `captain-badcabildo-${Date.now()}@test.com`,
+          password: "password123",
+          nombre: "Captain Bad Cabildo",
+          rol: "CAPTAIN",
+          cabildoId: "00000000-0000-0000-0000-000000000000",
+        });
+
+      expect(res.status).toBe(400);
+      expect(res.body).toHaveProperty("error");
+    });
+
+    it("returns 400 when ADMINISTRATOR is registered with cabildoId", async () => {
+      const res = await request(app)
+        .post("/api/auth/register")
+        .set("Authorization", `Bearer ${adminToken}`)
+        .send({
+          email: `admin-withcabildo-${Date.now()}@test.com`,
+          password: "password123",
+          nombre: "Admin With Cabildo",
+          rol: "ADMINISTRATOR",
+          cabildoId: "test-cabildo-id",
         });
 
       expect(res.status).toBe(400);
