@@ -3,6 +3,10 @@ import { ProtectedRoute, AdminRoute } from "./features/auth/ProtectedRoute";
 import { LoginPage } from "./features/auth/LoginPage";
 import { AppShell } from "./components/AppShell";
 import { DashboardPage } from "./features/dashboard/DashboardPage";
+import { MiembrosPage } from "./features/miembros/MiembrosPage";
+import { FamiliasPage } from "./features/familias/FamiliasPage";
+import { CabildosPage } from "./features/cabildos/CabildosPage";
+import { CapitanasPage } from "./features/captains/CapitanasPage";
 import { PlaceholderPage } from "./components/PlaceholderPage";
 
 export function App() {
@@ -16,14 +20,14 @@ export function App() {
         <Route element={<ProtectedRoute />}>
           <Route element={<AppShell />}>
             <Route path="/dashboard" element={<DashboardPage />} />
-            <Route path="/miembros" element={<PlaceholderPage title="Miembros" />} />
-            <Route path="/familias" element={<PlaceholderPage title="Familias" />} />
-            <Route path="/cabildos" element={<PlaceholderPage title="Cabildos" />} />
+            <Route path="/miembros" element={<MiembrosPage />} />
+            <Route path="/familias" element={<FamiliasPage />} />
+            <Route path="/cabildos" element={<CabildosPage />} />
             <Route path="/chat" element={<PlaceholderPage title="Chat" />} />
 
             {/* Admin-only routes */}
             <Route element={<AdminRoute />}>
-              <Route path="/capitanas" element={<PlaceholderPage title="Capitanas" />} />
+              <Route path="/capitanas" element={<CapitanasPage />} />
               <Route path="/reportes" element={<PlaceholderPage title="Reportes" />} />
             </Route>
           </Route>
