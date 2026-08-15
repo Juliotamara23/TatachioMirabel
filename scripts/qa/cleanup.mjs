@@ -68,7 +68,8 @@ export function cleanupQa(opts = {}) {
     }
   }
 
-  // 3. Residual QA xlsx files (never touches the real ~/.tatachio/reportes)
+  // 3. QA reports dir (scripts/qa/reportes/) and residual QA xlsx files
+  //    (never touches the real ~/.tatachio/reportes)
   try {
     for (const entry of readdirSync(QA_DIR)) {
       if (entry.endsWith(".xlsx")) {
@@ -76,6 +77,8 @@ export function cleanupQa(opts = {}) {
         count++;
       }
     }
+    eliminar(join(QA_DIR, "reportes"));
+    if (existsSync(join(QA_DIR, "reportes"))) count++;
   } catch {
     /* directory unreadable */
   }
