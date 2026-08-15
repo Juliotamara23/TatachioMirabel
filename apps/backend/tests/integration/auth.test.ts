@@ -60,6 +60,25 @@ describe("Auth API", () => {
       expect(typeof res.body.token).toBe("string");
     });
 
+    it("returns a user object alongside the token (fixes latent CLI login bug)", async () => {
+      const res = await request(app)
+        .post("/api/auth/login")
+        .send({ email: "admin@tatachio.com", password: "admin123" });
+
+      expect(res.status).toBe(200);
+      expect(res.body).toHaveProperty("user");
+      const { user } = res.body;
+      expect(user).toHaveProperty("id");
+      expect(user).toHaveProperty("email", "admin@tatachio.com");
+      expect(user).toHaveProperty("nombre");
+      expect(user).toHaveProperty("rol", "ADMINISTRATOR");
+      // ADMINISTRATOR has no cabildo assignment — must be null, not undefined
+      expect("cabildoId" in user).toBe(true);
+      // Never leak passwordHash or the raw cabildos array
+      expect(user).not.toHaveProperty("passwordHash");
+      expect(user).not.toHaveProperty("cabildos");
+    });
+
     it("returns 401 for wrong password", async () => {
       const res = await request(app)
         .post("/api/auth/login")
