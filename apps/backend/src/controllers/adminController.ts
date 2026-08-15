@@ -47,10 +47,11 @@ export const assignCapitana = async (req: Request, res: Response) => {
   }
 };
 
-// Signals "the cabildo would be left without a captain" — thrown INSIDE the
-// $transaction so the count+delete stays atomic (fix R4-001: two concurrent
-// DELETE requests could previously both pass a standalone count guard and
-// both delete, leaving zero captains).
+// Signals "the cabildo would be left without a captain" — thrown when the
+// atomic DELETE below affects zero rows because the cabildo has only one
+// captain. Single-statement SQL is atomic in SQLite, so two concurrent
+// removals cannot both pass (a Prisma interactive $transaction would be
+// deferred-read and NOT atomic for count-then-delete — R4-001/R3 follow-up).
 class LastCaptainError extends Error {}
 
 export const removeCapitana = async (req: Request, res: Response) => {
@@ -73,30 +74,25 @@ export const removeCapitana = async (req: Request, res: Response) => {
     }
 
     // Business rule (issue #72): a cabildo must always have at least one
-    // captain. The count guard and the delete run inside ONE $transaction
-    // (SQLite serializes writes), so the check-then-act sequence is atomic
-    // and two concurrent removals cannot both pass the guard.
-    await prisma.$transaction(async (tx) => {
-      const captainCount = await tx.usuarioCabildo.count({
-        where: {
-          cabildoId,
-          usuario: { rol: "CAPTAIN" },
-        },
-      });
+    // captain. ONE atomic statement: the DELETE only succeeds when the cabildo
+    // keeps at least one CAPTAIN-rol assignment after removing this one.
+    // SQLite executes a single statement atomically, closing the check-then-act
+    // race for concurrent removals.
+    const result = await prisma.$executeRaw`
+      DELETE FROM "UsuarioCabildo"
+      WHERE "usuarioId" = ${usuarioId}
+        AND "cabildoId" = ${cabildoId}
+        AND (
+          SELECT COUNT(*) FROM "UsuarioCabildo" uc
+          JOIN "Usuario" u ON u."id" = uc."usuarioId"
+          WHERE uc."cabildoId" = ${cabildoId}
+            AND u."rol" = 'CAPTAIN'
+        ) > 1
+    `;
 
-      if (captainCount <= 1) {
-        throw new LastCaptainError();
-      }
-
-      await tx.usuarioCabildo.delete({
-        where: {
-          usuarioId_cabildoId: {
-            usuarioId,
-            cabildoId,
-          },
-        },
-      });
-    });
+    if (result === 0) {
+      throw new LastCaptainError();
+    }
 
     res.status(204).send();
   } catch (error) {
