@@ -29,7 +29,7 @@ Use these skills for detailed patterns on-demand.
 |-------|-------------|
 | `typescript` | Const types, flat interfaces, utility types, Zod type inference |
 | `typescript-advanced-types` | Advanced TS: generics, conditional types, mapped types |
-| `vitest` | Vitest testing: config, mocking, snapshots, coverage |
+| `qa` | Tatachio QA flow: run-all orchestrator, disposable-data isolation, autonomous web E2E (port 3456), chaos suites |
 | `git-commit` | Conventional Commits |
 | `zod-4` | Zod v4 schemas, Express validation, v3 to v4 migration |
 | `zod` | Zod patterns: parse, refine, performance, error handling |
@@ -48,7 +48,7 @@ When performing these actions, ALWAYS invoke the corresponding skill FIRST:
 | Generating reports (Excel) | `xlsx` |
 | Creating git commit | `git-commit` |
 | Refactoring TypeScript code | `typescript` |
-| Writing or running tests | `vitest` |
+| Writing or running tests | `qa` |
 | Querying database with Prisma | `prisma-client-api` |
 | Running Prisma CLI commands | `prisma-cli` |
 

@@ -18,7 +18,7 @@ These apply across all components:
 |-------|-------------|-----|
 | `typescript` | Const types, flat interfaces, utility types, Zod type inference | [SKILL.md](skills/typescript/SKILL.md) |
 | `typescript-advanced-types` | Advanced TS: generics, conditional types, mapped types | [SKILL.md](skills/typescript-advanced-types/SKILL.md) |
-| `vitest` | Vitest testing: config, mocking, snapshots, coverage | [SKILL.md](skills/vitest/SKILL.md) |
+| `qa` | Tatachio QA flow: run-all orchestrator, disposable-data isolation, autonomous web E2E (port 3456), chaos suites | [SKILL.md](skills/qa/SKILL.md) |
 | `git-commit` | Conventional Commits | [SKILL.md](skills/git-commit/SKILL.md) |
 | `zod-4` | Zod v4 schemas, Express validation, v3 to v4 migration | [SKILL.md](skills/zod-4/SKILL.md) |
 | `zod` | Zod patterns: parse, refine, performance, error handling | [SKILL.md](skills/zod/SKILL.md) |
@@ -32,7 +32,7 @@ When performing these actions, ALWAYS invoke the corresponding skill FIRST:
 |--------|-------|
 | Creating git commit | `git-commit` |
 | Refactoring TypeScript code | `typescript` |
-| Writing or running tests | `vitest` |
+| Writing or running tests | `qa` |
 | Validating data or request bodies | `zod-4` |
 
 ---
