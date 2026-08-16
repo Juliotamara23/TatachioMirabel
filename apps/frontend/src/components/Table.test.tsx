@@ -105,4 +105,17 @@ describe("Table", () => {
     expect(rowCount).toBeLessThan(100);
     expect(rowCount).toBeGreaterThan(0);
   });
+
+  it("renders a custom row body via renderRow, skipping the default cells", () => {
+    render(
+      <Table
+        columns={columns}
+        rows={rows.slice(0, 1)}
+        renderRow={(row) => <span data-testid={`custom-${row.id}`}>{row.name} (edit mode)</span>}
+      />,
+    );
+    expect(screen.getByTestId("custom-1")).toHaveTextContent("Alpha (edit mode)");
+    // Default cell content (value "10") is replaced by the custom row body.
+    expect(screen.queryByText("10")).not.toBeInTheDocument();
+  });
 });
