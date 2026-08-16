@@ -8,7 +8,8 @@ import { defineConfig } from "@playwright/test";
  *
  * Architecture:
  *   1. BACKEND (webServer[0]): node scripts/qa/lib/start-web-backend.mjs
- *      - Starts on FIXED port 3456
+ *      - Starts on port 3456 — SHARED with the full QA run (run-all.mjs) via
+ *        the QA_BACKEND_PORT constant in scripts/qa/lib/server.mjs
  *      - Uses disposable qa.db + isolated QA_HOME (fake HOME + TATACHIO_REPORTES_DIR)
  *      - Seeds database on startup via seed-db.mjs
  *      - Prints "WEB_QA_BACKEND_READY http://localhost:3456" when healthy

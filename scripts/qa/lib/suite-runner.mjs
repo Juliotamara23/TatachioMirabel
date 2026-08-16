@@ -8,9 +8,6 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const projectRoot = resolve(__dirname, "..", "..", "..");
 const qaDir = join(projectRoot, "scripts", "qa");
 
-// Increments per suite so each run gets a fresh port range (avoids TIME_WAIT collisions)
-let nextSuitePort = 0;
-
 /**
  * Run a QA test suite with shared lifecycle: seed → start server → run tests → stop server → write report.
  *
@@ -41,14 +38,14 @@ export async function runSuite({ name, seed = true, start = true, env = {} }, te
     let base = null;
     if (start) {
       console.log(`[${name}] Starting server...`);
-      const { startServer } = await import("./server.mjs");
+      const { startServer, QA_BACKEND_PORT } = await import("./server.mjs");
       // The QA server ALWAYS runs with the isolated QA_HOME (issue #62):
       // fake HOME + TATACHIO_REPORTES_DIR — never touches the real ~/.tatachio.
       const serverEnv = { ...(await obtenerQaEnv()), ...env };
-      // Each suite gets a unique port base to avoid TIME_WAIT collisions from
-      // the previous suite's server (ports linger ~60s after SIGTERM).
-      const portBase = 3500 + (nextSuitePort++ * 5);
-      serverCtx = await startServer({ env: serverEnv, port: portBase });
+      // Every suite runs on the SAME fixed port (QA_BACKEND_PORT = 3456),
+      // shared with the web E2E flow. startServer retries EADDRINUSE itself,
+      // so no per-suite port allocation is needed.
+      serverCtx = await startServer({ env: serverEnv, port: QA_BACKEND_PORT });
       base = `http://localhost:${serverCtx.port}`;
       global.__QA_BASE_URL__ = base;
       console.log(`[${name}] Server ready at ${base}`);
