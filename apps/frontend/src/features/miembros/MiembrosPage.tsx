@@ -4,6 +4,7 @@ import { useAuth } from "../../contexts/AuthContext";
 import { useToast } from "../../contexts/ToastContext";
 import { listMiembros, deleteMiembro, type Miembro } from "../../lib/api/miembros";
 import { downloadCenso } from "../../lib/api/reportes";
+import { runWithToast } from "../../lib/toast";
 import { ApiError } from "../../lib/api/client";
 import { Table } from "../../components/Table";
 import { ColumnPicker } from "../../components/ColumnPicker";
@@ -64,13 +65,12 @@ export function MiembrosPage() {
   const handleExport = async () => {
     if (!token) return;
     setExporting(true);
-    try {
-      await downloadCenso(token);
-    } catch {
-      alert("Error al exportar");
-    } finally {
-      setExporting(false);
-    }
+    // XLSX-4: scope the report to the selected cabildo; toast mirrors the outcome (TOAST-2).
+    await runWithToast(toast, downloadCenso(token, selectedId ?? undefined), {
+      success: "Censo exportado correctamente",
+      error: "Error al exportar el censo",
+    });
+    setExporting(false);
   };
 
   const handleEdit = (member: Miembro) => {

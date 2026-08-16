@@ -4,10 +4,13 @@ import { ApiError } from "./client";
 /**
  * Downloads the censo Excel report as a blob.
  * Parses Content-Disposition for filename; falls back to `censo-YYYY.xlsx`.
+ * When `cabildoId` is provided, the request is scoped to that cabildo (XLSX-4);
+ * the backend then returns a slugged `censo-<cabildo>-<year>.xlsx` filename.
  */
-export async function downloadCenso(token: string): Promise<void> {
+export async function downloadCenso(token: string, cabildoId?: string): Promise<void> {
   const base = getApiBaseUrl();
-  const res = await fetch(`${base}/api/reportes/censo.xlsx`, {
+  const query = cabildoId ? `?cabildoId=${encodeURIComponent(cabildoId)}` : "";
+  const res = await fetch(`${base}/api/reportes/censo.xlsx${query}`, {
     headers: { Authorization: `Bearer ${token}` },
   });
 

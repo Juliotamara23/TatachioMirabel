@@ -2,6 +2,8 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi } from "vitest";
 import { CapitanasRegisterForm } from "./CapitanasRegisterForm";
+import { ToastProvider } from "../../contexts/ToastContext";
+import { ApiError } from "../../lib/api/client";
 
 vi.mock("../../lib/api/auth", () => ({
   register: vi.fn(),
@@ -16,9 +18,17 @@ vi.mock("../../contexts/CabildoContext", () => ({
 
 const { register: apiRegister } = await import("../../lib/api/auth");
 
+function renderForm() {
+  return render(
+    <ToastProvider>
+      <CapitanasRegisterForm onSuccess={vi.fn()} />
+    </ToastProvider>,
+  );
+}
+
 describe("CapitanasRegisterForm", () => {
   it("renders form fields", () => {
-    render(<CapitanasRegisterForm onSuccess={vi.fn()} />);
+    renderForm();
     expect(screen.getByLabelText(/email/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/nombre/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/contraseña/i)).toBeInTheDocument();
@@ -26,7 +36,7 @@ describe("CapitanasRegisterForm", () => {
 
   it("requires cabildoId selection", async () => {
     const user = userEvent.setup();
-    render(<CapitanasRegisterForm onSuccess={vi.fn()} />);
+    renderForm();
 
     await user.type(screen.getByLabelText(/email/i), "test@test.com");
     await user.type(screen.getByLabelText(/nombre/i), "Test Captain");
@@ -44,7 +54,7 @@ describe("CapitanasRegisterForm", () => {
     const user = userEvent.setup();
     vi.mocked(apiRegister).mockResolvedValue({ id: "1" });
 
-    render(<CapitanasRegisterForm onSuccess={vi.fn()} />);
+    renderForm();
 
     await user.type(screen.getByLabelText(/email/i), "captain@test.com");
     await user.type(screen.getByLabelText(/nombre/i), "Captain Test");
@@ -63,5 +73,23 @@ describe("CapitanasRegisterForm", () => {
         }),
       );
     });
+  });
+
+  it("shows an error toast with the API message when register fails (TOAST-2)", async () => {
+    const user = userEvent.setup();
+    vi.mocked(apiRegister).mockRejectedValueOnce(
+      new ApiError(409, { error: "El email ya está registrado" }),
+    );
+
+    renderForm();
+
+    await user.type(screen.getByLabelText(/email/i), "dup@test.com");
+    await user.type(screen.getByLabelText(/nombre/i), "Dup Captain");
+    await user.type(screen.getByLabelText(/contraseña/i), "password123");
+    await user.selectOptions(screen.getByLabelText(/cabildo/i), "cabildo-1");
+
+    await user.click(screen.getByRole("button", { name: /registrar/i }));
+
+    expect(await screen.findByText("El email ya está registrado")).toBeInTheDocument();
   });
 });

@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { useCabildo } from "../../contexts/CabildoContext";
+import { useToast } from "../../contexts/ToastContext";
 import { listCaptains, removeCaptain } from "../../lib/api/admin";
 import { ApiError } from "../../lib/api/client";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
@@ -7,9 +8,9 @@ import type { Captain } from "../../types/api";
 
 export function CapitanasList() {
   const { selectedId } = useCabildo();
+  const { toast } = useToast();
   const [captains, setCaptains] = useState<Captain[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [dialogCaptain, setDialogCaptain] = useState<Captain | null>(null);
 
   const load = useCallback(async () => {
@@ -34,13 +35,12 @@ export function CapitanasList() {
 
     try {
       await removeCaptain(selectedId, captain.id);
+      toast.success("Capitana removida correctamente");
       await load();
     } catch (err) {
-      if (err instanceof ApiError && err.status === 409) {
-        setError("No se puede remover la última capitana del cabildo.");
-      } else {
-        setError("Error al remover capitana.");
-      }
+      // TOAST-2: 409 (last captain) surfaces the server message verbatim
+      // ("El cabildo debe tener al menos una capitana").
+      toast.error(err instanceof ApiError ? err.body.error : "Error al remover capitana");
     }
     setDialogCaptain(null);
   };
@@ -55,11 +55,6 @@ export function CapitanasList() {
 
   return (
     <div>
-      {error && (
-        <div className="mb-3 rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-950/30 dark:text-red-400">
-          {error}
-        </div>
-      )}
       <div className="overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700">
         <table className="w-full">
           <thead className="bg-gray-50 dark:bg-surface-muted-dark">

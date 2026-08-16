@@ -2,6 +2,8 @@ import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { cabildoSchema, type CabildoInput } from "@tatachio/shared";
 import { createCabildo, updateCabildo } from "../../lib/api/cabildos";
+import { useToast } from "../../contexts/ToastContext";
+import { ApiError } from "../../lib/api/client";
 import type { Cabildo } from "../../types/api";
 
 interface CabildoFormProps {
@@ -11,6 +13,7 @@ interface CabildoFormProps {
 
 export function CabildoForm({ cabildo, onSuccess }: CabildoFormProps) {
   const isEditing = !!cabildo;
+  const { toast } = useToast();
 
   const { control, handleSubmit, formState: { errors, isSubmitting } } = useForm<CabildoInput>({
     resolver: zodResolver(cabildoSchema),
@@ -23,10 +26,17 @@ export function CabildoForm({ cabildo, onSuccess }: CabildoFormProps) {
   });
 
   const onSubmit = async (data: CabildoInput) => {
-    if (isEditing && cabildo) {
-      await updateCabildo(cabildo.id, data);
-    } else {
-      await createCabildo(data);
+    try {
+      if (isEditing && cabildo) {
+        await updateCabildo(cabildo.id, data);
+      } else {
+        await createCabildo(data);
+      }
+    } catch (err) {
+      // TOAST-2: surface the API error message without an unhandled rejection;
+      // the form stays open so the user can retry.
+      toast.error(err instanceof ApiError ? err.body.error : "Error al guardar el cabildo");
+      return;
     }
     onSuccess?.();
   };

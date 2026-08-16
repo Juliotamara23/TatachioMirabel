@@ -1,25 +1,38 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi } from "vitest";
 import { FamiliaForm } from "./FamiliaForm";
+import { ToastProvider } from "../../contexts/ToastContext";
+import { ApiError } from "../../lib/api/client";
 
 vi.mock("../../lib/api/familias", () => ({
   createFamilia: vi.fn(),
   updateFamilia: vi.fn(),
 }));
 
+// Valid UUID — familiaSchema requires cabildoId: z.string().uuid().
+const CABILDO_ID = "11111111-1111-4111-8111-111111111111";
+
 vi.mock("../../contexts/CabildoContext", () => ({
   useCabildo: () => ({
-    selectedId: "cabildo-1",
-    list: [{ id: "cabildo-1", nombre: "Test Cabildo" }],
+    selectedId: CABILDO_ID,
+    list: [{ id: CABILDO_ID, nombre: "Test Cabildo" }],
   }),
 }));
 
-describe("FamiliaForm", () => {
-  const mockOnSuccess = vi.fn();
+const { createFamilia } = await import("../../lib/api/familias");
 
+function renderForm(props = {}) {
+  return render(
+    <ToastProvider>
+      <FamiliaForm onSuccess={vi.fn()} {...props} />
+    </ToastProvider>,
+  );
+}
+
+describe("FamiliaForm", () => {
   it("renders form fields", () => {
-    render(<FamiliaForm onSuccess={mockOnSuccess} />);
+    renderForm();
     expect(screen.getByLabelText(/número/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/dirección/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/teléfono/i)).toBeInTheDocument();
@@ -27,7 +40,7 @@ describe("FamiliaForm", () => {
 
   it("shows validation error for numero=0 on submit", async () => {
     const user = userEvent.setup();
-    render(<FamiliaForm onSuccess={mockOnSuccess} />);
+    renderForm();
 
     await user.click(screen.getByRole("button", { name: /guardar/i }));
 
@@ -45,7 +58,7 @@ describe("FamiliaForm", () => {
       cabildoId: "cabildo-1",
     };
 
-    render(<FamiliaForm familia={existing} onSuccess={mockOnSuccess} />);
+    renderForm({ familia: existing });
 
     expect(screen.getByLabelText(/número/i)).toHaveValue(42);
     expect(screen.getByRole("button", { name: /actualizar/i })).toBeInTheDocument();
@@ -60,10 +73,24 @@ describe("FamiliaForm", () => {
       cabildoId: "cabildo-1",
     };
 
-    render(<FamiliaForm familia={existing} onSuccess={mockOnSuccess} />);
+    renderForm({ familia: existing });
 
     expect(screen.getByLabelText(/número/i)).toHaveValue(15);
     expect(screen.getByLabelText(/dirección/i)).toHaveValue("Calle 5 #5-05");
     expect(screen.getByLabelText(/teléfono/i)).toHaveValue("555-9876");
+  });
+
+  it("shows an error toast with the API message when create fails (TOAST-2)", async () => {
+    const user = userEvent.setup();
+    vi.mocked(createFamilia).mockRejectedValueOnce(
+      new ApiError(409, { error: "El número de familia ya existe" }),
+    );
+    renderForm();
+
+    // fireEvent.change avoids user.clear on type=number (parseInt("") = NaN).
+    fireEvent.change(screen.getByLabelText(/número/i), { target: { value: "7" } });
+    await user.click(screen.getByRole("button", { name: /guardar/i }));
+
+    expect(await screen.findByText("El número de familia ya existe")).toBeInTheDocument();
   });
 });

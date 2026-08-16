@@ -1,16 +1,21 @@
 import { useEffect, useState, useCallback } from "react";
 import { useAuth } from "../../contexts/AuthContext";
+import { useToast } from "../../contexts/ToastContext";
 import { listCabildos, deleteCabildo } from "../../lib/api/cabildos";
+import { ApiError } from "../../lib/api/client";
 import { Table } from "../../components/Table";
+import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { CabildoForm } from "./CabildoForm";
 import type { Cabildo } from "../../types/api";
 
 export function CabildosPage() {
   const { user } = useAuth();
+  const { toast } = useToast();
   const [cabildos, setCabildos] = useState<Cabildo[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<Cabildo | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Cabildo | null>(null);
 
   const isAdmin = user?.rol === "ADMINISTRATOR";
 
@@ -30,13 +35,20 @@ export function CabildosPage() {
     load();
   }, [load]);
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("¿Eliminar este cabildo?")) return;
+  const handleDelete = (cabildo: Cabildo) => {
+    setDeleteTarget(cabildo);
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    const target = deleteTarget;
+    setDeleteTarget(null);
     try {
-      await deleteCabildo(id);
+      await deleteCabildo(target.id);
+      toast.success("Cabildo eliminado correctamente");
       await load();
-    } catch {
-      alert("Error al eliminar cabildo");
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.body.error : "Error al eliminar cabildo");
     }
   };
 
@@ -46,6 +58,8 @@ export function CabildosPage() {
   };
 
   const handleFormSuccess = () => {
+    // TOAST-2: create vs update toast, based on whether a cabildo was being edited.
+    toast.success(editing ? "Cabildo actualizado correctamente" : "Cabildo creado correctamente");
     setShowForm(false);
     setEditing(null);
     load();
@@ -70,8 +84,9 @@ export function CabildosPage() {
                   Editar
                 </button>
                 <button
-                  onClick={() => handleDelete(c.id)}
+                  onClick={() => handleDelete(c)}
                   className="text-xs text-red-600 hover:underline"
+                  data-testid="delete-btn"
                 >
                   Eliminar
                 </button>
@@ -118,6 +133,15 @@ export function CabildosPage() {
         rows={cabildos}
         getRowKey={(c) => c.id}
         emptyMessage="Sin datos"
+      />
+
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        title="Eliminar cabildo"
+        message={`¿Estás seguro de eliminar el cabildo ${deleteTarget?.nombre ?? ""}?`}
+        confirmLabel="Eliminar"
+        onConfirm={() => void confirmDelete()}
+        onCancel={() => setDeleteTarget(null)}
       />
     </div>
   );

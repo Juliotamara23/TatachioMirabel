@@ -1,6 +1,8 @@
 import { useForm } from "react-hook-form";
 import { useCabildo } from "../../contexts/CabildoContext";
+import { useToast } from "../../contexts/ToastContext";
 import { register, type RegisterInput } from "../../lib/api/auth";
+import { ApiError } from "../../lib/api/client";
 
 interface CapitanasRegisterFormProps {
   onSuccess?: () => void;
@@ -15,6 +17,7 @@ interface FormValues {
 
 export function CapitanasRegisterForm({ onSuccess }: CapitanasRegisterFormProps) {
   const { list: cabildos } = useCabildo();
+  const { toast } = useToast();
   const { register: rhfRegister, handleSubmit, formState: { errors, isSubmitting } } = useForm<FormValues>({
     defaultValues: {
       email: "",
@@ -32,7 +35,14 @@ export function CapitanasRegisterForm({ onSuccess }: CapitanasRegisterFormProps)
       rol: "CAPTAIN",
       cabildoId: data.cabildoId,
     };
-    await register(payload);
+    try {
+      await register(payload);
+    } catch (err) {
+      // TOAST-2: surface the API error message (e.g. duplicate email 409)
+      // without an unhandled rejection; the form stays open to retry.
+      toast.error(err instanceof ApiError ? err.body.error : "Error al registrar la capitana");
+      return;
+    }
     onSuccess?.();
   };
 

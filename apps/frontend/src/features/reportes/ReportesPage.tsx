@@ -1,5 +1,8 @@
 import { useAuth } from "../../contexts/AuthContext";
+import { useCabildo } from "../../contexts/CabildoContext";
+import { useToast } from "../../contexts/ToastContext";
 import { downloadCenso } from "../../lib/api/reportes";
+import { runWithToast } from "../../lib/toast";
 import { useState } from "react";
 
 /**
@@ -8,20 +11,19 @@ import { useState } from "react";
  */
 export function ReportesPage() {
   const { token } = useAuth();
+  const { selectedId } = useCabildo();
+  const { toast } = useToast();
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   const handleDownload = async () => {
     if (!token) return;
     setLoading(true);
-    setError(null);
-    try {
-      await downloadCenso(token);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Error al descargar el censo");
-    } finally {
-      setLoading(false);
-    }
+    // XLSX-4: scope the report to the selected cabildo; toast mirrors the outcome (TOAST-2).
+    await runWithToast(toast, downloadCenso(token, selectedId ?? undefined), {
+      success: "Censo exportado correctamente",
+      error: "Error al descargar el censo",
+    });
+    setLoading(false);
   };
 
   return (
@@ -45,12 +47,6 @@ export function ReportesPage() {
           {loading ? "Descargando..." : "Descargar Censo (.xlsx)"}
         </button>
       </div>
-
-      {error && (
-        <div className="mt-4 rounded border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-800 dark:bg-red-950/30 dark:text-red-400">
-          {error}
-        </div>
-      )}
     </div>
   );
 }

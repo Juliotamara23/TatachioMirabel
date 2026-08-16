@@ -210,4 +210,20 @@ describe("MiembrosPage", () => {
     expect(deleteMiembro).not.toHaveBeenCalled();
     expect(screen.queryByTestId("confirm-dialog")).not.toBeInTheDocument();
   });
+
+  it("exports the censo scoped to the selected cabildo with a success toast (XLSX-4, TOAST-2)", async () => {
+    const user = userEvent.setup();
+    const { downloadCenso } = await import("../../lib/api/reportes");
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByTestId("export-btn")).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByTestId("export-btn"));
+
+    await waitFor(() => {
+      expect(downloadCenso).toHaveBeenCalledWith("test-token", "cabildo-1");
+    });
+    expect(await screen.findByText("Censo exportado correctamente")).toBeInTheDocument();
+  });
 });
