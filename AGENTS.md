@@ -3,7 +3,7 @@
 ## How to Use This Guide
 
 - Start here for cross-project norms. Tatachio Mirabel is a monorepo with several components.
-- Only applications under `apps/` have their own `AGENTS.md` with specific guidelines (e.g., `apps/backend/AGENTS.md`).
+- Only applications under `apps/` have their own `AGENTS.md` with specific guidelines (e.g., `apps/backend/AGENTS.md`, `apps/frontend/AGENTS.md`).
 - Component docs override this file when guidance conflicts.
 
 ## Available Skills
@@ -22,6 +22,9 @@ These apply across all components:
 | `git-commit` | Conventional Commits | [SKILL.md](skills/git-commit/SKILL.md) |
 | `zod-4` | Zod v4 schemas, Express validation, v3 to v4 migration | [SKILL.md](skills/zod-4/SKILL.md) |
 | `skill-creator` | Skill creation patterns | [SKILL.md](skills/skill-creator/SKILL.md) |
+| `vercel-react-best-practices` | React 19 performance patterns: memoization, data fetching, bundle optimization | [SKILL.md](skills/vercel-react-best-practices/SKILL.md) |
+| `tailwind-4-docs` | Tailwind CSS v4 utilities, variants, theming, dark mode class strategy | [SKILL.md](skills/tailwind-4-docs/SKILL.md) |
+| `playwright-best-practices` | Playwright E2E: page objects, flaky-test fixes, auth, mocking, debugging | [SKILL.md](skills/playwright-best-practices/SKILL.md) |
 
 ### Auto-invoke Skills
 
@@ -33,6 +36,9 @@ When performing these actions, ALWAYS invoke the corresponding skill FIRST:
 | Refactoring TypeScript code | `typescript` |
 | Writing or running tests | `qa` |
 | Validating data or request bodies | `zod-4` |
+| Writing or refactoring React components | `vercel-react-best-practices` |
+| Styling with Tailwind classes or dark mode | `tailwind-4-docs` |
+| Writing or debugging Playwright E2E tests | `playwright-best-practices` |
 
 ---
 
@@ -44,7 +50,7 @@ Tatachio Mirabel is a cabildo member management system with AI-powered chat, CLI
 |-----------|----------|------------|-----------|
 | Backend | `apps/backend/` | Node.js, Express, TypeScript, Prisma, SQLite | [AGENTS.md](apps/backend/AGENTS.md) |
 | CLI | `apps/cli/` | Node.js, TypeScript, Commander.js, @inquirer | [AGENTS.md](apps/cli/AGENTS.md) |
-| Frontend | `apps/frontend/` | pendiente | pendiente |
+| Frontend | `apps/frontend/` | React 19, Vite, TypeScript, Tailwind v4 | [AGENTS.md](apps/frontend/AGENTS.md) |
 | Shared | `packages/shared/` | TypeScript, Zod | -- |
 | QA Scripts | `scripts/qa/` | Node.js, fetch nativo | -- |
 | Docs | `docs/` | Markdown (plan, QA plan) | -- |
