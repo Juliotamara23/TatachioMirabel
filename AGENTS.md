@@ -21,7 +21,6 @@ These apply across all components:
 | `qa` | Tatachio QA flow: run-all orchestrator, disposable-data isolation, autonomous web E2E (port 3456), chaos suites | [SKILL.md](skills/qa/SKILL.md) |
 | `git-commit` | Conventional Commits | [SKILL.md](skills/git-commit/SKILL.md) |
 | `zod-4` | Zod v4 schemas, Express validation, v3 to v4 migration | [SKILL.md](skills/zod-4/SKILL.md) |
-| `zod` | Zod patterns: parse, refine, performance, error handling | [SKILL.md](skills/zod/SKILL.md) |
 | `skill-creator` | Skill creation patterns | [SKILL.md](skills/skill-creator/SKILL.md) |
 
 ### Auto-invoke Skills
