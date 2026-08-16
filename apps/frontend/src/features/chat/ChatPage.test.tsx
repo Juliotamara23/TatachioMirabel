@@ -20,24 +20,30 @@ vi.mock("../../contexts/AuthContext", () => ({
 }));
 
 // Mock fetch for GET /api/models
-beforeEach(() => {
-  vi.clearAllMocks();
-  mockUseChatStream.mockReturnValue({
-    messages: [],
-    status: "idle" as const,
-    error: null,
-    availableModels: null,
-    send: mockSend,
-    reset: mockReset,
-  });
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockUseChatStream.mockReturnValue({
+      messages: [],
+      status: "idle" as const,
+      error: null,
+      availableModels: null,
+      send: mockSend,
+      reset: mockReset,
+    });
 
-  vi.spyOn(globalThis, "fetch").mockResolvedValue(
-    new Response(JSON.stringify(["gpt-4", "claude-3"]), {
-      status: 200,
-      headers: { "Content-Type": "application/json" },
-    }),
-  );
-});
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          models: [{ id: "gpt-4" }, { id: "claude-3" }],
+          defaults: { ADMINISTRATOR: "gpt-4", CAPTAIN: "claude-3" },
+        }),
+        {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }
+      ),
+    );
+  });
 
 describe("ChatPage", () => {
   it("renders the chat interface with model selector", async () => {

@@ -122,10 +122,11 @@ export function ChatPage() {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
-        const data = (await res.json()) as string[];
-        setModels(data);
-        if (data.length > 0 && !data.includes(selectedModel)) {
-          setSelectedModel(data[0]);
+        const data = (await res.json()) as { models: Array<{ id: string }>; defaults: Record<string, string> };
+        const modelIds = data.models.map((m) => m.id);
+        setModels(modelIds);
+        if (modelIds.length > 0 && !modelIds.includes(selectedModel)) {
+          setSelectedModel(modelIds[0]);
         }
       }
     } catch {

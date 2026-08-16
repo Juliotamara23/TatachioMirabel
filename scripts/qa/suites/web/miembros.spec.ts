@@ -5,8 +5,8 @@ test.describe("Miembros", () => {
     await page.goto("/miembros");
 
     // Either virtual table or empty state
-    const hasTable = await page.getByTestId("virtual-table").isVisible().catch(() => false);
-    const hasEmpty = await page.getByText(/sin datos|no hay/i).isVisible().catch(() => false);
-    expect(hasTable || hasEmpty).toBeTruthy();
+    const hasTable = page.getByTestId("virtual-table");
+    const hasEmpty = page.getByText(/sin datos|no hay/i);
+    await expect(hasTable.or(hasEmpty)).toBeVisible();
   });
 });
