@@ -49,7 +49,8 @@ describe("AppShell", () => {
     renderWithRouter();
 
     expect(screen.getByText("Tatachio Mirabel")).toBeInTheDocument();
-    expect(screen.getByText("Test Admin")).toBeInTheDocument();
+    // Name renders in the sidebar header and the topbar avatar chip.
+    expect(screen.getAllByText("Test Admin").length).toBeGreaterThan(0);
     expect(screen.getByText("Dashboard")).toBeInTheDocument();
     expect(screen.getByText("Miembros")).toBeInTheDocument();
     expect(screen.getByText("Familias")).toBeInTheDocument();
