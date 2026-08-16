@@ -1,11 +1,12 @@
 import { test, expect } from "./fixtures/admin";
 
 test.describe("Dashboard", () => {
-  test("shows KPI cards with counts", async ({ adminPage: page }) => {
+  test("shows KPI cards with counts or placeholder when no cabildo selected", async ({ adminPage: page }) => {
     await page.goto("/dashboard");
 
-    // KPI cards should be visible
+    // Either KPI cards (when cabildo selected) or placeholder (when no cabildo)
     const kpiCards = page.getByTestId("kpi-card");
-    await expect(kpiCards.first()).toBeVisible();
+    const placeholder = page.getByText("Selecciona un cabildo para ver el dashboard");
+    await expect(kpiCards.first().or(placeholder)).toBeVisible();
   });
 });

@@ -7,15 +7,19 @@ test.describe("Cabildo Scope", () => {
     const selector = page.getByTestId("cabildo-selector");
     const initialValue = await selector.inputValue();
 
-    // If there are multiple cabildos, switch to a different one
-    const options = await selector.locator("option").allTextContents();
-    if (options.length > 1) {
-      const otherOption = options.find((o) => o.trim() !== initialValue);
-      if (otherOption) {
-        await selector.selectOption({ label: otherOption });
+    // Get all option values (not labels)
+    const optionValues = await selector.locator("option").evaluateAll((opts) =>
+      opts.map((o) => o.value)
+    );
+
+    // If there are multiple cabildos, switch to a different one by value
+    if (optionValues.length > 1) {
+      const otherValue = optionValues.find((v) => v !== initialValue);
+      if (otherValue) {
+        await selector.selectOption({ value: otherValue });
         // The value should have changed
         const newValue = await selector.inputValue();
-        expect(newValue).not.toBe(initialValue);
+        expect(newValue).toBe(otherValue);
       }
     }
   });
