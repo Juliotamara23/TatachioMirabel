@@ -1,24 +1,30 @@
 import { useEffect, useState, useCallback } from "react";
 import { useCabildo } from "../../contexts/CabildoContext";
 import { useAuth } from "../../contexts/AuthContext";
+import { useToast } from "../../contexts/ToastContext";
 import { listMiembros, deleteMiembro, type Miembro } from "../../lib/api/miembros";
 import { downloadCenso } from "../../lib/api/reportes";
+import { ApiError } from "../../lib/api/client";
 import { Table } from "../../components/Table";
 import { ColumnPicker } from "../../components/ColumnPicker";
+import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { useColumnVisibility } from "../../hooks/useColumnVisibility";
 import {
   MIEMBRO_COLUMNS,
   DEFAULT_MIEMBRO_COLUMN_KEYS,
 } from "./columnConfig";
 import { MiembroForm } from "./MiembroForm";
+import { InlineEditableRow } from "./InlineEditableRow";
 
 export function MiembrosPage() {
   const { selectedId } = useCabildo();
   const { token } = useAuth();
+  const { toast } = useToast();
   const [miembros, setMiembros] = useState<Miembro[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showForm, setShowForm] = useState(false);
-  const [editing, setEditing] = useState<Miembro | null>(null);
+  const [showForm, setShowForm] = useState(false); // create-only modal (EDIT-5)
+  const [editingId, setEditingId] = useState<string | null>(null); // inline edit row (EDIT-1)
+  const [deleteTarget, setDeleteTarget] = useState<Miembro | null>(null); // ConfirmDialog (EDIT-6)
   const [exporting, setExporting] = useState(false);
 
   const load = useCallback(async () => {
@@ -38,13 +44,20 @@ export function MiembrosPage() {
     load();
   }, [load]);
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("¿Eliminar este miembro?")) return;
+  const handleDelete = (member: Miembro) => {
+    setDeleteTarget(member);
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    const target = deleteTarget;
+    setDeleteTarget(null);
     try {
-      await deleteMiembro(id);
+      await deleteMiembro(target.id);
+      toast.success("Miembro eliminado correctamente");
       await load();
-    } catch {
-      alert("Error al eliminar miembro");
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.body.error : "Error al eliminar miembro");
     }
   };
 
@@ -61,13 +74,21 @@ export function MiembrosPage() {
   };
 
   const handleEdit = (member: Miembro) => {
-    setEditing(member);
-    setShowForm(true);
+    // EDIT-1: ✏️ switches the row into inline edit mode (no modal).
+    setEditingId(member.id);
   };
+
+  const handleInlineSave = useCallback(() => {
+    setEditingId(null);
+    load();
+  }, [load]);
+
+  const handleInlineCancel = useCallback(() => {
+    setEditingId(null);
+  }, []);
 
   const handleFormSuccess = () => {
     setShowForm(false);
-    setEditing(null);
     load();
   };
 
@@ -90,7 +111,7 @@ export function MiembrosPage() {
     if (action === "edit") {
       handleEdit(member);
     } else if (action === "delete") {
-      void handleDelete(member.id);
+      handleDelete(member);
     }
   };
 
@@ -119,7 +140,7 @@ export function MiembrosPage() {
             {exporting ? "Exportando..." : "Exportar Excel"}
           </button>
           <button
-            onClick={() => { setEditing(null); setShowForm(true); }}
+            onClick={() => setShowForm(true)}
             className="rounded bg-orange-brand px-3 py-1.5 text-sm text-white hover:bg-orange-brand-light"
           >
             Nuevo Miembro
@@ -129,10 +150,10 @@ export function MiembrosPage() {
 
       {showForm && (
         <div className="mb-6 rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-surface-muted-dark">
-          <h3 className="mb-3 text-lg font-semibold">{editing ? "Editar Miembro" : "Nuevo Miembro"}</h3>
-          <MiembroForm member={editing ?? undefined} onSuccess={handleFormSuccess} />
+          <h3 className="mb-3 text-lg font-semibold">Nuevo Miembro</h3>
+          <MiembroForm onSuccess={handleFormSuccess} />
           <button
-            onClick={() => { setShowForm(false); setEditing(null); }}
+            onClick={() => setShowForm(false)}
             className="mt-2 text-sm text-gray-500 hover:underline"
           >
             Cancelar
@@ -146,8 +167,27 @@ export function MiembrosPage() {
           rows={miembros}
           getRowKey={(m) => m.id}
           emptyMessage="Sin datos"
+          renderRow={(row) =>
+            editingId === row.id ? (
+              <InlineEditableRow
+                row={row}
+                columns={visibleColumns}
+                onSave={handleInlineSave}
+                onCancel={handleInlineCancel}
+              />
+            ) : null
+          }
         />
       </div>
+
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        title="Eliminar miembro"
+        message={`¿Estás seguro de eliminar a ${deleteTarget?.nombres ?? ""} ${deleteTarget?.apellidos ?? ""}?`}
+        confirmLabel="Eliminar"
+        onConfirm={() => void confirmDelete()}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </div>
   );
 }

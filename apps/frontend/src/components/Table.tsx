@@ -16,6 +16,9 @@ interface TableProps<T> {
   onRowClick?: (row: T) => void;
   emptyMessage?: string;
   getRowKey?: (row: T) => string;
+  // Replaces the default cells for a row (e.g. inline edit mode). The custom
+  // body must render one cell div per column so it flows into the shared grid.
+  renderRow?: (row: T) => React.ReactNode;
 }
 
 /**
@@ -33,6 +36,7 @@ export function Table<T>({
   onRowClick,
   emptyMessage = "Sin datos",
   getRowKey,
+  renderRow,
 }: TableProps<T>) {
   const parentRef = useRef<HTMLDivElement>(null);
 
@@ -85,6 +89,8 @@ export function Table<T>({
       >
         {virtualizer.getVirtualItems().map((virtualRow) => {
           const row = rows[virtualRow.index];
+          // renderRow may return null (row not in edit mode) → default cells.
+          const customRow = renderRow ? renderRow(row) : undefined;
           return (
             <div
               key={getRowKey ? getRowKey(row) : virtualRow.index}
@@ -99,14 +105,15 @@ export function Table<T>({
               }}
               onClick={() => onRowClick?.(row)}
             >
-              {columns.map((col) => (
-                <div
-                  key={col.key}
-                  className="truncate px-4 py-1 text-sm text-gray-700 dark:text-gray-300"
-                >
-                  {col.render(row)}
-                </div>
-              ))}
+              {customRow ??
+                columns.map((col) => (
+                  <div
+                    key={col.key}
+                    className="truncate px-4 py-1 text-sm text-gray-700 dark:text-gray-300"
+                  >
+                    {col.render(row)}
+                  </div>
+                ))}
             </div>
           );
         })}

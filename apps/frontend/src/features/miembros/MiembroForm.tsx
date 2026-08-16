@@ -10,13 +10,14 @@ interface MiembroFormProps {
 }
 
 const TIPO_OPTIONS = ["CC", "TI", "RC", "NUIP"] as const;
-const SEXO_OPTIONS = ["M", "F"] as const;
-const PARENTESCO_OPTIONS = [
+export const SEXO_OPTIONS = ["M", "F"] as const;
+export const PARENTESCO_OPTIONS = [
   "PA", "MA", "CO", "HE", "CF", "ES", "HI",
   "YR", "NU", "SU", "SO", "CU", "TI", "AB", "NI",
 ] as const;
 
-function memberToDefaults(member: Miembro): MemberInput {
+/** Row → MemberInput mapping shared by the create modal and inline edit draft. */
+export function memberToDefaults(member: Miembro): MemberInput {
   return {
     tipoIdentificacion: member.tipoIdentificacion as MemberInput["tipoIdentificacion"],
     numeroDocumento: member.numeroDocumento,
