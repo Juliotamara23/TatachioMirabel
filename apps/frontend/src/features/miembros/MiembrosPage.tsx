@@ -4,6 +4,12 @@ import { useAuth } from "../../contexts/AuthContext";
 import { listMiembros, deleteMiembro, type Miembro } from "../../lib/api/miembros";
 import { downloadCenso } from "../../lib/api/reportes";
 import { Table } from "../../components/Table";
+import { ColumnPicker } from "../../components/ColumnPicker";
+import { useColumnVisibility } from "../../hooks/useColumnVisibility";
+import {
+  MIEMBRO_COLUMNS,
+  DEFAULT_MIEMBRO_COLUMN_KEYS,
+} from "./columnConfig";
 import { MiembroForm } from "./MiembroForm";
 
 export function MiembrosPage() {
@@ -65,34 +71,28 @@ export function MiembrosPage() {
     load();
   };
 
-  const columns = [
-    { key: "nombre", header: "Nombre", render: (m: Miembro) => `${m.nombres} ${m.apellidos}` },
-    { key: "doc", header: "Documento", render: (m: Miembro) => m.numeroDocumento },
-    { key: "fecha", header: "F. Nacimiento", render: (m: Miembro) => m.fechaNacimiento },
-    { key: "familia", header: "Familia", render: (m: Miembro) => m.familia?.numero ?? "-" },
-    {
-      key: "actions",
-      header: "",
-      render: (m: Miembro) => (
-        <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
-          <button
-            onClick={() => handleEdit(m)}
-            className="text-xs text-blue-600 hover:underline"
-            data-testid="edit-btn"
-          >
-            Editar
-          </button>
-          <button
-            onClick={() => handleDelete(m.id)}
-            className="text-xs text-red-600 hover:underline"
-            data-testid="delete-btn"
-          >
-            Eliminar
-          </button>
-        </div>
-      ),
-    },
-  ];
+  // COLS-1..4: visible subset of the catalog, persisted in localStorage.
+  const { visibleColumns, visibleKeys, toggle, reset } = useColumnVisibility(
+    MIEMBRO_COLUMNS,
+    DEFAULT_MIEMBRO_COLUMN_KEYS,
+  );
+
+  // Single delegated handler for the catalog's acciones buttons (edit/delete).
+  // The buttons bubble up with data-action + data-miembro-id; the member is
+  // resolved here so the module-level catalog stays pure.
+  const handleTableAction = (event: React.MouseEvent<HTMLDivElement>) => {
+    const target = (event.target as HTMLElement).closest("[data-action]");
+    if (!target) return;
+    const action = target.getAttribute("data-action");
+    const id = target.getAttribute("data-miembro-id");
+    const member = id ? miembros.find((m) => m.id === id) : undefined;
+    if (!member) return;
+    if (action === "edit") {
+      handleEdit(member);
+    } else if (action === "delete") {
+      void handleDelete(member.id);
+    }
+  };
 
   if (loading) {
     return <div data-testid="miembros-loading">Cargando miembros...</div>;
@@ -103,6 +103,13 @@ export function MiembrosPage() {
       <div className="mb-4 flex items-center justify-between">
         <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Miembros</h2>
         <div className="flex gap-2">
+          <ColumnPicker
+            columns={MIEMBRO_COLUMNS}
+            visibleKeys={visibleKeys}
+            onToggle={toggle}
+            onReset={reset}
+            lockedKeys={["acciones"]}
+          />
           <button
             onClick={handleExport}
             disabled={exporting}
@@ -133,12 +140,14 @@ export function MiembrosPage() {
         </div>
       )}
 
-      <Table
-        columns={columns}
-        rows={miembros}
-        getRowKey={(m) => m.id}
-        emptyMessage="Sin datos"
-      />
+      <div onClick={handleTableAction}>
+        <Table
+          columns={visibleColumns}
+          rows={miembros}
+          getRowKey={(m) => m.id}
+          emptyMessage="Sin datos"
+        />
+      </div>
     </div>
   );
 }
