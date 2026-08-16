@@ -14,7 +14,6 @@ Use these skills for detailed patterns on-demand.
 | Skill | Description | URL |
 |-------|-------------|-----|
 | `vercel-react-best-practices` | React 19 performance patterns: memoization, data fetching, bundle optimization | [SKILL.md](../../skills/vercel-react-best-practices/SKILL.md) |
-| `react-expert` | Authoritative React API research: usage examples, caveats, warnings, errors | [SKILL.md](../../skills/react-expert/SKILL.md) |
 | `tailwind-4-docs` | Tailwind CSS v4 utilities, variants, theming, dark mode class strategy | [SKILL.md](../../skills/tailwind-4-docs/SKILL.md) |
 | `playwright-best-practices` | Playwright E2E: page objects, flaky-test fixes, auth, mocking, debugging | [SKILL.md](../../skills/playwright-best-practices/SKILL.md) |
 
@@ -27,7 +26,6 @@ Use these skills for detailed patterns on-demand.
 | `qa` | Tatachio QA flow: run-all orchestrator, disposable-data isolation, autonomous web E2E (port 3456), chaos suites |
 | `git-commit` | Conventional Commits |
 | `zod-4` | Zod v4 schemas, Express validation, v3 to v4 migration |
-| `zod` | Zod patterns: parse, refine, performance, error handling |
 | `skill-creator` | Skill creation patterns |
 
 ### Auto-invoke Skills
@@ -37,7 +35,6 @@ When performing these actions, ALWAYS invoke the corresponding skill FIRST:
 | Action | Skill |
 |--------|-------|
 | Writing or refactoring React components | `vercel-react-best-practices` |
-| Researching React API behavior or caveats | `react-expert` |
 | Styling with Tailwind classes or dark mode | `tailwind-4-docs` |
 | Writing or debugging Playwright E2E tests | `playwright-best-practices` |
 | Writing or running tests (unit or E2E) | `qa` |

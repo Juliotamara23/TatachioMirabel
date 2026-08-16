@@ -32,7 +32,6 @@ Use these skills for detailed patterns on-demand.
 | `qa` | Tatachio QA flow: run-all orchestrator, disposable-data isolation, autonomous web E2E (port 3456), chaos suites |
 | `git-commit` | Conventional Commits |
 | `zod-4` | Zod v4 schemas, Express validation, v3 to v4 migration |
-| `zod` | Zod patterns: parse, refine, performance, error handling |
 | `skill-creator` | Skill creation patterns |
 
 ### Auto-invoke Skills
