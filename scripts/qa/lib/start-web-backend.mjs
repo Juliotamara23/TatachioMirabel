@@ -5,7 +5,8 @@
  * This script is spawned by Playwright's webServer (backend entry) and runs for
  * the entire test suite duration. It:
  * 1. Seeds the QA database (qa.db) via seed-db.mjs
- * 2. Starts the backend on FIXED port 3456 with isolated QA_HOME
+ * 2. Starts the backend on the SHARED QA port (QA_BACKEND_PORT = 3456, the
+ *    same port the full run uses) with isolated QA_HOME
  * 3. Prints a ready line and keeps the process alive
  * 4. Handles SIGTERM/SIGINT for graceful shutdown by Playwright
  *
@@ -15,7 +16,7 @@
  * The script exits with non-zero code on startup failure.
  */
 
-import { startServer, stopServer } from "./server.mjs";
+import { startServer, stopServer, QA_BACKEND_PORT } from "./server.mjs";
 import { obtenerQaEnv } from "./isolation.mjs";
 import { execSync } from "node:child_process";
 import { join, resolve, dirname } from "node:path";
@@ -44,7 +45,7 @@ async function runSeed() {
  * Main entry point.
  */
 async function main() {
-  console.log("[WEB_QA_BACKEND] Starting QA backend on fixed port 3456...");
+  console.log(`[WEB_QA_BACKEND] Starting QA backend on shared QA port ${QA_BACKEND_PORT}...`);
 
   try {
     // 1. Seed the database first
@@ -53,10 +54,10 @@ async function main() {
     // 2. Get isolated QA environment (fake HOME + TATACHIO_REPORTES_DIR)
     const qaEnv = await obtenerQaEnv();
 
-    // 3. Start backend on fixed port 3456
+    // 3. Start backend on the shared QA port (same as the full run's suites)
     // Use /test endpoint for health check (backend has GET /test returning "working")
     serverContext = await startServer({
-      port: 3456,
+      port: QA_BACKEND_PORT,
       env: qaEnv,
     });
 

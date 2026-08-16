@@ -9,8 +9,31 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const projectRoot = resolve(__dirname, "..", "..", "..");
 
 /**
+ * Single fixed backend port shared by BOTH QA flows:
+ * - Full run: run-all.mjs → suite-runner.mjs (every API/CLI/chaos suite)
+ * - Web E2E: start-web-backend.mjs → Playwright webServer
+ * Kept in one place so the two flows can never drift apart.
+ */
+export const QA_BACKEND_PORT = 3456;
+
+/**
+ * Error thrown when the backend cannot bind because the port is still in use.
+ * startServer retries these a few times (socket teardown races between
+ * sequential suites) before giving up.
+ */
+class PortInUseError extends Error {
+  constructor(port) {
+    super(`Port ${port} is already in use (EADDRINUSE)`);
+    this.name = "PortInUseError";
+    this.code = "EADDRINUSE";
+  }
+}
+
+/**
  * Find a free port in the 3456-3499 range.
  * Returns a promise that resolves with the free port.
+ * NOTE: no longer the default port source (startServer uses QA_BACKEND_PORT);
+ * kept available for callers that explicitly need a dynamic port.
  */
 async function findFreePort(start = 3456, end = 3499) {
   for (let port = start; port <= end; port++) {
@@ -69,10 +92,40 @@ async function waitForHealth(
  * @returns Promise<{port: number, process: import('node:child_process').ChildProcess, dbPath: string}>
  */
 export async function startServer(options = {}) {
-  const port = options.port || await findFreePort();
+  const port = options.port ?? QA_BACKEND_PORT;
   const dbPath = options.dbPath || join(projectRoot, "scripts", "qa", "qa.db");
   const extraEnv = options.env || {};
 
+  // Sequential suites share ONE fixed port, so the previous suite's server can
+  // briefly linger (TIME_WAIT / slow process-group teardown) and make the next
+  // bind fail with EADDRINUSE. Node sets SO_REUSEADDR by default, which covers
+  // most TIME_WAIT cases; retrying a few times is belt-and-suspenders on top.
+  const maxAttempts = 5;
+  let lastError;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      return await startServerAttempt({ port, dbPath, extraEnv });
+    } catch (error) {
+      lastError = error;
+      if (error.code !== "EADDRINUSE" || attempt === maxAttempts) {
+        throw error;
+      }
+      console.log(`Port ${port} busy (EADDRINUSE) — retry ${attempt}/${maxAttempts} in 1s`);
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+    }
+  }
+
+  throw lastError;
+}
+
+/**
+ * One spawn + health-check attempt for the backend.
+ * @param port - Port to bind
+ * @param dbPath - SQLite database file path
+ * @param extraEnv - Extra environment variables for the backend process
+ */
+async function startServerAttempt({ port, dbPath, extraEnv }) {
   // Prepare environment variables for the backend
   const env = {
     ...process.env,
@@ -121,8 +174,10 @@ export async function startServer(options = {}) {
       backendProcess.stderr.pipe(createWriteStream(stderrLogPath, { flags: "a" }));
     }
 
-    // Wait for server to become healthy (use /test endpoint, 120s timeout for first-run deps)
-    await waitForHealth(port, "/test", 120000, 500);
+    // Wait for server to become healthy (use /test endpoint, 120s timeout for
+    // first-run deps). Fail fast on EADDRINUSE / early exit so the retry loop
+    // in startServer kicks in instead of waiting out the full health timeout.
+    await waitForBackendReady(port, backendProcess);
     console.log(`Server is healthy on port ${port}`);
 
     console.log(`Backend started successfully on port ${port}`);
@@ -142,6 +197,62 @@ export async function startServer(options = {}) {
     }
     throw error;
   }
+}
+
+/**
+ * Wait until the backend answers /test, rejecting early when it cannot bind
+ * (EADDRINUSE) or exits before becoming healthy.
+ * @param port - Port to check
+ * @param backendProcess - Spawned backend process to watch
+ * @returns Promise that resolves when healthy
+ */
+function waitForBackendReady(port, backendProcess) {
+  return new Promise((resolve, reject) => {
+    let stderrBuf = "";
+    let settled = false;
+
+    const cleanup = () => {
+      backendProcess.stderr?.off("data", onStderr);
+      backendProcess.off("exit", onExit);
+    };
+
+    const onStderr = (chunk) => {
+      stderrBuf += chunk.toString();
+      if (!settled && stderrBuf.includes("EADDRINUSE")) {
+        settled = true;
+        cleanup();
+        reject(new PortInUseError(port));
+      }
+    };
+
+    const onExit = (code) => {
+      if (!settled) {
+        settled = true;
+        cleanup();
+        reject(
+          new Error(`Backend exited early with code ${code} (stderr: ${stderrBuf.slice(-500) || "none"})`)
+        );
+      }
+    };
+
+    const onHealthy = () => {
+      if (!settled) {
+        settled = true;
+        cleanup();
+        resolve();
+      }
+    };
+
+    backendProcess.stderr?.on("data", onStderr);
+    backendProcess.once("exit", onExit);
+    waitForHealth(port, "/test", 120000, 500).then(onHealthy, (error) => {
+      if (!settled) {
+        settled = true;
+        cleanup();
+        reject(error);
+      }
+    });
+  });
 }
 
 /**
