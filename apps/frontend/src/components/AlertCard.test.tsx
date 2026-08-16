@@ -31,4 +31,10 @@ describe("AlertCard", () => {
     render(<AlertCard title="Sin alertas" count={0} items={["test"]} />);
     expect(screen.queryByTestId("alert-item")).not.toBeInTheDocument();
   });
+
+  it("renders a tone dot indicator", () => {
+    render(<AlertCard title="Alertas" count={1} tone="danger" />);
+    const dot = screen.getByTestId("alert-tone");
+    expect(dot).toHaveClass("bg-red-500");
+  });
 });

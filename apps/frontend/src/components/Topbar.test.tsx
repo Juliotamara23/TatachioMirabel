@@ -23,6 +23,14 @@ vi.mock("../contexts/ThemeContext", () => ({
   ThemeProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
 
+// Mock AuthContext
+vi.mock("../contexts/AuthContext", () => ({
+  useAuth: () => ({
+    user: { id: "u1", email: "admin@test.com", nombre: "Ana Pérez", rol: "ADMINISTRATOR" },
+    logout: vi.fn(),
+  }),
+}));
+
 function renderTopbar() {
   return render(<Topbar />);
 }
@@ -58,5 +66,12 @@ describe("Topbar", () => {
 
     await user.click(screen.getByTestId("theme-toggle"));
     expect(mockToggle).toHaveBeenCalled();
+  });
+
+  it("renders user avatar chip with initials and name", () => {
+    renderTopbar();
+
+    expect(screen.getByTestId("topbar-avatar")).toHaveTextContent("AP");
+    expect(screen.getByText("Ana Pérez")).toBeInTheDocument();
   });
 });

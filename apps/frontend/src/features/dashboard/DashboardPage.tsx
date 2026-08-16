@@ -6,6 +6,15 @@ import { listCaptains } from "../../lib/api/admin";
 import { ageFromFechaNacimiento, MAX_PLAUSIBLE_AGE_YEARS } from "@tatachio/shared";
 import { KpiCard } from "../../components/KpiCard";
 import { AlertCard } from "../../components/AlertCard";
+import {
+  UsersIcon,
+  HomeIcon,
+  BuildingIcon,
+  ArrowsUpDownIcon,
+  AlertTriangleIcon,
+  BellIcon,
+  InfoIcon,
+} from "../../components/icons";
 
 interface DashboardData {
   activeMembers: number;
@@ -109,26 +118,42 @@ export function DashboardPage() {
     <div>
       <h2 className="mb-6 text-2xl font-bold text-gray-900 dark:text-gray-100">Dashboard</h2>
 
-      {/* T9: KPI Cards */}
+      {/* T9: KPI Cards — icon chip + accent tone per card (VIS-1) */}
       <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <KpiCard label="Miembros Activos" value={data.activeMembers} icon="👤" tone="success" />
-        <KpiCard label="Familias" value={data.familiesCount} icon="👨‍👩‍👧‍👦" tone="info" />
-        <KpiCard label="Cabildos con Vigencia" value={data.cabildosConVigencia} icon="🏛️" />
+        <KpiCard
+          label="Miembros Activos"
+          value={data.activeMembers}
+          icon={<UsersIcon className="h-5 w-5" />}
+          tone="green"
+        />
+        <KpiCard
+          label="Familias"
+          value={data.familiesCount}
+          icon={<HomeIcon className="h-5 w-5" />}
+          tone="orange"
+        />
+        <KpiCard
+          label="Cabildos con Vigencia"
+          value={data.cabildosConVigencia}
+          icon={<BuildingIcon className="h-5 w-5" />}
+          tone="blue"
+        />
         <KpiCard
           label="Altas / Bajas (año)"
           value={`${data.altas} / ${data.bajas}`}
-          icon="📊"
-          tone="warning"
+          icon={<ArrowsUpDownIcon className="h-5 w-5" />}
+          tone="amber"
         />
       </div>
 
-      {/* T10: Alert Cards */}
+      {/* T10: Alert Cards — reminders-style rows with tone indicator (VIS-4) */}
       <h3 className="mb-4 text-lg font-semibold text-gray-800 dark:text-gray-200">Alertas</h3>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <AlertCard
           title={`Edad > ${MAX_PLAUSIBLE_AGE_YEARS} años`}
           count={data.ageWarnings.length}
           tone="danger"
+          icon={<AlertTriangleIcon className="h-4 w-4" />}
           items={data.ageWarnings.map(
             (m) => `${m.nombres} ${m.apellidos} (${ageFromFechaNacimiento(m.fechaNacimiento)} años)`,
           )}
@@ -137,6 +162,7 @@ export function DashboardPage() {
           title="Miembros sin familia"
           count={data.membersWithoutFamily.length}
           tone="warning"
+          icon={<BellIcon className="h-4 w-4" />}
           items={data.membersWithoutFamily.map(
             (m) => `${m.nombres} ${m.apellidos}`,
           )}
@@ -145,6 +171,7 @@ export function DashboardPage() {
           title="Capitanas en cabildo"
           count={data.captainsPerCabildo}
           tone={data.captainsPerCabildo <= 1 ? "danger" : "info"}
+          icon={<InfoIcon className="h-4 w-4" />}
         />
       </div>
     </div>

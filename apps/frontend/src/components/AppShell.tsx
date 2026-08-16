@@ -29,7 +29,7 @@ export function AppShell() {
             <Link
               key={item.to}
               to={item.to}
-              className={`block rounded px-3 py-2 text-sm ${
+              className={`block rounded px-3 py-2 text-sm transition-colors duration-150 ${
                 location.pathname === item.to
                   ? "bg-orange-brand/10 font-medium text-orange-brand"
                   : "text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
@@ -42,7 +42,7 @@ export function AppShell() {
         <div className="border-t border-gray-200 p-2 dark:border-gray-700">
           <button
             onClick={logout}
-            className="w-full rounded px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+            className="w-full rounded px-3 py-2 text-left text-sm text-red-600 transition-colors hover:bg-red-50 dark:hover:bg-red-900/20"
           >
             Cerrar sesión
           </button>
