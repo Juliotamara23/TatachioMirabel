@@ -34,18 +34,20 @@ async function findFreePort(start = 3456, end = 3499) {
 /**
  * Poll a server endpoint until it's healthy.
  * @param port - The port to check
- * @param timeoutMs - Maximum time to wait (default 15000ms)
+ * @param healthPath - Health check path (default "/test" for backend)
+ * @param timeoutMs - Maximum time to wait (default 120000ms for first-run deps)
  * @param intervalMs - Polling interval (default 500ms)
  * @returns true when healthy
  * @throws Error if timeout reached
  */
 async function waitForHealth(
   port,
-  timeoutMs = 15000,
+  healthPath = "/test",
+  timeoutMs = 120000,
   intervalMs = 500
 ) {
   const startTime = Date.now();
-  const endpoint = `http://localhost:${port}/`;
+  const endpoint = `http://localhost:${port}${healthPath}`;
 
   while (Date.now() - startTime < timeoutMs) {
     try {
@@ -119,8 +121,8 @@ export async function startServer(options = {}) {
       backendProcess.stderr.pipe(createWriteStream(stderrLogPath, { flags: "a" }));
     }
 
-    // Wait for server to become healthy
-    await waitForHealth(port, 30000, 500);
+    // Wait for server to become healthy (use /test endpoint, 120s timeout for first-run deps)
+    await waitForHealth(port, "/test", 120000, 500);
     console.log(`Server is healthy on port ${port}`);
 
     console.log(`Backend started successfully on port ${port}`);
