@@ -11,6 +11,9 @@ vi.mock("../../src/database.js", () => ({
     miembro: {
       findMany: vi.fn(),
     },
+    cabildo: {
+      findUnique: vi.fn(),
+    },
   },
 }));
 
@@ -21,7 +24,7 @@ vi.mock("node:child_process", () => ({
 }));
 
 import prisma from "../../src/database.js";
-import { generarCenso } from "../../src/controllers/reporteController.js";
+import { generarCenso, slugify } from "../../src/controllers/reporteController.js";
 
 function makeMiembro(overrides: Record<string, unknown> = {}) {
   return {
@@ -403,5 +406,123 @@ describe("reporteController.generarCenso", () => {
     // The temp JSON of the failed request is still cleaned up.
     const { tmpJson } = getTmpPaths();
     expect(existsSync(tmpJson)).toBe(false);
+  });
+
+  it("filtra las 3 consultas por cabildoId y usa nombre con slug (XLSX-1/2)", async () => {
+    vi.mocked(prisma.cabildo.findUnique).mockResolvedValue({
+      id: "cab-1",
+      nombre: "Resguardo El Carmen",
+      resguardo: "RESGUARDO EL CARMEN",
+      comunidad: "COMUNIDAD EL CARMEN",
+      vigencia: 2026,
+      activo: true,
+    } as never);
+
+    vi.mocked(prisma.miembro.findMany)
+      .mockResolvedValueOnce([] as never)
+      .mockResolvedValueOnce([] as never)
+      .mockResolvedValueOnce([] as never);
+
+    const req = { query: { cabildoId: "cab-1" } } as Request;
+    const res = mockRes();
+    const next = mockNext();
+
+    await generarCenso(req, res, next);
+
+    // The 3 populations are filtered by cabildoId
+    expect(prisma.miembro.findMany).toHaveBeenCalledTimes(3);
+    expect(vi.mocked(prisma.miembro.findMany).mock.calls[0][0]).toEqual(
+      expect.objectContaining({ where: { estado: "ACTIVO", cabildoId: "cab-1" } }),
+    );
+    expect(vi.mocked(prisma.miembro.findMany).mock.calls[1][0]).toEqual(
+      expect.objectContaining({ where: { estado: "PENDIENTE", cabildoId: "cab-1" } }),
+    );
+    expect(vi.mocked(prisma.miembro.findMany).mock.calls[2][0]).toEqual(
+      expect.objectContaining({ where: { estado: "BAJA", cabildoId: "cab-1" } }),
+    );
+
+    // Filename contains the slugified cabildo name
+    const { tmpXlsx } = getTmpPaths();
+    expect(tmpXlsx).toBe(
+      path.join(reportesDir, `censo-resguardo-el-carmen-${new Date().getFullYear()}.xlsx`),
+    );
+    expect(res.download).toHaveBeenCalledWith(
+      path.join(reportesDir, `censo-resguardo-el-carmen-${new Date().getFullYear()}.xlsx`),
+      `censo-resguardo-el-carmen-${new Date().getFullYear()}.xlsx`,
+      expect.any(Function),
+    );
+    expect(next).not.toHaveBeenCalled();
+  });
+
+  it("devuelve 404 cuando el cabildoId no existe (XLSX-1)", async () => {
+    vi.mocked(prisma.cabildo.findUnique).mockResolvedValue(null as never);
+
+    const req = { query: { cabildoId: "cab-inexistente" } } as Request;
+    const res = mockRes();
+    const next = mockNext();
+
+    await generarCenso(req, res, next);
+
+    expect(prisma.miembro.findMany).not.toHaveBeenCalled();
+    expect(spawnMock).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(404);
+    expect(res.json).toHaveBeenCalledWith({ error: "Cabildo no encontrado" });
+    expect(res.download).not.toHaveBeenCalled();
+    expect(next).not.toHaveBeenCalled();
+  });
+
+  it("sin cabildoId mantiene el nombre global censo-<year>.xlsx (XLSX-3)", async () => {
+    vi.mocked(prisma.miembro.findMany)
+      .mockResolvedValueOnce([] as never)
+      .mockResolvedValueOnce([] as never)
+      .mockResolvedValueOnce([] as never);
+
+    const req = { query: {} } as Request;
+    const res = mockRes();
+    const next = mockNext();
+
+    await generarCenso(req, res, next);
+
+    expect(prisma.cabildo.findUnique).not.toHaveBeenCalled();
+    expect(vi.mocked(prisma.miembro.findMany).mock.calls[0][0]).toEqual(
+      expect.objectContaining({ where: { estado: "ACTIVO" } }),
+    );
+    expect(res.download).toHaveBeenCalledWith(
+      path.join(reportesDir, `censo-${new Date().getFullYear()}.xlsx`),
+      `censo-${new Date().getFullYear()}.xlsx`,
+      expect.any(Function),
+    );
+  });
+
+  it("ignora cabildoId que no es string (array) y cae en comportamiento global (XLSX-3)", async () => {
+    vi.mocked(prisma.miembro.findMany)
+      .mockResolvedValueOnce([] as never)
+      .mockResolvedValueOnce([] as never)
+      .mockResolvedValueOnce([] as never);
+
+    const req = { query: { cabildoId: ["cab-1", "cab-2"] } } as unknown as Request;
+    const res = mockRes();
+    const next = mockNext();
+
+    await generarCenso(req, res, next);
+
+    expect(prisma.cabildo.findUnique).not.toHaveBeenCalled();
+    expect(vi.mocked(prisma.miembro.findMany).mock.calls[0][0]).toEqual(
+      expect.objectContaining({ where: { estado: "ACTIVO" } }),
+    );
+    expect(res.download).toHaveBeenCalledWith(
+      path.join(reportesDir, `censo-${new Date().getFullYear()}.xlsx`),
+      `censo-${new Date().getFullYear()}.xlsx`,
+      expect.any(Function),
+    );
+  });
+});
+
+describe("slugify", () => {
+  it("lowercase, strips accents, spaces to dashes, removes non-alphanumeric", () => {
+    expect(slugify("Resguardo El Carmen")).toBe("resguardo-el-carmen");
+    expect(slugify("Cabildo Ñuqui")).toBe("cabildo-nuqui");
+    expect(slugify("  Cabildo   Grande  ")).toBe("cabildo-grande");
+    expect(slugify("Resguardo, ¡Álvaro! #2")).toBe("resguardo-alvaro-2");
   });
 });

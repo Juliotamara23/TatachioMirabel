@@ -66,5 +66,44 @@ await runSuite({ name: "api/reportes", seed: true, start: true }, async ({ base 
     }
   });
 
+  // ── XLSX-1/2/3: censo por cabildo (PR A, frontend-ui-polish) ─────────
+  const CABILDO_SEED_ID = "5dee2149-4442-486a-9ec5-3c20479d8261"; // "TATACHIO MIRABEL"
+  const CABILDO_SEED_SLUG = "tatachio-mirabel";
+
+  /** Raw fetch to inspect Content-Disposition (helper does not expose headers). */
+  async function rawCenso(path, token) {
+    const res = await fetch(`${base}${path}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return { status: res.status, disposition: res.headers.get("content-disposition") || "" };
+  }
+
+  await t.test("GET /api/reportes/censo.xlsx?cabildoId=<id> → 200 + filename contiene slug del cabildo", async () => {
+    const { status, disposition } = await rawCenso(`/api/reportes/censo.xlsx?cabildoId=${CABILDO_SEED_ID}`, adminToken);
+    expectStatus(status, 200, "scoped admin download");
+    const year = new Date().getFullYear();
+    const expected = `censo-${CABILDO_SEED_SLUG}-${year}.xlsx`;
+    if (!disposition.includes(expected)) {
+      throw new Error(`Content-Disposition no contiene '${expected}', got: ${disposition}`);
+    }
+  });
+
+  await t.test("GET /api/reportes/censo.xlsx?cabildoId=inexistente → 404", async () => {
+    const res = await request(base, "GET", "/api/reportes/censo.xlsx?cabildoId=no-existe", { token: adminToken });
+    expectStatus(res.status, 404, "unknown cabildo");
+    if (res.data?.error !== "Cabildo no encontrado") {
+      throw new Error(`Esperado error 'Cabildo no encontrado', got: ${JSON.stringify(res.data)}`);
+    }
+  });
+
+  await t.test("GET /api/reportes/censo.xlsx (sin parámetro) → filename global censo-<year>.xlsx", async () => {
+    const { status, disposition } = await rawCenso("/api/reportes/censo.xlsx", adminToken);
+    expectStatus(status, 200, "global admin download");
+    const expected = `censo-${new Date().getFullYear()}.xlsx`;
+    if (!disposition.includes(expected)) {
+      throw new Error(`Content-Disposition no contiene '${expected}', got: ${disposition}`);
+    }
+  });
+
   return t.finish();
 });

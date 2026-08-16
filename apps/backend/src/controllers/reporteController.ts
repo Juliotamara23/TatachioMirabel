@@ -24,6 +24,21 @@ type MiembroConRelaciones = Prisma.MiembroGetPayload<{
 
 type FilaReporte = Record<string, string | number>;
 
+/**
+ * Sanitizes a cabildo name for use in a download filename:
+ * lowercase, accents stripped (NFD), whitespace runs → "-", anything that is
+ * not a letter/digit/dash removed, and leading/trailing dashes trimmed (XLSX-2).
+ */
+export function slugify(name: string): string {
+  return name
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/[^a-z0-9-]/g, "")
+    .replace(/^-+|-+$/g, "");
+}
+
 /** FORMATO_CENSOS sheet row (18 ministerial template columns) */
 function mapearCenso(m: MiembroConRelaciones): FilaReporte {
   return {
@@ -151,9 +166,25 @@ export async function generarCenso(
   let xlsxPreexistia = false;
 
   try {
+    // XLSX-1: optional ?cabildoId= scopes the report to a single cabildo.
+    // Only string values are honored (Express may deliver arrays/objects).
+    const cabildoId = typeof req.query?.cabildoId === "string" ? req.query.cabildoId : undefined;
+
+    let cabildoFilter: Prisma.MiembroWhereInput = {};
+    let nombreXlsx = `censo-${new Date().getFullYear()}.xlsx`;
+
+    if (cabildoId) {
+      const cabildo = await prisma.cabildo.findUnique({ where: { id: cabildoId } });
+      if (!cabildo) {
+        res.status(404).json({ error: "Cabildo no encontrado" });
+        return;
+      }
+      cabildoFilter = { cabildoId };
+      nombreXlsx = `censo-${slugify(cabildo.nombre)}-${new Date().getFullYear()}.xlsx`;
+    }
+
     reportesDir = resolveReportesDir();
     mkdirSync(reportesDir, { recursive: true });
-    const nombreXlsx = `censo-${new Date().getFullYear()}.xlsx`;
     xlsxPath = path.join(reportesDir, nombreXlsx);
     // If the report already exists (a previous generation this year), a failure
     // of THIS request must not delete it: only the xlsx this request created is
@@ -162,15 +193,15 @@ export async function generarCenso(
 
     const [censo, altas, bajas] = await Promise.all([
       prisma.miembro.findMany({
-        where: { estado: "ACTIVO" },
+        where: { estado: "ACTIVO", ...cabildoFilter },
         include: INCLUDE_CABILDO_FAMILIA,
       }),
       prisma.miembro.findMany({
-        where: { estado: "PENDIENTE" },
+        where: { estado: "PENDIENTE", ...cabildoFilter },
         include: INCLUDE_CABILDO_FAMILIA,
       }),
       prisma.miembro.findMany({
-        where: { estado: "BAJA" },
+        where: { estado: "BAJA", ...cabildoFilter },
         include: INCLUDE_CABILDO_FAMILIA,
       }),
     ]);
