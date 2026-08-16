@@ -3,6 +3,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { familiaSchema, type FamiliaInput } from "@tatachio/shared";
 import { createFamilia, updateFamilia, type Familia } from "../../lib/api/familias";
 import { useCabildo } from "../../contexts/CabildoContext";
+import { useToast } from "../../contexts/ToastContext";
+import { ApiError } from "../../lib/api/client";
 
 interface FamiliaFormProps {
   familia?: Familia;
@@ -20,6 +22,7 @@ function familiaToDefaults(familia: Familia): FamiliaInput {
 
 export function FamiliaForm({ familia, onSuccess }: FamiliaFormProps) {
   const { selectedId } = useCabildo();
+  const { toast } = useToast();
   const isEditing = !!familia;
 
   const { control, handleSubmit, formState: { errors, isSubmitting } } = useForm<FamiliaInput>({
@@ -34,10 +37,17 @@ export function FamiliaForm({ familia, onSuccess }: FamiliaFormProps) {
 
   const onSubmit = async (data: FamiliaInput) => {
     const payload = { ...data, cabildoId: selectedId ?? data.cabildoId };
-    if (isEditing && familia) {
-      await updateFamilia(familia.id, payload);
-    } else {
-      await createFamilia(payload);
+    try {
+      if (isEditing && familia) {
+        await updateFamilia(familia.id, payload);
+      } else {
+        await createFamilia(payload);
+      }
+    } catch (err) {
+      // TOAST-2: surface the API error message (e.g. duplicate numero) without
+      // an unhandled rejection; the form stays open so the user can retry.
+      toast.error(err instanceof ApiError ? err.body.error : "Error al guardar la familia");
+      return;
     }
     onSuccess?.();
   };

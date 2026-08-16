@@ -1,16 +1,21 @@
 import { useEffect, useState, useCallback } from "react";
 import { useCabildo } from "../../contexts/CabildoContext";
+import { useToast } from "../../contexts/ToastContext";
 import { listFamilias, deleteFamilia, type Familia } from "../../lib/api/familias";
+import { ApiError } from "../../lib/api/client";
 import { Table } from "../../components/Table";
+import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { FamiliaForm } from "./FamiliaForm";
 import { useDebouncedValue } from "../../hooks/useDebouncedValue";
 
 export function FamiliasPage() {
   const { selectedId } = useCabildo();
+  const { toast } = useToast();
   const [familias, setFamilias] = useState<Familia[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<Familia | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Familia | null>(null);
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebouncedValue(search, 300);
 
@@ -34,13 +39,20 @@ export function FamiliasPage() {
     load();
   }, [load]);
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("¿Eliminar esta familia?")) return;
+  const handleDelete = (familia: Familia) => {
+    setDeleteTarget(familia);
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    const target = deleteTarget;
+    setDeleteTarget(null);
     try {
-      await deleteFamilia(id);
+      await deleteFamilia(target.id);
+      toast.success("Familia eliminada correctamente");
       await load();
-    } catch {
-      alert("Error al eliminar familia");
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.body.error : "Error al eliminar familia");
     }
   };
 
@@ -50,6 +62,8 @@ export function FamiliasPage() {
   };
 
   const handleFormSuccess = () => {
+    // TOAST-2: create vs update toast, based on whether a familia was being edited.
+    toast.success(editing ? "Familia actualizada correctamente" : "Familia creada correctamente");
     setShowForm(false);
     setEditing(null);
     load();
@@ -71,8 +85,9 @@ export function FamiliasPage() {
             Editar
           </button>
           <button
-            onClick={() => handleDelete(f.id)}
+            onClick={() => handleDelete(f)}
             className="text-xs text-red-600 hover:underline"
+            data-testid="delete-btn"
           >
             Eliminar
           </button>
@@ -126,6 +141,15 @@ export function FamiliasPage() {
         rows={familias}
         getRowKey={(f) => f.id}
         emptyMessage="Sin datos"
+      />
+
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        title="Eliminar familia"
+        message={`¿Estás seguro de eliminar la familia ${deleteTarget?.numero ?? ""}?`}
+        confirmLabel="Eliminar"
+        onConfirm={() => void confirmDelete()}
+        onCancel={() => setDeleteTarget(null)}
       />
     </div>
   );

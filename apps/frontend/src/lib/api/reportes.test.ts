@@ -53,6 +53,28 @@ describe("downloadCenso", () => {
     expect(mockAnchor.download).toBe(`censo-${new Date().getFullYear()}.xlsx`);
   });
 
+  it("appends cabildoId query param when provided (XLSX-4)", async () => {
+    const mockResponse = new Response("fake-xlsx-data", {
+      status: 200,
+      headers: { "Content-Type": "application/octet-stream" },
+    });
+
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(mockResponse);
+
+    const mockClick = vi.fn();
+    const mockAnchor = { href: "", download: "", click: mockClick } as unknown as HTMLAnchorElement;
+    vi.spyOn(document, "createElement").mockReturnValue(mockAnchor);
+
+    await downloadCenso("test-token", "cabildo-1");
+
+    expect(globalThis.fetch).toHaveBeenCalledWith(
+      "http://localhost:3000/api/reportes/censo.xlsx?cabildoId=cabildo-1",
+      expect.objectContaining({
+        headers: { Authorization: "Bearer test-token" },
+      }),
+    );
+  });
+
   it("throws ApiError on non-ok response", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(
       new Response(JSON.stringify({ error: "Unauthorized" }), {

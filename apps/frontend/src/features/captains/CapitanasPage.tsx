@@ -1,11 +1,15 @@
 import { useState } from "react";
+import { useToast } from "../../contexts/ToastContext";
 import { CapitanasRegisterForm } from "./CapitanasRegisterForm";
 import { CapitanasList } from "./CapitanasList";
 
 export function CapitanasPage() {
+  const { toast } = useToast();
   const [refreshKey, setRefreshKey] = useState(0);
 
   const handleRegisterSuccess = () => {
+    // TOAST-2: fired only after register() resolves (see CapitanasRegisterForm).
+    toast.success("Capitana registrada correctamente");
     setRefreshKey((k) => k + 1);
   };
 
