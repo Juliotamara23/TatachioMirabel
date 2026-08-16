@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { AuthProvider } from "./contexts/AuthContext";
 import { CabildoProvider } from "./contexts/CabildoContext";
+import { ToastProvider } from "./contexts/ToastContext";
 import { App } from "./App";
 import "./index.css";
 
@@ -11,7 +12,9 @@ createRoot(document.getElementById("root")!).render(
     <ThemeProvider>
       <AuthProvider>
         <CabildoProvider>
-          <App />
+          <ToastProvider>
+            <App />
+          </ToastProvider>
         </CabildoProvider>
       </AuthProvider>
     </ThemeProvider>
