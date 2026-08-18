@@ -227,7 +227,8 @@ test.describe("Demo CRUD — full admin workflow with mocked LLM", () => {
     await page.getByLabel(/^Número Documento/).pressSequentially("1234567890", { delay: 60 });
     await page.getByLabel(/^Fecha Nacimiento/).pressSequentially("15/03/1995", { delay: 60 });
     await page.getByLabel(/^Integrantes/).fill("1");
-    await page.getByLabel(/^Familia ID/).fill(familias[0].id);
+    // Select the first family from the cabildo-scoped select instead of filling a text input.
+    await page.getByTestId("familia-select").selectOption({ index: 0 });
     await page.waitForTimeout(PAUSE_SHORT);
 
     await page.getByRole("button", { name: "Guardar", exact: true }).click();

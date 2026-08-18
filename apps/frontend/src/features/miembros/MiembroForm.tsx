@@ -1,7 +1,9 @@
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useEffect, useState } from "react";
 import { memberSchema, type MemberInput } from "@tatachio/shared";
 import { createMiembro, updateMiembro, type Miembro } from "../../lib/api/miembros";
+import { listFamilias, type Familia } from "../../lib/api/familias";
 import { useCabildo } from "../../contexts/CabildoContext";
 
 interface MiembroFormProps {
@@ -41,6 +43,28 @@ export function memberToDefaults(member: Miembro): MemberInput {
 export function MiembroForm({ member, onSuccess }: MiembroFormProps) {
   const { selectedId } = useCabildo();
   const isEditing = !!member;
+
+  const [familias, setFamilias] = useState<Familia[]>([]);
+  const [loadingFamilias, setLoadingFamilias] = useState(false);
+
+  // Fetch families when selected cabildo changes
+  useEffect(() => {
+    if (!selectedId) {
+      setFamilias([]);
+      return;
+    }
+    setLoadingFamilias(true);
+    listFamilias({ cabildoId: selectedId })
+      .then((data) => {
+        setFamilias(data);
+      })
+      .catch(() => {
+        setFamilias([]);
+      })
+      .finally(() => {
+        setLoadingFamilias(false);
+      });
+  }, [selectedId]);
 
   const { control, handleSubmit, formState: { errors, isSubmitting } } = useForm<MemberInput>({
     resolver: zodResolver(memberSchema),
@@ -228,23 +252,49 @@ export function MiembroForm({ member, onSuccess }: MiembroFormProps) {
           />
         </div>
 
-        {/* Familia ID */}
+        {/* Familia Selector */}
         <div>
           <label htmlFor="familiaId" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-            Familia ID *
+            Familia *
           </label>
           <Controller
             name="familiaId"
             control={control}
             render={({ field }) => (
-              <input
+              <select
                 {...field}
                 id="familiaId"
+                data-testid="familia-select"
                 className="mt-1 block w-full rounded border border-gray-300 px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
-              />
+                disabled={!selectedId || loadingFamilias}
+              >
+                {!selectedId ? (
+                  <option value="" disabled>Selecciona un cabildo primero</option>
+                ) : loadingFamilias ? (
+                  <option value="" disabled>Cargando familias...</option>
+                ) : (
+                  <>
+                    <option value="" disabled>Selecciona una familia</option>
+                    {familias.map((familia) => (
+                      <option key={familia.id} value={familia.id}>
+                        Familia {familia.numero} — {familia.direccion ?? "sin dirección"}
+                      </option>
+                    ))}
+                    {/* Fallback for editing: preserve existing familiaId if not in fetched options */}
+                    {isEditing && member?.familiaId && !familias.some((f) => f.id === member.familiaId) && (
+                      <option key={`fallback-${member.familiaId}`} value={member.familiaId}>
+                        Familia (existente) — ID: {member.familiaId}
+                      </option>
+                    )}
+                  </>
+                )}
+              </select>
             )}
           />
           {errors.familiaId && <p className="mt-1 text-xs text-red-500">{errors.familiaId.message}</p>}
+          {!selectedId && !loadingFamilias && (
+            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Selecciona un cabildo primero</p>
+          )}
         </div>
       </div>
 
