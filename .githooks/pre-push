@@ -7,6 +7,17 @@
 # Activation (one-time per clone):
 #   git config core.hooksPath .githooks
 
+# Read the ref stream once so both checks can run without losing push metadata.
+ref_data=$(cat)
+
+if [ -f scripts/check-issue-references.mjs ]; then
+  printf '%s\n' "$ref_data" | node scripts/check-issue-references.mjs
+  if [ $? -ne 0 ]; then
+    echo "[pre-push] Push rejected: remove issue references from added source lines (comments, strings, or identifiers)." >&2
+    exit 1
+  fi
+fi
+
 if [ -f scripts/qa/cleanup.mjs ]; then
   echo "[pre-push] QA cleanup (disposable artifacts)..."
   node scripts/qa/cleanup.mjs
