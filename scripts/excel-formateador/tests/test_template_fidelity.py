@@ -248,49 +248,76 @@ class TestTemplateFidelityRegression:
             "openpyxl does not preserve drawing XML on save"
         )
 
-    # ─── Test 2: Table refs expand when data exceeds prepared rows ────────
+    # ─── Test 2: ALTAS/BAJAS are a plain range (no Excel table objects) ──
 
-    def test_altas_table_ref_expands_beyond_prepared_rows(self):
-        """Table_1 ref must expand to include all generated data rows."""
+    def test_altas_table_object_removed(self):
+        """Table_1 must be REMOVED from REPORTE ALTAS (plain range like the real census)."""
         output = self.tmp_dir / "censo-test.xlsx"
-        # 30 rows > 23 prepared rows
         run_formateador(make_excess_data(30), output)
 
         wb = load_workbook_readonly(output)
         tables = get_tables(wb, "REPORTE ALTAS")
 
-        assert "Table_1" in tables, "Table_1 missing from REPORTE ALTAS"
-        # Table ref should expand to cover all 30 data rows + header = row 31
-        # This currently FAILS — openpyxl doesn't auto-expand table refs
-        ref = tables["Table_1"]
-        # Parse end row from ref (e.g., "A1:O31" -> 31)
-        end_row = int("".join(c for c in ref.split(":")[1] if c.isdigit()))
-        assert end_row >= 31, f"Table_1 ref {ref} does not cover 30 data rows (expected end row >= 31)"
+        assert "Table_1" not in tables, "Table_1 should be removed (plain range), got " + str(tables)
 
-    def test_bajas_table_ref_expands_beyond_prepared_rows(self):
-        """Table_2 ref must expand to include all generated data rows."""
+    def test_bajas_table_object_removed(self):
+        """Table_2 must be REMOVED from REPORTE BAJAS (plain range like the real census)."""
         output = self.tmp_dir / "censo-test.xlsx"
         run_formateador(make_excess_data(30), output)
 
         wb = load_workbook_readonly(output)
         tables = get_tables(wb, "REPORTE BAJAS")
 
-        assert "Table_2" in tables, "Table_2 missing from REPORTE BAJAS"
-        ref = tables["Table_2"]
-        end_row = int("".join(c for c in ref.split(":")[1] if c.isdigit()))
-        assert end_row >= 31, f"Table_2 ref {ref} does not cover 30 data rows (expected end row >= 31)"
+        assert "Table_2" not in tables, "Table_2 should be removed (plain range), got " + str(tables)
 
-    def test_table_definitions_remain_present_after_write(self):
-        """Table definitions (Table_1, Table_2) must not be lost on save."""
+    def test_table_definitions_absent_after_write(self):
+        """The output package must not contain xl/tables parts (no ListObject)."""
+        import zipfile
+        output = self.tmp_dir / "censo-test.xlsx"
+        run_formateador(make_excess_data(30), output)
+
+        with zipfile.ZipFile(output) as z:
+            table_parts = [n for n in z.namelist() if n.startswith("xl/tables/")]
+            assert table_parts == [], f"Table parts must be absent, got {table_parts}"
+
+    def test_formato_censos_data_cells_left_aligned(self):
+        """FORMATO_CENSOS data cells must be left-aligned (uniform, no mixed right/center)."""
+        import zipfile
+        from xml.etree import ElementTree as ET
         output = self.tmp_dir / "censo-test.xlsx"
         run_formateador(make_minimal_data(), output)
 
-        wb = load_workbook_readonly(output)
-        altas_tables = get_tables(wb, "REPORTE ALTAS")
-        bajas_tables = get_tables(wb, "REPORTE BAJAS")
+        with zipfile.ZipFile(output) as z:
+            s1 = ET.fromstring(z.read("xl/worksheets/sheet1.xml"))
+            sx = ET.fromstring(z.read("xl/styles.xml"))
 
-        assert "Table_1" in altas_tables, "Table_1 definition lost after write"
-        assert "Table_2" in bajas_tables, "Table_2 definition lost after write"
+        ns = "{http://schemas.openxmlformats.org/spreadsheetml/2006/main}"
+        xfs = sx.findall(f"{ns}cellXfs/{ns}xf")
+
+        def align_of(style_id):
+            if style_id is None:
+                return None
+            x = xfs[int(style_id)]
+            a = x.find(f"{ns}alignment")
+            return a.get("horizontal") if a is not None else None
+
+        checked = 0
+        for row in s1.findall(f"{ns}sheetData/{ns}row"):
+            r = int(row.get("r"))
+            if r < 7:
+                continue
+            for cell in row.findall(f"{ns}c"):
+                ref = cell.get("r")
+                if not ref or not ref[0].isalpha():
+                    continue
+                col_letters = "".join(ch for ch in ref if ch.isalpha())
+                if len(col_letters) != 1 or col_letters > "R":
+                    continue
+                assert align_of(cell.get("s")) == "left", (
+                    f"FORMATO_CENSOS {ref} not left-aligned (h={align_of(cell.get('s'))})"
+                )
+                checked += 1
+        assert checked > 0, "No data cells checked for left alignment"
 
     # ─── Test 3: Blank prepared rows retain style when input < capacity ───
 

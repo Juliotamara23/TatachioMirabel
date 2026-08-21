@@ -433,6 +433,9 @@ class TemplateFiller:
         """Update cell values in a row, overwriting only mapped data-cell values."""
         for key, value in row_data.items():
             norm_key = self.normalize_header(str(key))
+            # VIGENCIA reflects the year the file is generated, not the stored value.
+            if norm_key == "VIGENCIA":
+                value = datetime.now().year
             col_idx = col_map.get(norm_key)
             if col_idx is None:
                 continue
@@ -531,6 +534,222 @@ class TemplateFiller:
             ET.indent(root, space="")
             self.zip_data[table_file] = ET.tostring(root, encoding="utf-8", xml_declaration=True)
 
+    def apply_design_rules(self):
+        """Post-process design corrections agreed with the user:
+        - FORMATO_CENSOS: every data cell is left-aligned (no mixed right/center).
+        - REPORTE ALTAS/BAJAS: drop the Excel table objects (Table_1/Table_2)
+          so the sheets look like the plain-range ministerial census; the cell
+          styles (blue headers, borders, centered data) are preserved by
+          rewriting the cell style ids instead of relying on tableStyleInfo.
+        """
+        self._left_align_censo_data()
+        self._ensure_altas_bajas_headers()
+        self._strip_altas_bajas_tables()
+        self._set_vigente_desde()
+
+    def _left_align_censo_data(self):
+        """Force horizontal=left on every data cell of FORMATO_CENSOS.
+
+        The template's prepared data rows carry style ids with a mix of
+        horizontal right/center/left. To keep the template bytes untouched we
+        clone the needed styles into styles.xml with horizontal=left, then
+        remap each data cell's `s` attribute to the new style id.
+        """
+        styles = self._load_styles()
+        cell_xfs = styles.find(f"{{{NS['main']}}}cellXfs")
+        if cell_xfs is None:
+            return
+        xf_list = list(cell_xfs)
+
+        sheet_file = "xl/worksheets/sheet1.xml"
+        sheet_xml = self.zip_data.get(sheet_file, b"")
+        if not sheet_xml:
+            return
+        root = ET.fromstring(sheet_xml)
+        ns = NS["main"]
+        tab = TABS["FORMATO_CENSOS"]
+        data_start = tab["data_start"]
+
+        remap = {}
+        for row in root.findall(f".//{{{ns}}}sheetData/{{{ns}}}row"):
+            row_num = int(row.get("r", "0"))
+            if row_num < data_start:
+                continue
+            for cell in row.findall(f".//{{{ns}}}c"):
+                ref = cell.get("r", "")
+                if not ref:
+                    continue
+                col_idx, _ = parse_cell_ref(ref)
+                if col_idx > 18:  # columns beyond R are not census data
+                    continue
+                style_id = cell.get("s")
+                if style_id is None:
+                    continue
+                if style_id not in remap:
+                    remap[style_id] = self._clone_style_left(xf_list, styles, int(style_id))
+                cell.set("s", str(remap[style_id]))
+
+        if remap:
+            self._write_styles(styles)
+        ET.indent(root, space="")
+        self.zip_data[sheet_file] = ET.tostring(root, encoding="utf-8", xml_declaration=True)
+        print(f"  FORMATO_CENSOS: left-aligned data cells ({len(remap)} styles remapped)")
+
+    def _clone_style_left(self, xf_list, styles_root, source_idx: int) -> int:
+        """Deep-copy a cellXfs entry with horizontal=left and return its new id."""
+        ns = NS["main"]
+        xf_parent = styles_root.find(f"{{{ns}}}cellXfs")
+        source = xf_list[source_idx]
+        new_xf = copy.deepcopy(source)
+        alignment = new_xf.find(f"{{{ns}}}alignment")
+        if alignment is None:
+            alignment = ET.SubElement(new_xf, f"{{{ns}}}alignment")
+            alignment.set("vertical", "center")
+        alignment.set("horizontal", "left")
+        new_xf.set("applyAlignment", "1")
+        xf_parent.append(new_xf)
+        return len(xf_list)
+
+    def _load_styles(self):
+        return ET.fromstring(self.zip_data.get("xl/styles.xml", b"<styles/>"))
+
+    def _write_styles(self, styles_root):
+        ET.indent(styles_root, space="")
+        self.zip_data["xl/styles.xml"] = ET.tostring(styles_root, encoding="utf-8", xml_declaration=True)
+
+    def _ensure_altas_bajas_headers(self):
+        """Guarantee ALTAS/BAJAS header cells stay visible after table removal.
+
+        The template header cells A1-D1 carry a WHITE bold font but an EMPTY
+        fill; the blue header background came from the Excel table style. Once
+        the table is removed, those cells would show white-on-white. Clone the
+        header styles so every header cell gets the blue fill explicitly.
+        """
+        styles = self._load_styles()
+        cell_xfs = styles.find(f"{{{NS['main']}}}cellXfs")
+        if cell_xfs is None:
+            return
+        xf_list = list(cell_xfs)
+
+        fills = styles.find(f"{{{NS['main']}}}fills")
+        blue_fill_id = None
+        # Find the template's solid blue fill (theme 4, used by the header row).
+        if fills is not None:
+            for i, fill in enumerate(fills.findall(f"{{{NS['main']}}}fill")):
+                pat = fill.find(f"{{{NS['main']}}}patternFill")
+                if pat is None or pat.get("patternType") != "solid":
+                    continue
+                fg = pat.find(f"{{{NS['main']}}}fgColor")
+                if fg is not None and fg.get("theme") == "4":
+                    blue_fill_id = i
+                    break
+        if blue_fill_id is None:
+            return
+
+        for sheet_id in (2, 3):
+            sheet_file = f"xl/worksheets/sheet{sheet_id}.xml"
+            sheet_xml = self.zip_data.get(sheet_file, b"")
+            if not sheet_xml:
+                continue
+            root = ET.fromstring(sheet_xml)
+            ns = NS["main"]
+            for row in root.findall(f".//{{{ns}}}sheetData/{{{ns}}}row"):
+                if int(row.get("r", "0")) != 1:
+                    continue
+                for cell in row.findall(f".//{{{ns}}}c"):
+                    style_id = cell.get("s")
+                    if style_id is None:
+                        continue
+                    idx = int(style_id)
+                    xf = xf_list[idx]
+                    # If this xf already has a fill, keep it; otherwise clone
+                    # with the blue fill so white header text stays visible.
+                    if xf.get("fillId") not in (None, "0"):
+                        continue
+                    new_xf = copy.deepcopy(xf)
+                    new_xf.set("fillId", str(blue_fill_id))
+                    new_xf.set("applyFill", "1")
+                    cell_xfs.append(new_xf)
+                    cell.set("s", str(len(xf_list)))
+                    xf_list = list(cell_xfs)
+            ET.indent(root, space="")
+            self.zip_data[sheet_file] = ET.tostring(root, encoding="utf-8", xml_declaration=True)
+
+        self._write_styles(styles)
+        print("  ALTAS/BAJAS: header cells given explicit blue fill")
+
+    def _set_vigente_desde(self):
+        """Update the template's 'VIGENTE DESDE' cell (R5) to today's date.
+
+        The template ships a hardcoded serial date (45006 = 2023-03-21).
+        The generated file must show the generation date instead, written as
+        an Excel serial number (the cell already has a date number format).
+        """
+        sheet_file = "xl/worksheets/sheet1.xml"
+        sheet_xml = self.zip_data.get(sheet_file, b"")
+        if not sheet_xml:
+            return
+        root = ET.fromstring(sheet_xml)
+        ns = NS["main"]
+        today = datetime.now()
+        epoch = datetime(1899, 12, 30)
+        serial = (today - epoch).days
+        for row in root.findall(f".//{{{ns}}}sheetData/{{{ns}}}row"):
+            if int(row.get("r", "0")) != 5:
+                continue
+            for cell in row.findall(f".//{{{ns}}}c"):
+                if cell.get("r") == "R5":
+                    for child in list(cell):
+                        if child.tag.endswith("}v") or child.tag.endswith("}is"):
+                            cell.remove(child)
+                    v = ET.SubElement(cell, f"{{{ns}}}v")
+                    v.text = str(serial)
+                    if "t" in cell.attrib:
+                        del cell.attrib["t"]
+        ET.indent(root, space="")
+        self.zip_data[sheet_file] = ET.tostring(root, encoding="utf-8", xml_declaration=True)
+        print(f"  FORMATO_CENSOS: VIGENTE DESDE set to {today:%d/%m/%Y} (serial {serial})")
+
+    def _strip_altas_bajas_tables(self):
+        """Remove Excel table objects from REPORTE ALTAS / REPORTE BAJAS.
+
+        Removes the tablePart reference from the sheets, the table relationship
+        from the sheet rels, and drops xl/tables/table1.xml + table2.xml from
+        the output. Cell-level styles (blue header fill, borders) are preserved
+        because the style ids stay on the cells; only tableStyleInfo is gone.
+        """
+        table_files = ["xl/tables/table1.xml", "xl/tables/table2.xml"]
+        for table_file in table_files:
+            self.zip_data.pop(table_file, None)
+            rel = f"{table_file}.rels"
+            self.zip_data.pop(rel, None)
+
+        for sheet_id, table_id in ((2, 1), (3, 2)):
+            sheet_file = f"xl/worksheets/sheet{sheet_id}.xml"
+            rels_file = f"xl/worksheets/_rels/sheet{sheet_id}.xml.rels"
+
+            sheet_xml = self.zip_data.get(sheet_file, b"")
+            if sheet_xml:
+                root = ET.fromstring(sheet_xml)
+                ns = NS["main"]
+                for tp in root.findall(f".//{{{ns}}}tableParts"):
+                    root.remove(tp)
+                ET.indent(root, space="")
+                self.zip_data[sheet_file] = ET.tostring(root, encoding="utf-8", xml_declaration=True)
+
+            rels_xml = self.zip_data.get(rels_file, b"")
+            if rels_xml:
+                rel_ns = "http://schemas.openxmlformats.org/package/2006/relationships"
+                rel_root = ET.fromstring(rels_xml)
+                for rel_elem in list(rel_root):
+                    target = rel_elem.get("Target", "")
+                    if target.endswith(f"tables/table{table_id}.xml"):
+                        rel_root.remove(rel_elem)
+                ET.indent(rel_root, space="")
+                self.zip_data[rels_file] = ET.tostring(rel_root, encoding="utf-8", xml_declaration=True)
+
+        print("  ALTAS/BAJAS: Excel table objects removed (plain range)")
+
     def run(self, output_path: Path):
         """Main execution."""
         print("Loading template...")
@@ -556,6 +775,9 @@ class TemplateFiller:
         # Ensure all sheets with tables have rows up to max_data_row (for consistent styling)
         if max_data_row > 0:
             self.extend_sheets_to_max_row(max_data_row)
+
+        print("Applying design rules...")
+        self.apply_design_rules()
 
         print("Saving shared strings...")
         self.save_shared_strings()
