@@ -65,12 +65,18 @@ function mapearCenso(m: MiembroConRelaciones): FilaReporte {
 }
 
 /** REPORTE ALTAS / REPORTE BAJAS row (15 template columns) */
-function mapearAltasBajas(m: MiembroConRelaciones, novedadPorDefecto: string): FilaReporte {
+function mapearAltasBajas(
+  m: MiembroConRelaciones,
+  novedadPorDefecto: string,
+): FilaReporte {
+  // Use snapshot numeroFamilia when available (set at ALTA/BAJA transition),
+  // fall back to current familia.numero
+  const familiaNumero = m.numeroFamilia ?? m.familia.numero;
   return {
     VIGENCIA: m.cabildo.vigencia,
     "RESGUARDO INDIGENA": m.cabildo.resguardo,
     "COMUNIDAD INDIGENA": m.cabildo.comunidad,
-    FAMILIA: m.familia.numero,
+    FAMILIA: familiaNumero,
     IDENTIFICACION: m.tipoIdentificacion,
     "NUMERO DOCUMENTO": m.numeroDocumento,
     NOMBRES: m.nombres,
@@ -103,9 +109,19 @@ function limpiarTemporales(paths: string[]): void {
  */
 const FORMATEADOR_TIMEOUT_MS = 60_000;
 
-function ejecutarFormateador(formateadorPath: string, tmpJson: string, tmpXlsx: string): Promise<void> {
+function ejecutarFormateador(
+  formateadorPath: string,
+  tmpJson: string,
+  tmpXlsx: string,
+): Promise<void> {
   return new Promise((resolve, reject) => {
-    const child = spawn("python3", [formateadorPath, "--data", tmpJson, "--output", tmpXlsx]);
+    const child = spawn("python3", [
+      formateadorPath,
+      "--data",
+      tmpJson,
+      "--output",
+      tmpXlsx,
+    ]);
 
     let stdout = "";
     let stderr = "";
@@ -115,7 +131,11 @@ function ejecutarFormateador(formateadorPath: string, tmpJson: string, tmpXlsx: 
       if (settled) return;
       settled = true;
       child.kill("SIGKILL");
-      reject(new Error(`formateador.py no respondió en ${FORMATEADOR_TIMEOUT_MS / 1000}s`));
+      reject(
+        new Error(
+          `formateador.py no respondió en ${FORMATEADOR_TIMEOUT_MS / 1000}s`,
+        ),
+      );
     }, FORMATEADOR_TIMEOUT_MS);
 
     child.stdout?.on("data", (chunk: Buffer) => {
@@ -168,13 +188,18 @@ export async function generarCenso(
   try {
     // XLSX-1: optional ?cabildoId= scopes the report to a single cabildo.
     // Only string values are honored (Express may deliver arrays/objects).
-    const cabildoId = typeof req.query?.cabildoId === "string" ? req.query.cabildoId : undefined;
+    const cabildoId =
+      typeof req.query?.cabildoId === "string"
+        ? req.query.cabildoId
+        : undefined;
 
     let cabildoFilter: Prisma.MiembroWhereInput = {};
     let nombreXlsx = `censo-${new Date().getFullYear()}.xlsx`;
 
     if (cabildoId) {
-      const cabildo = await prisma.cabildo.findUnique({ where: { id: cabildoId } });
+      const cabildo = await prisma.cabildo.findUnique({
+        where: { id: cabildoId },
+      });
       if (!cabildo) {
         res.status(404).json({ error: "Cabildo no encontrado" });
         return;

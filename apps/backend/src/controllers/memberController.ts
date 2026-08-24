@@ -1,7 +1,11 @@
 import { Request, Response, NextFunction } from "express";
 import { ZodError } from "zod";
 import prisma from "../database.js";
-import { memberSchema, ageFromFechaNacimiento, MAX_PLAUSIBLE_AGE_YEARS } from "@tatachio/shared";
+import {
+  memberSchema,
+  ageFromFechaNacimiento,
+  MAX_PLAUSIBLE_AGE_YEARS,
+} from "@tatachio/shared";
 import type { Prisma } from "@prisma/client";
 import { applyCabildoScope } from "../middleware/authMiddleware.js";
 
@@ -9,12 +13,18 @@ function ageWarnings(validatedData: { fechaNacimiento?: string }): string[] {
   if (!validatedData.fechaNacimiento) return [];
   const age = ageFromFechaNacimiento(validatedData.fechaNacimiento);
   if (age > MAX_PLAUSIBLE_AGE_YEARS) {
-    return [`fechaNacimiento sugiere edad extrema (>${MAX_PLAUSIBLE_AGE_YEARS} años, calculada ${age}). Verificar posible error de transcripción.`];
+    return [
+      `fechaNacimiento sugiere edad extrema (>${MAX_PLAUSIBLE_AGE_YEARS} años, calculada ${age}). Verificar posible error de transcripción.`,
+    ];
   }
   return [];
 }
 
-export const createMember = async (req: Request, res: Response, next: NextFunction) => {
+export const createMember = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
   try {
     const validatedData = memberSchema.parse(req.body);
     const userRole = req.usuario?.rol;
@@ -22,16 +32,25 @@ export const createMember = async (req: Request, res: Response, next: NextFuncti
 
     let cabildoId: string;
     if (userRole === "CAPTAIN") {
-      if (validatedData.cabildoId && validatedData.cabildoId !== userCabildoId) {
-        return res.status(403).json({ error: "cabildoId en el body no coincide con el del JWT" });
+      if (
+        validatedData.cabildoId &&
+        validatedData.cabildoId !== userCabildoId
+      ) {
+        return res
+          .status(403)
+          .json({ error: "cabildoId en el body no coincide con el del JWT" });
       }
       if (!userCabildoId) {
-        return res.status(400).json({ error: "CAPTAIN sin cabildoId asignado" });
+        return res
+          .status(400)
+          .json({ error: "CAPTAIN sin cabildoId asignado" });
       }
       cabildoId = userCabildoId;
     } else if (userRole === "ADMINISTRATOR") {
       if (!validatedData.cabildoId) {
-        return res.status(400).json({ error: "cabildoId es requerido para ADMINISTRATOR" });
+        return res
+          .status(400)
+          .json({ error: "cabildoId es requerido para ADMINISTRATOR" });
       }
       cabildoId = validatedData.cabildoId;
     } else {
@@ -42,19 +61,34 @@ export const createMember = async (req: Request, res: Response, next: NextFuncti
     // CAPTAIN: never let a client-supplied cabildoId reach the create input
     // (issue #45). The JWT cabildoId is authoritative; the 403 mismatch check
     // above stays as defense-in-depth, but the body value can never win.
+    // integrantes is auto-calculated as sequential position within the family.
+    const {
+      integrantes: _integrantes,
+      cabildoId: _bodyCabildoId,
+      ...rest
+    } = validatedData;
+    void _integrantes;
+    void _bodyCabildoId;
+
+    // Calculate integrantes = count of members in the same family + 1
+    const familyMemberCount = await prisma.miembro.count({
+      where: { familiaId: rest.familiaId },
+    });
+    const calculatedIntegrantes = familyMemberCount + 1;
+
     let dataToCreate: Prisma.MiembroUncheckedCreateInput;
     if (userRole === "CAPTAIN") {
-      const { cabildoId: _bodyCabildoId, ...rest } = validatedData;
-      void _bodyCabildoId;
-      dataToCreate = { ...rest, cabildoId };
+      dataToCreate = { ...rest, cabildoId, integrantes: calculatedIntegrantes };
     } else {
       // ADMINISTRATOR: body cabildoId is legitimately required (validated above).
-      dataToCreate = { ...validatedData, cabildoId };
+      dataToCreate = { ...rest, cabildoId, integrantes: calculatedIntegrantes };
     }
     const nuevoMiembro = await prisma.miembro.create({ data: dataToCreate });
 
     const warnings = ageWarnings(dataToCreate);
-    res.status(201).json(warnings.length > 0 ? { ...nuevoMiembro, warnings } : nuevoMiembro);
+    res
+      .status(201)
+      .json(warnings.length > 0 ? { ...nuevoMiembro, warnings } : nuevoMiembro);
   } catch (error: unknown) {
     if (error instanceof ZodError) {
       return res.status(400).json({ error: error.issues });
@@ -63,7 +97,11 @@ export const createMember = async (req: Request, res: Response, next: NextFuncti
   }
 };
 
-export const getMembers = async (req: Request, res: Response, next: NextFunction) => {
+export const getMembers = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
   try {
     const { search, cabildoId } = req.query;
     const where: Prisma.MiembroWhereInput = {};
@@ -95,7 +133,11 @@ export const getMembers = async (req: Request, res: Response, next: NextFunction
   }
 };
 
-export const getMemberById = async (req: Request, res: Response, next: NextFunction) => {
+export const getMemberById = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
   try {
     const { id } = req.params;
     const miembro = await prisma.miembro.findUnique({
@@ -109,7 +151,10 @@ export const getMemberById = async (req: Request, res: Response, next: NextFunct
       return res.status(404).json({ error: "Miembro no encontrado" });
     }
 
-    if (req.usuario?.rol === "CAPTAIN" && miembro.cabildoId !== req.usuario.cabildoId) {
+    if (
+      req.usuario?.rol === "CAPTAIN" &&
+      miembro.cabildoId !== req.usuario.cabildoId
+    ) {
       return res.status(404).json({ error: "Miembro no encontrado" });
     }
 
@@ -119,28 +164,106 @@ export const getMemberById = async (req: Request, res: Response, next: NextFunct
   }
 };
 
-export const updateMember = async (req: Request, res: Response, next: NextFunction) => {
+export const updateMember = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
   try {
     const { id } = req.params;
     const validatedData = memberSchema.partial().parse(req.body);
 
-    const miembro = await prisma.miembro.findUnique({ where: { id: id as string } });
-    
+    const miembro = await prisma.miembro.findUnique({
+      where: { id: id as string },
+    });
+
     if (!miembro) {
       return res.status(404).json({ error: "Miembro no encontrado" });
     }
-    
-    if (req.usuario?.rol === "CAPTAIN" && miembro.cabildoId !== req.usuario.cabildoId) {
+
+    if (
+      req.usuario?.rol === "CAPTAIN" &&
+      miembro.cabildoId !== req.usuario.cabildoId
+    ) {
       return res.status(404).json({ error: "Miembro no encontrado" });
     }
 
-    const miembroActualizado = await prisma.miembro.update({
-      where: { id: id as string },
-      data: validatedData,
+    // Remove integrantes from validatedData - it's auto-calculated
+    const { integrantes: _integrantes, ...restValidated } = validatedData;
+    void _integrantes;
+    // Extract estado from raw body (not in Zod schema - Prisma-only field)
+    const { estado } = req.body as { estado?: "ACTIVO" | "BAJA" | "PENDIENTE" };
+    // Extend with Prisma-only fields (estado, numeroFamilia) that aren't in Zod schema
+    type UpdateData = typeof restValidated & {
+      integrantes?: number;
+      estado?: "ACTIVO" | "BAJA" | "PENDIENTE";
+      numeroFamilia?: number;
+    };
+    const dataToUpdate = restValidated as UpdateData;
+    if (estado) {
+      dataToUpdate.estado = estado;
+    }
+
+    const miembroActualizado = await prisma.$transaction(async (tx) => {
+      // If familiaId changes, recalculate in both source and destination families
+      if (
+        dataToUpdate.familiaId &&
+        dataToUpdate.familiaId !== miembro.familiaId
+      ) {
+        const sourceFamiliaId = miembro.familiaId;
+        const destFamiliaId = dataToUpdate.familiaId;
+
+        // Recalculate integrantes in source family (member is leaving)
+        const sourceMembers = await tx.miembro.findMany({
+          where: { familiaId: sourceFamiliaId },
+          orderBy: { integrantes: "asc" },
+        });
+        for (let i = 0; i < sourceMembers.length; i++) {
+          if (sourceMembers[i].id !== id) {
+            // Skip the moving member
+            await tx.miembro.update({
+              where: { id: sourceMembers[i].id },
+              data: { integrantes: i + 1 },
+            });
+          }
+        }
+
+        // Calculate new integrantes in destination family = count + 1
+        const destMemberCount = await tx.miembro.count({
+          where: { familiaId: destFamiliaId },
+        });
+        dataToUpdate.integrantes = destMemberCount + 1;
+      }
+
+      // If estado changes to ACTIVO or BAJA, snapshot familia.numero
+      // Only snapshot when transitioning TO ACTIVO or BAJA
+      if (
+        dataToUpdate.estado &&
+        (dataToUpdate.estado === "ACTIVO" || dataToUpdate.estado === "BAJA")
+      ) {
+        if (miembro.estado !== dataToUpdate.estado) {
+          // Only on actual state change
+          const familia = await tx.familia.findUnique({
+            where: { id: miembro.familiaId },
+          });
+          if (familia) {
+            dataToUpdate.numeroFamilia = familia.numero;
+          }
+        }
+      }
+
+      return tx.miembro.update({
+        where: { id: id as string },
+        data: dataToUpdate,
+      });
     });
 
     const warnings = ageWarnings(validatedData);
-    res.json(warnings.length > 0 ? { ...miembroActualizado, warnings } : miembroActualizado);
+    res.json(
+      warnings.length > 0
+        ? { ...miembroActualizado, warnings }
+        : miembroActualizado,
+    );
   } catch (error: unknown) {
     if (error instanceof ZodError) {
       return res.status(400).json({ error: error.issues });
@@ -149,22 +272,48 @@ export const updateMember = async (req: Request, res: Response, next: NextFuncti
   }
 };
 
-export const deleteMember = async (req: Request, res: Response, next: NextFunction) => {
+export const deleteMember = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
   try {
     const { id } = req.params;
-    const miembro = await prisma.miembro.findUnique({ where: { id: id as string } });
-    
+    const miembro = await prisma.miembro.findUnique({
+      where: { id: id as string },
+    });
+
     if (!miembro) {
       return res.status(404).json({ error: "Miembro no encontrado" });
     }
-    
-    if (req.usuario?.rol === "CAPTAIN" && miembro.cabildoId !== req.usuario.cabildoId) {
+
+    if (
+      req.usuario?.rol === "CAPTAIN" &&
+      miembro.cabildoId !== req.usuario.cabildoId
+    ) {
       return res.status(404).json({ error: "Miembro no encontrado" });
     }
-    
-    await prisma.miembro.delete({
-      where: { id: id as string },
+
+    const familiaId = miembro.familiaId;
+
+    // Use transaction to atomically delete and recalculate integrantes
+    await prisma.$transaction(async (tx) => {
+      await tx.miembro.delete({ where: { id: id as string } });
+
+      // Recalculate integrantes for remaining members in the same family
+      const remainingMembers = await tx.miembro.findMany({
+        where: { familiaId },
+        orderBy: { integrantes: "asc" },
+      });
+
+      for (let i = 0; i < remainingMembers.length; i++) {
+        await tx.miembro.update({
+          where: { id: remainingMembers[i].id },
+          data: { integrantes: i + 1 },
+        });
+      }
     });
+
     res.status(204).send();
   } catch (error: unknown) {
     next(error);

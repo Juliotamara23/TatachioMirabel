@@ -2,8 +2,21 @@ import { z } from "zod";
 
 export const TipoIdentificacionEnum = z.enum(["CC", "TI", "RC", "NUIP"]);
 export const ParentescoEnum = z.enum([
-  "PA", "MA", "CO", "HE", "CF", "ES", "HI",
-  "YR", "NU", "SU", "SO", "CU", "TI", "AB", "NI",
+  "PA",
+  "MA",
+  "CO",
+  "HE",
+  "CF",
+  "ES",
+  "HI",
+  "YR",
+  "NU",
+  "SU",
+  "SO",
+  "CU",
+  "TI",
+  "AB",
+  "NI",
 ]);
 export const SexoEnum = z.enum(["M", "F"]);
 export const EstadoCivilEnum = z.enum(["S", "C"]);
@@ -20,7 +33,11 @@ export const memberSchema = z.object({
     .refine((val) => {
       const [day, month, year] = val.split("/").map(Number);
       const date = new Date(Date.UTC(year, month - 1, day));
-      return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
+      return (
+        date.getUTCFullYear() === year &&
+        date.getUTCMonth() === month - 1 &&
+        date.getUTCDate() === day
+      );
     }, "Fecha de nacimiento inválida (no existe en el calendario)")
     .refine((val) => {
       const year = parseInt(val.split("/")[2], 10);
@@ -31,7 +48,7 @@ export const memberSchema = z.object({
   estadoCivil: EstadoCivilEnum.optional(),
   profesion: z.string().optional(),
   escolaridad: EscolaridadEnum.optional(),
-  integrantes: z.number().int().positive(),
+  integrantes: z.number().int().positive().optional(), // Backend auto-calculates position within family
   direccion: z.string().optional(),
   telefono: z.string().optional(),
   novedad: z.string().optional(),
@@ -50,7 +67,10 @@ export function ageFromFechaNacimiento(fechaNacimiento: string): number {
   const now = new Date();
   let age = now.getUTCFullYear() - birth.getUTCFullYear();
   const monthDiff = now.getUTCMonth() - birth.getUTCMonth();
-  if (monthDiff < 0 || (monthDiff === 0 && now.getUTCDate() < birth.getUTCDate())) {
+  if (
+    monthDiff < 0 ||
+    (monthDiff === 0 && now.getUTCDate() < birth.getUTCDate())
+  ) {
     age -= 1;
   }
   return age;
@@ -68,7 +88,11 @@ export const cabildoSchema = z.object({
 export type CabildoInput = z.infer<typeof cabildoSchema>;
 
 export const familiaSchema = z.object({
-  numero: z.number().int().positive("El número de familia debe ser positivo"),
+  numero: z
+    .number()
+    .int()
+    .positive("El número de familia debe ser positivo")
+    .optional(), // Backend auto-calculates next sequential number
   direccion: z.string().optional(),
   telefono: z.string().optional(),
   cabildoId: z.string().uuid("CabildoId debe ser un UUID válido"),

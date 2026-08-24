@@ -1,17 +1,36 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { Request, Response } from "express";
 import { createMember, getMembers, getMemberById, updateMember, deleteMember } from "../../src/controllers/memberController.js";
-import { memberSchema } from "@tatachio/shared";
 
 // Mock Prisma
+// Create a shared mock transaction client that mirrors the Prisma mock structure
+const mockTx = {
+  miembro: {
+    create: vi.fn(),
+    findMany: vi.fn(),
+    findUnique: vi.fn(),
+    update: vi.fn(),
+    delete: vi.fn(),
+    count: vi.fn(),
+  },
+  familia: {
+    findUnique: vi.fn(),
+  },
+};
+
 vi.mock("../../src/database.js", () => ({
   default: {
+    $transaction: vi.fn(async (fn) => fn(mockTx)),
     miembro: {
       create: vi.fn(),
       findMany: vi.fn(),
       findUnique: vi.fn(),
       update: vi.fn(),
       delete: vi.fn(),
+      count: vi.fn(),
+    },
+    familia: {
+      findUnique: vi.fn(),
     },
   },
 }));
@@ -56,11 +75,13 @@ describe("memberController.createMember", () => {
   let mockRes: Partial<Response>;
   let mockJson: ReturnType<typeof vi.fn>;
   let mockStatus: ReturnType<typeof vi.fn>;
+  let mockNext: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
     vi.clearAllMocks();
     mockJson = vi.fn().mockReturnThis();
     mockStatus = vi.fn().mockReturnValue({ json: mockJson });
+    mockNext = vi.fn();
     mockReq = {
       body: {},
       usuario: undefined,
@@ -90,19 +111,22 @@ describe("memberController.createMember", () => {
   it("AC1: CAPTAIN without cabildoId in body → 201 with cabildoId from JWT", async () => {
     mockReq.body = validMemberBody;
     mockReq.usuario = { id: "user-1", rol: "CAPTAIN", cabildoId: jwtCabildoId };
+    vi.mocked(prisma.miembro.count).mockResolvedValue(0);
     (prisma.miembro.create as ReturnType<typeof vi.fn>).mockResolvedValue({
       id: "member-1",
       ...validMemberBody,
       cabildoId: jwtCabildoId,
+      integrantes: 1,
     });
 
-    await createMember(mockReq as Request, mockRes as Response);
+    await createMember(mockReq as Request, mockRes as Response, mockNext);
 
     expect(mockStatus).toHaveBeenCalledWith(201);
     expect(prisma.miembro.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
           cabildoId: jwtCabildoId,
+          integrantes: 1,
         }),
       })
     );
@@ -124,19 +148,22 @@ describe("memberController.createMember", () => {
   it("AC3: CAPTAIN with matching cabildoId → 201", async () => {
     mockReq.body = { ...validMemberBody, cabildoId: jwtCabildoId };
     mockReq.usuario = { id: "user-1", rol: "CAPTAIN", cabildoId: jwtCabildoId };
+    vi.mocked(prisma.miembro.count).mockResolvedValue(0);
     (prisma.miembro.create as ReturnType<typeof vi.fn>).mockResolvedValue({
       id: "member-1",
       ...validMemberBody,
       cabildoId: jwtCabildoId,
+      integrantes: 1,
     });
 
-    await createMember(mockReq as Request, mockRes as Response);
+    await createMember(mockReq as Request, mockRes as Response, mockNext);
 
     expect(mockStatus).toHaveBeenCalledWith(201);
     expect(prisma.miembro.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
           cabildoId: jwtCabildoId,
+          integrantes: 1,
         }),
       })
     );
@@ -149,19 +176,22 @@ describe("memberController.createMember", () => {
     // this assertion fails.
     mockReq.body = { ...validMemberBody, cabildoId: jwtCabildoId };
     mockReq.usuario = { id: "user-1", rol: "CAPTAIN", cabildoId: jwtCabildoId };
+    vi.mocked(prisma.miembro.count).mockResolvedValue(2); // 2 existing members -> new will be 3
     (prisma.miembro.create as ReturnType<typeof vi.fn>).mockResolvedValue({
       id: "member-1",
       ...validMemberBody,
       cabildoId: jwtCabildoId,
+      integrantes: 3,
     });
 
-    await createMember(mockReq as Request, mockRes as Response);
+    await createMember(mockReq as Request, mockRes as Response, mockNext);
 
     expect(mockStatus).toHaveBeenCalledWith(201);
     const createCall = (prisma.miembro.create as ReturnType<typeof vi.fn>).mock.calls[0][0];
     expect(createCall.data).toEqual({
       ...validMemberBody,
       cabildoId: jwtCabildoId,
+      integrantes: 3,
     });
     // The body cabildoId is never the source: data has no key beyond the JWT value.
     expect(createCall.data).not.toHaveProperty("cabildoId", otherCabildoId);
@@ -180,13 +210,15 @@ describe("memberController.createMember", () => {
   it("extreme age (>99) → 201 with warnings, not blocked", async () => {
     mockReq.body = { ...validMemberBody, fechaNacimiento: "01/01/1900", cabildoId: "11111111-1111-4111-8111-111111111111" };
     mockReq.usuario = { id: "user-1", rol: "ADMINISTRATOR", cabildoId: "11111111-1111-4111-8111-111111111111" };
+    vi.mocked(prisma.miembro.count).mockResolvedValue(0);
     (prisma.miembro.create as ReturnType<typeof vi.fn>).mockResolvedValue({
       id: "member-1",
       ...mockReq.body,
       cabildoId: "11111111-1111-4111-8111-111111111111",
+      integrantes: 1,
     });
 
-    await createMember(mockReq as Request, mockRes as Response);
+    await createMember(mockReq as Request, mockRes as Response, mockNext);
 
     expect(mockStatus).toHaveBeenCalledWith(201);
     expect(mockJson).toHaveBeenCalledWith(expect.objectContaining({
@@ -197,13 +229,15 @@ describe("memberController.createMember", () => {
   it("plausible age → 201 without warnings", async () => {
     mockReq.body = { ...validMemberBody, fechaNacimiento: "09/07/1931", cabildoId: "11111111-1111-4111-8111-111111111111" };
     mockReq.usuario = { id: "user-1", rol: "ADMINISTRATOR", cabildoId: "11111111-1111-4111-8111-111111111111" };
+    vi.mocked(prisma.miembro.count).mockResolvedValue(0);
     (prisma.miembro.create as ReturnType<typeof vi.fn>).mockResolvedValue({
       id: "member-1",
       ...mockReq.body,
       cabildoId: "11111111-1111-4111-8111-111111111111",
+      integrantes: 1,
     });
 
-    await createMember(mockReq as Request, mockRes as Response);
+    await createMember(mockReq as Request, mockRes as Response, mockNext);
 
     expect(mockStatus).toHaveBeenCalledWith(201);
     expect(mockJson).toHaveBeenCalledWith(expect.not.objectContaining({ warnings: expect.anything() }));
@@ -336,7 +370,7 @@ describe("memberController.updateMember", () => {
 
   it("forwards P2002 (unique constraint) to next so global handler returns 409", async () => {
     const p2002 = Object.assign(new Error("Unique constraint failed"), { code: "P2002" });
-    (prisma.miembro.update as ReturnType<typeof vi.fn>).mockRejectedValue(p2002);
+    vi.mocked(mockTx.miembro.update).mockRejectedValue(p2002);
 
     await updateMember(mockReq as Request, mockRes as Response, mockNext);
 
@@ -346,7 +380,7 @@ describe("memberController.updateMember", () => {
 
   it("forwards P2025 (record not found) to next so global handler returns 404", async () => {
     const p2025 = Object.assign(new Error("Record not found"), { code: "P2025" });
-    (prisma.miembro.update as ReturnType<typeof vi.fn>).mockRejectedValue(p2025);
+    vi.mocked(mockTx.miembro.update).mockRejectedValue(p2025);
 
     await updateMember(mockReq as Request, mockRes as Response, mockNext);
 
@@ -365,7 +399,7 @@ describe("memberController.updateMember", () => {
 
   it("update without fechaNacimiento → 200 without crash (partial update)", async () => {
     mockReq.body = { nombres: "Solo nombre" };
-    (prisma.miembro.update as ReturnType<typeof vi.fn>).mockResolvedValue({
+    vi.mocked(mockTx.miembro.update).mockResolvedValue({
       id: memberId,
       nombres: "Solo nombre",
     });
@@ -378,7 +412,7 @@ describe("memberController.updateMember", () => {
 
   it("update with extreme age → 200 with warnings", async () => {
     mockReq.body = { fechaNacimiento: "01/01/1900" };
-    (prisma.miembro.update as ReturnType<typeof vi.fn>).mockResolvedValue({
+    vi.mocked(mockTx.miembro.update).mockResolvedValue({
       id: memberId,
       fechaNacimiento: "01/01/1900",
     });
@@ -433,17 +467,19 @@ describe("memberController.deleteMember", () => {
   });
 
   it("returns 204 and deletes existing member", async () => {
-    (prisma.miembro.delete as ReturnType<typeof vi.fn>).mockResolvedValue({ id: memberId });
+    vi.mocked(mockTx.miembro.delete).mockResolvedValue({ id: memberId });
+    vi.mocked(mockTx.miembro.findMany).mockResolvedValue([]);
 
     await deleteMember(mockReq as Request, mockRes as Response, mockNext);
 
     expect(mockStatus).toHaveBeenCalledWith(204);
-    expect(prisma.miembro.delete).toHaveBeenCalledWith({ where: { id: memberId } });
+    expect(mockTx.miembro.delete).toHaveBeenCalledWith({ where: { id: memberId } });
   });
 
   it("forwards P2025 (race: record deleted between find and delete) to next", async () => {
     const p2025 = Object.assign(new Error("Record not found"), { code: "P2025" });
-    (prisma.miembro.delete as ReturnType<typeof vi.fn>).mockRejectedValue(p2025);
+    vi.mocked(mockTx.miembro.delete).mockRejectedValue(p2025);
+    vi.mocked(mockTx.miembro.findMany).mockResolvedValue([]);
 
     await deleteMember(mockReq as Request, mockRes as Response, mockNext);
 
@@ -453,7 +489,8 @@ describe("memberController.deleteMember", () => {
 
   it("forwards other unexpected errors to next (no catch-all 500)", async () => {
     const genericError = new Error("db down");
-    (prisma.miembro.delete as ReturnType<typeof vi.fn>).mockRejectedValue(genericError);
+    vi.mocked(mockTx.miembro.delete).mockRejectedValue(genericError);
+    vi.mocked(mockTx.miembro.findMany).mockResolvedValue([]);
 
     await deleteMember(mockReq as Request, mockRes as Response, mockNext);
 
