@@ -137,13 +137,11 @@ async function startServerAttempt({ port, dbPath, extraEnv }) {
   };
 
   const backendDir = join(projectRoot, "apps", "backend");
-  // Prefer tsx dev mode (no build step needed); fall back to the pre-built
-  // "start" script when tsx is not installed.
-  const useDev = existsSync(join(backendDir, "node_modules", ".bin", "tsx"));
-  const command = "pnpm";
-  const args = useDev
-    ? ["--filter", "@tatachio/backend", "dev"]
-    : ["--filter", "@tatachio/backend", "start"];
+  // Use tsx directly to avoid corepack/pnpm download issues.
+  // tsx is installed in backend's node_modules/.bin
+  const tsxPath = join(backendDir, "node_modules", ".bin", "tsx");
+  const command = tsxPath;
+  const args = ["src/index.ts"];
 
   console.log(`Starting backend on port ${port} with DB: ${dbPath}`);
 

@@ -205,7 +205,6 @@ export async function generarCenso(
         return;
       }
       cabildoFilter = { cabildoId };
-      nombreXlsx = `censo-${slugify(cabildo.nombre)}-${new Date().getFullYear()}.xlsx`;
     }
 
     reportesDir = resolveReportesDir();

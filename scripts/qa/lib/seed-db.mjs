@@ -68,20 +68,43 @@ async function main() {
   console.log(`Database: ${dbPath}`);
   console.log(`DATABASE_URL=${dbUrl}`);
 
+  // Kill any zombie schema-engine processes holding qa.db (issue: prisma db push leaves zombie)
+  try {
+    execSync(
+      `lsof -t "${dbPath}" 2>/dev/null | xargs kill -9 2>/dev/null || true`,
+      { stdio: "ignore" },
+    );
+  } catch {
+    // Ignore errors — no processes to kill
+  }
+
   // 1. Push schema
   console.log("\n[1/4] Running prisma db push...");
-  execSync("npx prisma db push --skip-generate --accept-data-loss", {
-    cwd: backendDir,
-    env: { ...process.env, DATABASE_URL: dbUrl },
-    stdio: "inherit",
-  });
-  console.log("  ✓ Tables created");
+  try {
+    execSync("npx prisma db push --skip-generate --accept-data-loss", {
+      cwd: backendDir,
+      env: { ...process.env, DATABASE_URL: dbUrl },
+      stdio: "inherit",
+    });
+    console.log("  ✓ Tables created");
+  } catch (err) {
+    console.error("  ✗ prisma db push failed:", err.message);
+    process.exit(1);
+  }
 
   // 2. Read seed data
   console.log("\n[2/4] Loading fixtures/seed.json...");
   const seedPath = join(projectRoot, "scripts", "qa", "fixtures", "seed.json");
-  const seed = JSON.parse(readFileSync(seedPath, "utf-8"));
-  console.log(`  ✓ ${seed.miembros.length} miembros, ${seed.familias.length} familias, ${seed.cabildos.length} cabildos`);
+  let seed;
+  try {
+    seed = JSON.parse(readFileSync(seedPath, "utf-8"));
+  } catch (err) {
+    console.error("  ✗ Failed to parse seed.json:", err.message);
+    process.exit(1);
+  }
+  console.log(
+    `  ✓ ${seed.miembros.length} miembros, ${seed.familias.length} familias, ${seed.cabildos.length} cabildos`,
+  );
 
   // 3. Insert data in FK order
   const prisma = new PrismaClient({
@@ -105,18 +128,16 @@ async function main() {
     }
     console.log(`  ✓ ${seed.cabildos.length} cabildos`);
 
-    // Familias
-    for (const f of seed.familias) {
-      await prisma.familia.create({
-        data: {
-          id: f.id,
-          numero: f.numero,
-          direccion: f.direccion,
-          telefono: f.telefono,
-          cabildoId: f.cabildoId,
-        },
-      });
-    }
+    // Familias (batch para performance, igual que miembros)
+    await prisma.familia.createMany({
+      data: seed.familias.map((f) => ({
+        id: f.id,
+        numero: f.numero,
+        direccion: f.direccion,
+        telefono: f.telefono,
+        cabildoId: f.cabildoId,
+      })),
+    });
     console.log(`  ✓ ${seed.familias.length} familias`);
 
     // Miembros (batch para performance)
@@ -127,10 +148,14 @@ async function main() {
       const data = { ...m };
       if (idx < CONFIG.NUM_ALTAS) {
         data.estado = "PENDIENTE";
-        data.novedad = CONFIG.NOVEDADES_ALTA[idx % CONFIG.NOVEDADES_ALTA.length];
+        data.novedad =
+          CONFIG.NOVEDADES_ALTA[idx % CONFIG.NOVEDADES_ALTA.length];
       } else if (idx < CONFIG.NUM_ALTAS + CONFIG.NUM_BAJAS) {
         data.estado = "BAJA";
-        data.novedad = CONFIG.NOVEDADES_BAJA[(idx - CONFIG.NUM_ALTAS) % CONFIG.NOVEDADES_BAJA.length];
+        data.novedad =
+          CONFIG.NOVEDADES_BAJA[
+            (idx - CONFIG.NUM_ALTAS) % CONFIG.NOVEDADES_BAJA.length
+          ];
         data.fechaBaja = "2026-07-01T00:00:00.000Z";
       }
       return data;
@@ -164,7 +189,9 @@ async function main() {
           fechaBaja: m.fechaBaja ? new Date(m.fechaBaja) : undefined,
         })),
       });
-      process.stdout.write(`\r  Miembros: ${Math.min(i + BATCH, seed.miembros.length)}/${seed.miembros.length}`);
+      process.stdout.write(
+        `\r  Miembros: ${Math.min(i + BATCH, seed.miembros.length)}/${seed.miembros.length}`,
+      );
     }
     console.log("");
 
@@ -194,28 +221,39 @@ async function main() {
       }
     }
     console.log(`  ✓ ${seed.usuarios.length} usuarios`);
-
   } finally {
     await prisma.$disconnect();
   }
 
   // 4. Verify
   console.log("\n[4/4] Verifying...");
-  const verifyPrisma = new PrismaClient({ datasources: { db: { url: dbUrl } } });
+  const verifyPrisma = new PrismaClient({
+    datasources: { db: { url: dbUrl } },
+  });
   const counts = {
     cabildos: await verifyPrisma.cabildo.count(),
     familias: await verifyPrisma.familia.count(),
     miembros: await verifyPrisma.miembro.count(),
     usuarios: await verifyPrisma.usuario.count(),
     activos: await verifyPrisma.miembro.count({ where: { estado: "ACTIVO" } }),
-    pendientes: await verifyPrisma.miembro.count({ where: { estado: "PENDIENTE" } }),
+    pendientes: await verifyPrisma.miembro.count({
+      where: { estado: "PENDIENTE" },
+    }),
     bajas: await verifyPrisma.miembro.count({ where: { estado: "BAJA" } }),
   };
   await verifyPrisma.$disconnect();
-  console.log(`  cabildos: ${counts.cabildos} (expected ${seed.cabildos.length})`);
-  console.log(`  familias: ${counts.familias} (expected ${seed.familias.length})`);
-  console.log(`  miembros: ${counts.miembros} (expected ${seed.miembros.length})`);
-  console.log(`  usuarios: ${counts.usuarios} (expected ${seed.usuarios.length})`);
+  console.log(
+    `  cabildos: ${counts.cabildos} (expected ${seed.cabildos.length})`,
+  );
+  console.log(
+    `  familias: ${counts.familias} (expected ${seed.familias.length})`,
+  );
+  console.log(
+    `  miembros: ${counts.miembros} (expected ${seed.miembros.length})`,
+  );
+  console.log(
+    `  usuarios: ${counts.usuarios} (expected ${seed.usuarios.length})`,
+  );
   console.log(`  estado ACTIVO: ${counts.activos}`);
   console.log(`  estado PENDIENTE (altas): ${counts.pendientes}`);
   console.log(`  estado BAJA (bajas): ${counts.bajas}`);
