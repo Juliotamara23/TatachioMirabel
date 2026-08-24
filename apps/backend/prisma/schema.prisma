@@ -99,6 +99,7 @@ model Miembro {
   estado            EstadoMiembro @default(ACTIVO)
   fechaAlta         DateTime  @default(now())
   fechaBaja         DateTime?
+  numeroFamilia     Int?      // Snapshot of familia.numero at ALTA/BAJA transition
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 

@@ -3,8 +3,31 @@ import { Request, Response, NextFunction } from "express";
 import { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
 
 // Mock Prisma before importing the controller
+// Create a shared mock transaction client that mirrors the Prisma mock structure
+const mockTx = {
+  cabildo: {
+    findUnique: vi.fn(),
+  },
+  familia: {
+    create: vi.fn(),
+    findMany: vi.fn(),
+    findUnique: vi.fn(),
+    update: vi.fn(),
+    delete: vi.fn(),
+  },
+  miembro: {
+    create: vi.fn(),
+    findMany: vi.fn(),
+    findUnique: vi.fn(),
+    update: vi.fn(),
+    delete: vi.fn(),
+    count: vi.fn(),
+  },
+};
+
 vi.mock("../../src/database.js", () => ({
   default: {
+    $transaction: vi.fn(async (fn) => fn(mockTx)),
     cabildo: {
       findUnique: vi.fn(),
     },
@@ -14,6 +37,14 @@ vi.mock("../../src/database.js", () => ({
       findUnique: vi.fn(),
       update: vi.fn(),
       delete: vi.fn(),
+    },
+    miembro: {
+      create: vi.fn(),
+      findMany: vi.fn(),
+      findUnique: vi.fn(),
+      update: vi.fn(),
+      delete: vi.fn(),
+      count: vi.fn(),
     },
   },
 }));
@@ -44,7 +75,7 @@ function makeP2025Error(): PrismaClientKnownRequestError {
   return new PrismaClientKnownRequestError(
     "Record not found",
     { code: "P2025", clientVersion: "5.0.0" },
-    undefined
+    undefined,
   );
 }
 
@@ -63,7 +94,9 @@ describe("familiaController", () => {
         },
       } as Request;
 
-      vi.mocked(prisma.cabildo.findUnique).mockResolvedValue({ id: "cab-1" } as never);
+      vi.mocked(prisma.cabildo.findUnique).mockResolvedValue({
+        id: "cab-1",
+      } as never);
       const mockFamilia = { id: "fam-1", ...req.body };
       vi.mocked(prisma.familia.create).mockResolvedValue(mockFamilia as never);
 
@@ -89,7 +122,7 @@ describe("familiaController", () => {
 
       expect(res.status).toHaveBeenCalledWith(404);
       expect(res.json).toHaveBeenCalledWith(
-        expect.objectContaining({ error: "Cabildo no encontrado" })
+        expect.objectContaining({ error: "Cabildo no encontrado" }),
       );
     });
 
@@ -103,11 +136,16 @@ describe("familiaController", () => {
 
       expect(res.status).toHaveBeenCalledWith(400);
       expect(res.json).toHaveBeenCalledWith(
-        expect.objectContaining({ error: expect.any(Array) })
+        expect.objectContaining({ error: expect.any(Array) }),
       );
-      const callArg = vi.mocked(res.json).mock.calls[0]?.[0] as Record<string, unknown>;
+      const callArg = vi.mocked(res.json).mock.calls[0]?.[0] as Record<
+        string,
+        unknown
+      >;
       expect(Array.isArray(callArg?.error)).toBe(true);
-      expect((callArg?.error as unknown[] | undefined)?.length).toBeGreaterThan(0);
+      expect((callArg?.error as unknown[] | undefined)?.length).toBeGreaterThan(
+        0,
+      );
     });
   });
 
@@ -141,11 +179,13 @@ describe("familiaController", () => {
         expect.arrayContaining([
           { direccion: { contains: "Calle" } },
           { telefono: { contains: "Calle" } },
-        ])
+        ]),
       );
       // String search must NOT add a numero condition
       expect(orConditions).not.toEqual(
-        expect.arrayContaining([expect.objectContaining({ numero: expect.anything() })])
+        expect.arrayContaining([
+          expect.objectContaining({ numero: expect.anything() }),
+        ]),
       );
     });
 
@@ -161,14 +201,14 @@ describe("familiaController", () => {
       };
       const orConditions = callArg.where.OR as Record<string, unknown>[];
       expect(orConditions).toEqual(
-        expect.arrayContaining([{ numero: { equals: 42 } }])
+        expect.arrayContaining([{ numero: { equals: 42 } }]),
       );
       // String conditions must still be present
       expect(orConditions).toEqual(
         expect.arrayContaining([
           { direccion: { contains: "42" } },
           { telefono: { contains: "42" } },
-        ])
+        ]),
       );
     });
 
@@ -208,7 +248,9 @@ describe("familiaController", () => {
     it("should return 200 when familia found", async () => {
       const req = { params: { id: "fam-1" } } as unknown as Request;
       const mockFamilia = { id: "fam-1", numero: 1 };
-      vi.mocked(prisma.familia.findUnique).mockResolvedValue(mockFamilia as never);
+      vi.mocked(prisma.familia.findUnique).mockResolvedValue(
+        mockFamilia as never,
+      );
 
       const res = mockRes();
       await getFamiliaById(req, res);
@@ -225,7 +267,7 @@ describe("familiaController", () => {
 
       expect(res.status).toHaveBeenCalledWith(404);
       expect(res.json).toHaveBeenCalledWith(
-        expect.objectContaining({ error: "Familia no encontrada" })
+        expect.objectContaining({ error: "Familia no encontrada" }),
       );
     });
   });
@@ -233,7 +275,15 @@ describe("familiaController", () => {
   describe("deleteFamilia", () => {
     it("should return 204 on successful delete", async () => {
       const req = { params: { id: "fam-1" } } as unknown as Request;
-      vi.mocked(prisma.familia.delete).mockResolvedValue({} as never);
+      // Mock the initial findUnique (outside transaction)
+      vi.mocked(prisma.familia.findUnique).mockResolvedValue({
+        id: "fam-1",
+        numero: 1,
+        cabildoId: "cab-1",
+      } as never);
+      // Mock transaction client methods
+      vi.mocked(mockTx.familia.delete).mockResolvedValue({} as never);
+      vi.mocked(mockTx.familia.findMany).mockResolvedValue([] as never);
 
       const res = mockRes();
       await deleteFamilia(req, res);
@@ -242,17 +292,20 @@ describe("familiaController", () => {
       expect(res.send).toHaveBeenCalled();
     });
 
-    it("should call next with P2025 error when familia not found", async () => {
+    it("should return 404 when familia not found", async () => {
       const req = { params: { id: "non-existent-uuid" } } as unknown as Request;
-      const p2025 = makeP2025Error();
-      vi.mocked(prisma.familia.delete).mockRejectedValue(p2025);
+      // Mock the initial findUnique (outside transaction) to return null
+      vi.mocked(prisma.familia.findUnique).mockResolvedValue(null);
 
       const res = mockRes();
       const next = mockNext();
       await deleteFamilia(req, res, next);
 
-      expect(next).toHaveBeenCalledWith(p2025);
-      expect(res.status).not.toHaveBeenCalled();
+      expect(res.status).toHaveBeenCalledWith(404);
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({ error: "Familia no encontrada" }),
+      );
+      expect(next).not.toHaveBeenCalled();
     });
   });
 
@@ -262,8 +315,15 @@ describe("familiaController", () => {
         params: { id: "fam-1" },
         body: { numero: 2 },
       } as unknown as Request;
-      const updatedFamilia = { id: "fam-1", numero: 2, direccion: "Calle 10", cabildoId: "cab-1" };
-      vi.mocked(prisma.familia.update).mockResolvedValue(updatedFamilia as never);
+      const updatedFamilia = {
+        id: "fam-1",
+        numero: 2,
+        direccion: "Calle 10",
+        cabildoId: "cab-1",
+      };
+      vi.mocked(prisma.familia.update).mockResolvedValue(
+        updatedFamilia as never,
+      );
 
       const res = mockRes();
       await updateFamilia(req, res);
@@ -298,7 +358,7 @@ describe("familiaController", () => {
 
       expect(res.status).toHaveBeenCalledWith(400);
       expect(res.json).toHaveBeenCalledWith(
-        expect.objectContaining({ error: expect.any(Array) })
+        expect.objectContaining({ error: expect.any(Array) }),
       );
     });
   });

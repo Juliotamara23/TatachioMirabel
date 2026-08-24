@@ -1,6 +1,6 @@
 import { readFileSync } from "fs";
 import * as XLSX from "xlsx";
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, type Prisma } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
@@ -46,7 +46,10 @@ function getColumnMapping(): ColumnMapping {
 /**
  * Valida que una fila tenga los campos requeridos para un miembro.
  */
-function isValidMemberRow(row: Record<string, any>, mapping: ColumnMapping): boolean {
+function isValidMemberRow(
+  row: Record<string, unknown>,
+  mapping: ColumnMapping,
+): boolean {
   const required = [
     mapping.tipoIdentificacion,
     mapping.numeroDocumento,
@@ -82,45 +85,49 @@ export async function importExcel(filePath: string): Promise<ImportResult> {
   }
 
   const sheet = workbook.Sheets[sheetName];
-  const rows = XLSX.utils.sheet_to_json<Record<string, any>>(sheet);
+  const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet);
 
   if (rows.length === 0) {
     return { total: 0, imported: 0, skipped: 0, errors: 0 };
   }
 
   const mapping = getColumnMapping();
-  const result: ImportResult = { total: rows.length, imported: 0, skipped: 0, errors: 0 };
+  const result: ImportResult = {
+    total: rows.length,
+    imported: 0,
+    skipped: 0,
+    errors: 0,
+  };
 
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i];
 
     if (!isValidMemberRow(row, mapping)) {
-      console.warn(`[Fila ${i + 1}] Fila inválida — campos requeridos faltantes, saltando`);
+      console.warn(
+        `[Fila ${i + 1}] Fila inválida — campos requeridos faltantes, saltando`,
+      );
       result.skipped++;
       continue;
     }
 
     try {
-      const miembroData: Record<string, any> = {
-        tipoIdentificacion: String(row[mapping.tipoIdentificacion]).trim(),
+      const miembroData: Prisma.MiembroUncheckedCreateInput = {
+        tipoIdentificacion: String(
+          row[mapping.tipoIdentificacion],
+        ).trim() as any,
         numeroDocumento: String(row[mapping.numeroDocumento]).trim(),
         nombres: String(row[mapping.nombres]).trim().toUpperCase(),
         apellidos: String(row[mapping.apellidos]).trim().toUpperCase(),
         fechaNacimiento: String(row[mapping.fechaNacimiento]).trim(),
-        parentesco: String(row[mapping.parentesco]).trim(),
-        sexo: String(row[mapping.sexo]).trim(),
-        integrantes: mapping.integrantes && row[mapping.integrantes]
-          ? Number(row[mapping.integrantes]) || 1
-          : 1,
+        parentesco: String(row[mapping.parentesco]).trim() as any,
+        sexo: String(row[mapping.sexo]).trim() as any,
+        integrantes:
+          mapping.integrantes && row[mapping.integrantes]
+            ? Number(row[mapping.integrantes]) || 1
+            : 1,
+        cabildoId: String(row[mapping.cabildoId]).trim(),
+        familiaId: String(row[mapping.familiaId]).trim(),
       };
-
-      // Optional fields
-      if (mapping.cabildoId && row[mapping.cabildoId]) {
-        miembroData.cabildoId = String(row[mapping.cabildoId]).trim();
-      }
-      if (mapping.familiaId && row[mapping.familiaId]) {
-        miembroData.familiaId = String(row[mapping.familiaId]).trim();
-      }
 
       // Require cabildoId and familiaId
       if (!miembroData.cabildoId || !miembroData.familiaId) {
@@ -147,7 +154,10 @@ export async function importExcel(filePath: string): Promise<ImportResult> {
 }
 
 // CLI entry point
-if (process.argv[1]?.endsWith("import-excel.ts") || process.argv[1]?.endsWith("import-excel.js")) {
+if (
+  process.argv[1]?.endsWith("import-excel.ts") ||
+  process.argv[1]?.endsWith("import-excel.js")
+) {
   const filePath = process.argv[2];
 
   if (!filePath) {
