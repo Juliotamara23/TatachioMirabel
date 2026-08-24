@@ -1,6 +1,11 @@
 import { loadSpec, getStatusCodes } from "../../lib/spec-reader.mjs";
 import { runSuite, createTestHelper } from "../../lib/suite-runner.mjs";
-import { login, loginAdmin, request, expectStatus } from "../../lib/test-utils.mjs";
+import {
+  login,
+  loginAdmin,
+  request,
+  expectStatus,
+} from "../../lib/test-utils.mjs";
 
 const spec = loadSpec();
 
@@ -31,9 +36,12 @@ runSuite({ name: "api/auth" }, async ({ base }) => {
       for (const key of ["id", "email", "nombre", "rol"]) {
         if (!(key in data.user)) throw new Error(`user missing field: ${key}`);
       }
-      if (!("cabildoId" in data.user)) throw new Error("user missing field: cabildoId");
-      if ("passwordHash" in data.user) throw new Error("user must not contain passwordHash");
-      if ("cabildos" in data.user) throw new Error("user must not contain cabildos array");
+      if (!("cabildoId" in data.user))
+        throw new Error("user missing field: cabildoId");
+      if ("passwordHash" in data.user)
+        throw new Error("user must not contain passwordHash");
+      if ("cabildos" in data.user)
+        throw new Error("user must not contain cabildos array");
     }
   });
 
@@ -70,7 +78,9 @@ runSuite({ name: "api/auth" }, async ({ base }) => {
   // ── POST /api/auth/register (solo admin, issue #38) ─────────────────────
   const registerToken = await loginAdmin(base);
   const registerCodes = getStatusCodes(spec, "post", "/api/auth/register");
-  const registerCreated = registerCodes.includes("201") ? 201 : registerCodes[0];
+  const registerCreated = registerCodes.includes("201")
+    ? 201
+    : registerCodes[0];
   const registerBadRequest = registerCodes.includes("400") ? 400 : null;
   const registerServerError = registerCodes.includes("500") ? 500 : null;
   const registerUnauthorized = registerCodes.includes("401") ? 401 : 401;
@@ -99,8 +109,10 @@ runSuite({ name: "api/auth" }, async ({ base }) => {
     });
     expectStatus(status, registerCreated, "register admin");
     if (!data.id) throw new Error("Response missing user id");
-    if (data.email !== "nuevo-admin@tatachio.com") throw new Error(`Unexpected email: ${data.email}`);
-    if (data.rol !== "ADMINISTRATOR") throw new Error(`Unexpected rol: ${data.rol}`);
+    if (data.email !== "nuevo-admin@tatachio.com")
+      throw new Error(`Unexpected email: ${data.email}`);
+    if (data.rol !== "ADMINISTRATOR")
+      throw new Error(`Unexpected rol: ${data.rol}`);
     if (data.passwordHash) throw new Error("Response leaked passwordHash");
   });
 
@@ -135,7 +147,7 @@ runSuite({ name: "api/auth" }, async ({ base }) => {
       expectStatus(status, registerBadRequest, "captain without cabildoId");
     });
 
-    helper.test("register with duplicate email returns 400", async () => {
+    helper.test("register with duplicate email returns 409", async () => {
       const { status } = await request(base, "POST", "/api/auth/register", {
         token: registerToken,
         body: {
@@ -145,7 +157,7 @@ runSuite({ name: "api/auth" }, async ({ base }) => {
           rol: "ADMINISTRATOR",
         },
       });
-      expectStatus(status, registerBadRequest, "duplicate email");
+      expectStatus(status, 409, "duplicate email");
     });
 
     helper.test("register with missing fields returns 400", async () => {
@@ -176,8 +188,10 @@ runSuite({ name: "api/auth" }, async ({ base }) => {
         token: adminToken,
       });
       expectStatus(status, modelsSuccess, "get models with token");
-      if (!data.models || !Array.isArray(data.models)) throw new Error("Response missing models array");
-      if (!data.defaults || typeof data.defaults !== "object") throw new Error("Response missing defaults object");
+      if (!data.models || !Array.isArray(data.models))
+        throw new Error("Response missing models array");
+      if (!data.defaults || typeof data.defaults !== "object")
+        throw new Error("Response missing defaults object");
     });
   }
 
@@ -194,12 +208,15 @@ runSuite({ name: "api/auth" }, async ({ base }) => {
       expectStatus(status, modelsUnauthorized, "invalid token");
     });
 
-    helper.test("get models with malformed auth header returns 401", async () => {
-      const { status } = await request(base, "GET", "/api/models", {
-        headers: { Authorization: "Basic xyz" },
-      });
-      expectStatus(status, modelsUnauthorized, "malformed auth header");
-    });
+    helper.test(
+      "get models with malformed auth header returns 401",
+      async () => {
+        const { status } = await request(base, "GET", "/api/models", {
+          headers: { Authorization: "Basic xyz" },
+        });
+        expectStatus(status, modelsUnauthorized, "malformed auth header");
+      },
+    );
   }
 
   return helper.finish();
